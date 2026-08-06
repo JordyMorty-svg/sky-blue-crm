@@ -1,0 +1,199 @@
+.leads__state {
+  padding: 60px 24px;
+  text-align: center;
+  color: #64748b;
+}
+
+.leads__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.leads__title {
+  font-size: 1.5rem;
+  color: #0f172a;
+}
+
+.leads__count {
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.leads__error {
+  color: #dc2626;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+/* Board: horizontal columns */
+.leads__board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+/* Column */
+.column {
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 12px;
+  min-height: 120px;
+  transition: background 0.15s ease, outline 0.15s ease;
+}
+
+.column--over {
+  background: #e0edff;
+  outline: 2px dashed #2563eb;
+  outline-offset: -2px;
+}
+
+.column__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 12px;
+}
+
+.column__head-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.column__add {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: none;
+  background: #dbeafe;
+  color: #2563eb;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.column__add:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.column__label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #475569;
+}
+
+.column__count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #64748b;
+  background: #ffffff;
+  border-radius: 999px;
+  padding: 1px 9px;
+}
+
+.column__drop {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 60px;
+}
+
+.column__empty {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  text-align: center;
+  padding: 16px 0;
+}
+
+/* Card */
+.card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: grab;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  touch-action: none; /* lets dnd-kit handle touch dragging */
+}
+
+.card:active {
+  cursor: grabbing;
+}
+
+.card__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.card__name {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.98rem;
+}
+
+.card__temp {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.card__estimate {
+  font-weight: 800;
+  color: #2563eb;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.card__meta {
+  font-size: 0.82rem;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.card__contact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.82rem;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.card__notes {
+  font-size: 0.82rem;
+  color: #475569;
+  background: #f8fafc;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.card__foot {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+/* Mobile: columns stack and scroll vertically */
+@media (max-width: 720px) {
+  .leads__board {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
