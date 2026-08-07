@@ -4,7 +4,7 @@ import {
   fetchLead,
   updateLead,
   deleteLead,
-  ALL_STATUSES,
+  LEADS_SETTABLE_STATUSES,
   TEMPERATURES,
 } from "../../services/leadService";
 import "./LeadDetail.css";
@@ -120,7 +120,12 @@ export default function LeadDetail() {
         <Field label="Status">
           <select className="detail__input" value={form.status}
             onChange={(e) => set("status", e.target.value)}>
-            {ALL_STATUSES.map((s) => (
+            {/* Always show the lead's current status, even if it isn't
+                normally settable here (e.g. a scheduled lead viewed directly). */}
+            {!LEADS_SETTABLE_STATUSES.some((s) => s.key === form.status) && (
+              <option value={form.status}>{form.status}</option>
+            )}
+            {LEADS_SETTABLE_STATUSES.map((s) => (
               <option key={s.key} value={s.key}>{s.label}</option>
             ))}
           </select>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { TEMPERATURES, PIPELINE_STAGES } from "../services/leadService";
+import { TEMPERATURES, LEADS_SETTABLE_STATUSES } from "../services/leadService";
 
 function formatDate(iso) {
   const d = new Date(iso);
@@ -14,10 +14,11 @@ export default function LeadCard({ lead, onMove }) {
   const storyLabel = lead.stories === "two" ? "2-story" : "1-story";
   const temp = TEMPERATURES.find((t) => t.key === lead.temperature);
 
-  // Stages you can move to: everything except the current one and 'new'
-  // ('new' is website-only — leads are never manually moved back into it).
-  const otherStages = PIPELINE_STAGES.filter(
-    (s) => s.key !== lead.status && s.key !== "new"
+  // Stages you can move to from the board: forward pipeline moves only.
+  // Archived is intentionally excluded here — it's a deliberate action
+  // available on the lead's detail page, not a quick tap from the board.
+  const otherStages = LEADS_SETTABLE_STATUSES.filter(
+    (s) => s.key !== lead.status && s.key !== "archived"
   );
 
   function handleMove(stageKey) {

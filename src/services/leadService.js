@@ -10,15 +10,24 @@ export const PIPELINE_STAGES = [
   { key: "booked", label: "Booked" },
 ];
 
-// Every possible status (for the detail-page dropdown). Completed and
-// archived both leave the active board — completed = job done,
-// archived = didn't convert / set aside for later.
+// Every possible status (used for reference / labels).
 export const ALL_STATUSES = [
   { key: "new", label: "New" },
   { key: "contacted", label: "Contacted" },
   { key: "quoted", label: "Quoted" },
   { key: "booked", label: "Booked" },
+  { key: "scheduled", label: "Scheduled" },
   { key: "completed", label: "Completed" },
+  { key: "archived", label: "Archived" },
+];
+
+// Statuses a user can MANUALLY set from the Leads page (Move menu + detail
+// dropdown). 'new' is website-only; 'scheduled'/'completed' are set from the
+// Jobs side; 'archived' is allowed (admin-permission gating comes later).
+export const LEADS_SETTABLE_STATUSES = [
+  { key: "contacted", label: "Contacted" },
+  { key: "quoted", label: "Quoted" },
+  { key: "booked", label: "Booked" },
   { key: "archived", label: "Archived" },
 ];
 
@@ -33,12 +42,13 @@ export const TEMPERATURES = [
   { key: "maybe", label: "Maybe", color: "#94a3b8" },         // gray
 ];
 
-// Fetch all active leads (everything not completed/archived), newest first.
+// Fetch all active leads (not scheduled/completed/archived), newest first.
+// A 'scheduled' lead has become a job and leaves the Leads board.
 export async function fetchActiveLeads() {
   const { data, error } = await supabase
     .from("leads")
     .select("*")
-    .not("status", "in", "(completed,archived)")
+    .not("status", "in", "(scheduled,completed,archived)")
     .order("created_at", { ascending: false });
 
   if (error) throw error;
