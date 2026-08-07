@@ -1,0 +1,114 @@
+.jobs__state {
+  padding: 60px 24px;
+  text-align: center;
+  color: #64748b;
+}
+
+.jobs__error {
+  color: #dc2626;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.jobs__section {
+  max-width: 820px;
+  margin: 0 auto 32px;
+}
+
+.jobs__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.jobs__title {
+  font-size: 1.25rem;
+  color: #0f172a;
+}
+
+.jobs__count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #64748b;
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.jobs__empty {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  padding: 12px 0;
+}
+
+.jobs__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.jobrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.jobrow__main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.jobrow__name {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.jobrow__meta {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.jobrow__when {
+  font-size: 0.85rem;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.jobrow__techs {
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.jobrow__btn {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.jobrow__btn:hover {
+  background: #1d4ed8;
+}
+
+@media (max-width: 720px) {
+  .jobrow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .jobrow__btn {
+    width: 100%;
+  }
+}

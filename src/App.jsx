@@ -4,6 +4,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/login/Login";
 import Leads from "./pages/leads/Leads";
 import LeadDetail from "./pages/leads/LeadDetail";
+import Jobs from "./pages/jobs/Jobs";
 import "./App.css";
 
 // Top navigation shell shown on every logged-in page.
@@ -80,7 +81,7 @@ export default function App() {
 
       <Route path="/leads" element={<Page><Leads /></Page>} />
       <Route path="/leads/:id" element={<Page><LeadDetail /></Page>} />
-      <Route path="/jobs" element={<Page><ComingSoon title="Jobs" /></Page>} />
+      <Route path="/jobs" element={<Page><Jobs /></Page>} />
       <Route path="/income" element={<Page><ComingSoon title="Income" /></Page>} />
       <Route path="/map" element={<Page><ComingSoon title="Map" /></Page>} />
       <Route path="/won" element={<Page><ComingSoon title="Won leads" /></Page>} />
