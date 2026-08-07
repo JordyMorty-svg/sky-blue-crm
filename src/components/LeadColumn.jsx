@@ -1,9 +1,7 @@
-import { useState } from "react";
 import LeadCard from "./LeadCard";
 import { MANUAL_ADD_STAGES } from "../services/leadService";
 
-export default function LeadColumn({ stage, leads, onAdd, onMove }) {
-  const [collapsed, setCollapsed] = useState(false);
+export default function LeadColumn({ stage, leads, collapsed, onToggle, onAdd, onMove }) {
   const canAdd = MANUAL_ADD_STAGES.includes(stage.key);
 
   return (
@@ -11,7 +9,7 @@ export default function LeadColumn({ stage, leads, onAdd, onMove }) {
       <div className="column__head">
         <button
           className="column__toggle"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={onToggle}
           aria-expanded={!collapsed}
         >
           <span className="column__arrow">{collapsed ? "▸" : "▾"}</span>

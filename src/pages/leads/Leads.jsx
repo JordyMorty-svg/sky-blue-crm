@@ -10,17 +10,32 @@ import AddLeadModal from "../../components/AddLeadModal";
 import DragPromptModal from "../../components/DragPromptModal";
 import "./Leads.css";
 
+// Load persisted collapse state (survives navigation + refresh).
+function loadCollapsed() {
+  try {
+    return JSON.parse(localStorage.getItem("leadsCollapsed")) || {};
+  } catch {
+    return {};
+  }
+}
+
 export default function Leads() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [addStage, setAddStage] = useState(null);
-  // Pending move that needs a required field before it can complete.
   const [pendingMove, setPendingMove] = useState(null);
+  // { new: true, contacted: false, ... } — which columns are collapsed.
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
 
   useEffect(() => {
     loadLeads();
   }, []);
+
+  // Persist collapse state whenever it changes.
+  useEffect(() => {
+    localStorage.setItem("leadsCollapsed", JSON.stringify(collapsed));
+  }, [collapsed]);
 
   async function loadLeads() {
     try {
@@ -36,7 +51,10 @@ export default function Leads() {
     }
   }
 
-  // Commit a status change (plus any extra fields) to the DB, optimistically.
+  function toggleCollapse(stageKey) {
+    setCollapsed((cur) => ({ ...cur, [stageKey]: !cur[stageKey] }));
+  }
+
   async function commitMove(leadId, changes, previousLeads) {
     setLeads((cur) =>
       cur.map((l) => (l.id === leadId ? { ...l, ...changes } : l))
@@ -50,7 +68,6 @@ export default function Leads() {
     }
   }
 
-  // Called from a card's Move menu.
   function handleMove(lead, newStatus) {
     if (lead.status === newStatus) return;
 
@@ -102,6 +119,8 @@ export default function Leads() {
             key={stage.key}
             stage={stage}
             leads={leads.filter((l) => l.status === stage.key)}
+            collapsed={!!collapsed[stage.key]}
+            onToggle={() => toggleCollapse(stage.key)}
             onAdd={setAddStage}
             onMove={handleMove}
           />
