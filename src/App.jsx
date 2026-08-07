@@ -8,7 +8,7 @@ import "./App.css";
 
 // Top navigation shell shown on every logged-in page.
 function Shell({ children }) {
-  const { user, signOut } = useAuth();
+  const { user, profile, role, signOut } = useAuth();
 
   const tabs = [
     { to: "/leads", label: "Leads" },
@@ -40,7 +40,10 @@ function Shell({ children }) {
         </nav>
 
         <div className="shell__user">
-          <span className="shell__email">{user?.email}</span>
+          <span className="shell__email">
+            {profile?.full_name || user?.email}
+            {role && <span className="shell__role">{role}</span>}
+          </span>
           <button className="shell__signout" onClick={signOut}>
             Sign out
           </button>

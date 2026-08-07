@@ -64,6 +64,20 @@
 .shell__email {
   font-size: 0.85rem;
   color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shell__role {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 2px 8px;
+  border-radius: 999px;
 }
 
 .shell__signout {
