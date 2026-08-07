@@ -1,15 +1,22 @@
-import { useDroppable } from "@dnd-kit/core";
+import { useState } from "react";
 import LeadCard from "./LeadCard";
 import { MANUAL_ADD_STAGES } from "../services/leadService";
 
-export default function LeadColumn({ stage, leads, onAdd }) {
-  const { setNodeRef, isOver } = useDroppable({ id: stage.key });
+export default function LeadColumn({ stage, leads, onAdd, onMove }) {
+  const [collapsed, setCollapsed] = useState(false);
   const canAdd = MANUAL_ADD_STAGES.includes(stage.key);
 
   return (
-    <div className={`column ${isOver ? "column--over" : ""}`}>
+    <div className="column">
       <div className="column__head">
-        <span className="column__label">{stage.label}</span>
+        <button
+          className="column__toggle"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-expanded={!collapsed}
+        >
+          <span className="column__arrow">{collapsed ? "▸" : "▾"}</span>
+          <span className="column__label">{stage.label}</span>
+        </button>
         <div className="column__head-right">
           <span className="column__count">{leads.length}</span>
           {canAdd && (
@@ -25,13 +32,17 @@ export default function LeadColumn({ stage, leads, onAdd }) {
         </div>
       </div>
 
-      <div ref={setNodeRef} className="column__drop">
-        {leads.length === 0 ? (
-          <p className="column__empty">Nothing here.</p>
-        ) : (
-          leads.map((lead) => <LeadCard key={lead.id} lead={lead} />)
-        )}
-      </div>
+      {!collapsed && (
+        <div className="column__drop">
+          {leads.length === 0 ? (
+            <p className="column__empty">Nothing here.</p>
+          ) : (
+            leads.map((lead) => (
+              <LeadCard key={lead.id} lead={lead} onMove={onMove} />
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

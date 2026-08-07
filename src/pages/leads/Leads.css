@@ -40,14 +40,6 @@
   background: #f1f5f9;
   border-radius: 12px;
   padding: 12px;
-  min-height: 120px;
-  transition: background 0.15s ease, outline 0.15s ease;
-}
-
-.column--over {
-  background: #e0edff;
-  outline: 2px dashed #2563eb;
-  outline-offset: -2px;
 }
 
 .column__head {
@@ -57,10 +49,42 @@
   padding: 4px 6px 12px;
 }
 
+.column__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.column__arrow {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.column__label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #475569;
+}
+
 .column__head-right {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.column__count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #64748b;
+  background: #ffffff;
+  border-radius: 999px;
+  padding: 1px 9px;
 }
 
 .column__add {
@@ -84,35 +108,18 @@
   color: #ffffff;
 }
 
-.column__label {
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #475569;
-}
-
-.column__count {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #64748b;
-  background: #ffffff;
-  border-radius: 999px;
-  padding: 1px 9px;
-}
-
 .column__drop {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 60px;
+  min-height: 40px;
 }
 
 .column__empty {
   font-size: 0.85rem;
   color: #94a3b8;
   text-align: center;
-  padding: 16px 0;
+  padding: 12px 0;
 }
 
 /* Card */
@@ -120,14 +127,17 @@
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  padding: 12px 14px;
-  cursor: grab;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  touch-action: none; /* lets dnd-kit handle touch dragging */
+  overflow: hidden;
 }
 
-.card:active {
-  cursor: grabbing;
+.card__body {
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.card__body:hover {
+  background: #f8fafc;
 }
 
 .card__top {
@@ -190,10 +200,58 @@
   color: #94a3b8;
 }
 
-/* Mobile: columns stack and scroll vertically */
+/* Move control */
+.card__actions {
+  position: relative;
+  border-top: 1px solid #f1f5f9;
+}
+
+.card__move-btn {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 9px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+.card__move-btn:hover {
+  background: #eff6ff;
+}
+
+.card__move-menu {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #f1f5f9;
+}
+
+.card__move-option {
+  background: #ffffff;
+  border: none;
+  padding: 11px;
+  font-size: 0.88rem;
+  color: #334155;
+  cursor: pointer;
+  text-align: left;
+  border-bottom: 1px solid #f8fafc;
+}
+
+.card__move-option:hover {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+/* Mobile: columns stack */
 @media (max-width: 720px) {
   .leads__board {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 12px;
+  }
+
+  .card__move-btn {
+    padding: 12px;
+    font-size: 0.9rem;
   }
 }
