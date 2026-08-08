@@ -1,0 +1,273 @@
+.schedule {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.schedule__state {
+  padding: 60px 24px;
+  text-align: center;
+  color: #64748b;
+}
+
+.schedule__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.schedule__title {
+  font-size: 1.5rem;
+  color: #0f172a;
+}
+
+.schedule__mode {
+  padding: 9px 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+  font-family: inherit;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.schedule__error {
+  color: #dc2626;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.schedule__daypick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.schedule__dateinput {
+  padding: 10px 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.schedule__dateinput:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.schedule__today {
+  background: #eff6ff;
+  color: #2563eb;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.schedule__today:hover {
+  background: #dbeafe;
+}
+
+.schedule__dayhead {
+  font-size: 1.05rem;
+  color: #475569;
+  margin-bottom: 16px;
+}
+
+.schedule__empty {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  padding: 20px 0;
+}
+
+.schedule__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.schedjob {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.schedjob__time {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #2563eb;
+  white-space: nowrap;
+  min-width: 72px;
+}
+
+.schedjob__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.schedjob__name {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.schedjob__addr {
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.schedjob__meta {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.schedjob__notes {
+  font-size: 0.85rem;
+  color: #475569;
+  background: #f8fafc;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-top: 4px;
+}
+
+.schedjob__crew {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.schedjob__complete {
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.schedjob__complete:hover:not(:disabled) {
+  background: #15803d;
+}
+
+.schedjob__complete:disabled {
+  background: #86efac;
+  cursor: default;
+}
+
+.schedule__calendar {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.calbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.calbar__nav {
+  display: flex;
+  gap: 6px;
+}
+
+.calbar__nav button {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 7px 13px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.calbar__nav button:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.calbar__label {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.calbar__views {
+  display: flex;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.calbar__views button {
+  background: none;
+  border: none;
+  color: #475569;
+  padding: 6px 14px;
+  border-radius: 7px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.calbar__views button:hover {
+  color: #2563eb;
+}
+
+.calbar__view--active {
+  background: #ffffff !important;
+  color: #2563eb !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+/* Calendar event styling to match the brand */
+.schedule__calendar .rbc-event {
+  background: #2563eb;
+  border: none;
+}
+
+.schedule__calendar .rbc-today {
+  background: #eff6ff;
+}
+
+@media (max-width: 720px) {
+  .schedjob {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .schedjob__complete {
+    width: 100%;
+  }
+
+  .schedule__calendar {
+    padding: 8px;
+    overflow-x: auto;
+  }
+}

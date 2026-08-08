@@ -7,6 +7,7 @@ import LeadDetail from "./pages/leads/LeadDetail";
 import Jobs from "./pages/jobs/Jobs";
 import ScheduleJob from "./pages/jobs/ScheduleJob";
 import JobDetail from "./pages/jobs/JobDetail";
+import Schedule from "./pages/schedule/Schedule";
 import "./App.css";
 
 // Top navigation shell shown on every logged-in page.
@@ -16,6 +17,7 @@ function Shell({ children }) {
   const tabs = [
     { to: "/leads", label: "Leads" },
     { to: "/jobs", label: "Jobs" },
+    { to: "/schedule", label: "Schedule" },
     { to: "/income", label: "Income" },
     { to: "/map", label: "Map" },
     { to: "/won", label: "Won" },
@@ -86,6 +88,7 @@ export default function App() {
       <Route path="/jobs" element={<Page><Jobs /></Page>} />
       <Route path="/jobs/schedule/:leadId" element={<Page><ScheduleJob /></Page>} />
       <Route path="/jobs/:id" element={<Page><JobDetail /></Page>} />
+      <Route path="/schedule" element={<Page><Schedule /></Page>} />
       <Route path="/income" element={<Page><ComingSoon title="Income" /></Page>} />
       <Route path="/map" element={<Page><ComingSoon title="Map" /></Page>} />
       <Route path="/won" element={<Page><ComingSoon title="Won leads" /></Page>} />

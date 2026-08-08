@@ -168,3 +168,47 @@ export async function updateJobTechs(jobId, currentIds, nextIds) {
     if (error) throw error;
   }
 }
+
+// Jobs the given tech is assigned to (their personal schedule).
+// Filters via the job_assignments join, then returns the full job rows.
+export async function fetchMyJobs(techId, { status = "scheduled" } = {}) {
+  const { data: assigns, error: aErr } = await supabase
+    .from("job_assignments")
+    .select("job_id")
+    .eq("tech_id", techId);
+
+  if (aErr) throw aErr;
+  const jobIds = assigns.map((a) => a.job_id);
+  if (jobIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("jobs")
+    .select(`
+      *,
+      lead:lead_id ( name, address, phone, email, interior ),
+      assignments:job_assignments ( tech:tech_id ( id, full_name ) )
+    `)
+    .in("id", jobIds)
+    .eq("status", status)
+    .order("starts_at", { ascending: true, nullsFirst: false });
+
+  if (error) throw error;
+  return data;
+}
+
+// Mark a job completed, and cascade its linked lead to 'completed' too.
+export async function completeJob(job) {
+  const { error: jobErr } = await supabase
+    .from("jobs")
+    .update({ status: "completed" })
+    .eq("id", job.id);
+  if (jobErr) throw jobErr;
+
+  if (job.lead_id) {
+    const { error: leadErr } = await supabase
+      .from("leads")
+      .update({ status: "completed" })
+      .eq("id", job.lead_id);
+    if (leadErr) throw leadErr;
+  }
+}
