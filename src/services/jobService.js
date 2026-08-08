@@ -124,3 +124,47 @@ export async function fetchScheduledJobs() {
   if (error) throw error;
   return data;
 }
+
+// A single job with lead + assigned tech ids, for the edit page.
+export async function fetchJob(id) {
+  const { data, error } = await supabase
+    .from("jobs")
+    .select(`
+      *,
+      lead:lead_id ( name, address, phone, email, interior ),
+      assignments:job_assignments ( tech_id )
+    `)
+    .eq("id", id)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+// Update a job's editable fields.
+export async function updateJob(id, changes) {
+  const { error } = await supabase.from("jobs").update(changes).eq("id", id);
+  if (error) throw error;
+}
+
+// Reconcile a job's tech assignments: add newly-selected techs, remove
+// de-selected ones. `currentIds` and `nextIds` are arrays of tech ids.
+export async function updateJobTechs(jobId, currentIds, nextIds) {
+  const toAdd = nextIds.filter((id) => !currentIds.includes(id));
+  const toRemove = currentIds.filter((id) => !nextIds.includes(id));
+
+  if (toAdd.length > 0) {
+    const rows = toAdd.map((tech_id) => ({ job_id: jobId, tech_id }));
+    const { error } = await supabase.from("job_assignments").insert(rows);
+    if (error) throw error;
+  }
+
+  if (toRemove.length > 0) {
+    const { error } = await supabase
+      .from("job_assignments")
+      .delete()
+      .eq("job_id", jobId)
+      .in("tech_id", toRemove);
+    if (error) throw error;
+  }
+}

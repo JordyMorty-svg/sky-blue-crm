@@ -1,0 +1,97 @@
+.techpicker {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.techpicker__trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 1rem;
+  color: #0f172a;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.techpicker__trigger:hover {
+  border-color: #cbd5e1;
+}
+
+.techpicker__trigger--empty .techpicker__summary {
+  color: #94a3b8;
+}
+
+.techpicker__summary {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.techpicker__arrow {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.techpicker__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  padding: 6px;
+  z-index: 50;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.techpicker__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.techpicker__option:hover {
+  background: #f8fafc;
+}
+
+.techpicker__option input {
+  width: 18px;
+  height: 18px;
+  accent-color: #2563eb;
+}
+
+.techpicker__name {
+  flex: 1;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.techpicker__role {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.techpicker__empty {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  padding: 10px 12px;
+}

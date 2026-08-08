@@ -91,7 +91,13 @@ export default function Jobs() {
         ) : (
           <div className="jobs__list">
             {jobs.map((job) => (
-              <div className="jobrow" key={job.id}>
+              <div
+                className="jobrow jobrow--clickable"
+                key={job.id}
+                onClick={() => navigate(`/jobs/${job.id}`)}
+                role="button"
+                tabIndex={0}
+              >
                 <div className="jobrow__main">
                   <span className="jobrow__name">{job.lead?.name || "Job"}</span>
                   <span className="jobrow__meta">

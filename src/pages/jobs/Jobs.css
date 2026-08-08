@@ -102,6 +102,16 @@
   background: #1d4ed8;
 }
 
+.jobrow--clickable {
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.jobrow--clickable:hover {
+  border-color: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
 @media (max-width: 720px) {
   .jobrow {
     flex-direction: column;

@@ -5,6 +5,7 @@ import AppointmentPicker, {
   combineToISO,
   splitFromISO,
 } from "../../components/AppointmentPicker";
+import TechPicker from "../../components/TechPicker";
 import "./ScheduleJob.css";
 
 export default function ScheduleJob() {
@@ -129,23 +130,11 @@ export default function ScheduleJob() {
 
         <div className="scheduleJob__field">
           <label className="scheduleJob__label">Assign team members</label>
-          <div className="scheduleJob__techs">
-            {techs.length === 0 ? (
-              <p className="scheduleJob__empty">No team members found.</p>
-            ) : (
-              techs.map((t) => (
-                <label key={t.id} className="scheduleJob__tech">
-                  <input
-                    type="checkbox"
-                    checked={selectedTechs.includes(t.id)}
-                    onChange={() => toggleTech(t.id)}
-                  />
-                  <span>{t.full_name || "(unnamed)"}</span>
-                  <span className="scheduleJob__tech-role">{t.role}</span>
-                </label>
-              ))
-            )}
-          </div>
+          <TechPicker
+            techs={techs}
+            selectedIds={selectedTechs}
+            onChange={setSelectedTechs}
+          />
         </div>
 
         <div className="scheduleJob__field">
