@@ -22,6 +22,93 @@
   margin-bottom: 14px;
 }
 
+.jobs__head--toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.jobs__arrow {
+  font-size: 0.9rem;
+  color: #64748b;
+  width: 16px;
+  display: inline-block;
+  text-align: center;
+}
+
+.jobs__ranges {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.jobs__filters {
+  margin-bottom: 8px;
+}
+
+.jobs__customrange {
+  margin-bottom: 16px;
+}
+
+.jobs__rangeinput {
+  width: 100%;
+  padding: 10px 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: #0f172a;
+  font-family: inherit;
+}
+
+.jobs__rangeinput:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.jobs .react-datepicker-wrapper {
+  width: 100%;
+}
+
+.jobs__techfilter {
+  margin-bottom: 8px;
+}
+
+.jobs__filterlabel {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.jobs__range {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.jobs__range:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.jobs__range--active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
 .jobs__title {
   font-size: 1.25rem;
   color: #0f172a;
