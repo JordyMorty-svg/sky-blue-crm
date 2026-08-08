@@ -207,6 +207,8 @@ export default function Jobs() {
                     placeholderText="Pick a start and end date"
                     className="jobs__rangeinput"
                     isClearable
+                    withPortal
+                    shouldCloseOnSelect={false}
                   />
                 </div>
               )}
