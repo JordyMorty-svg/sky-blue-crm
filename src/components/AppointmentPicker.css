@@ -1,0 +1,64 @@
+.appt__label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.appt__input {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 1rem;
+  color: #0f172a;
+  font-family: inherit;
+  margin-bottom: 16px;
+  background: #ffffff;
+}
+
+.appt__input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* react-datepicker renders its input inside a wrapper; make it full width */
+.appt .react-datepicker-wrapper {
+  width: 100%;
+}
+
+.appt__confirm {
+  font-size: 0.85rem;
+  color: #2563eb;
+  font-weight: 600;
+  background: #eff6ff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+/* Calendar popup styling to match the CRM look */
+.appt__calendar {
+  font-family: inherit;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+}
+
+.appt__calendar .react-datepicker__header {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.appt__calendar .react-datepicker__day--selected,
+.appt__calendar .react-datepicker__day--keyboard-selected {
+  background: #2563eb;
+  border-radius: 6px;
+}
+
+.appt__calendar .react-datepicker__day:hover {
+  background: #eff6ff;
+  border-radius: 6px;
+}

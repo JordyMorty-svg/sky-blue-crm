@@ -7,22 +7,19 @@ import {
   LEADS_SETTABLE_STATUSES,
   TEMPERATURES,
 } from "../../services/leadService";
+import AppointmentPicker, {
+  combineToISO,
+  splitFromISO,
+} from "../../components/AppointmentPicker";
 import "./LeadDetail.css";
-
-// Convert a DB timestamp to the value a datetime-local input expects.
-function toLocalInput(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const off = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - off * 60000);
-  return local.toISOString().slice(0, 16);
-}
 
 export default function LeadDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
   const [form, setForm] = useState(null);
+  const [apptDate, setApptDate] = useState(null);
+  const [apptTime, setApptTime] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -37,10 +34,10 @@ export default function LeadDetail() {
     try {
       setLoading(true);
       const lead = await fetchLead(id);
-      setForm({
-        ...lead,
-        appointment_at: toLocalInput(lead.appointment_at),
-      });
+      setForm(lead);
+      const { date, time } = splitFromISO(lead.appointment_at);
+      setApptDate(date);
+      setApptTime(time);
       setError("");
     } catch (e) {
       console.error(e);
@@ -69,9 +66,7 @@ export default function LeadDetail() {
         estimate: Number(form.estimate) || 0,
         status: form.status,
         temperature: form.temperature || null,
-        appointment_at: form.appointment_at
-          ? new Date(form.appointment_at).toISOString()
-          : null,
+        appointment_at: combineToISO(apptDate, apptTime),
         notes: form.notes || null,
         crm_notes: form.crm_notes || null,
       });
@@ -182,11 +177,14 @@ export default function LeadDetail() {
           </label>
         </Field>
 
-        <Field label="Appointment">
-          <input className="detail__input" type="datetime-local"
-            value={form.appointment_at || ""}
-            onChange={(e) => set("appointment_at", e.target.value)} />
-        </Field>
+        <div className="detail__field detail__field--full">
+          <AppointmentPicker
+            date={apptDate}
+            time={apptTime}
+            onDateChange={setApptDate}
+            onTimeChange={setApptTime}
+          />
+        </div>
 
         <Field label="Customer notes" full>
           <textarea className="detail__input detail__textarea" rows="2"

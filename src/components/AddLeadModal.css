@@ -62,6 +62,21 @@
   margin-bottom: 6px;
 }
 
+.modal__optional {
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.modal__confirm {
+  font-size: 0.85rem;
+  color: #2563eb;
+  font-weight: 600;
+  background: #eff6ff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
 .modal__input {
   padding: 11px 13px;
   border: 1px solid #e2e8f0;

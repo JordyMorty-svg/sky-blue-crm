@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   fetchBookedLeads,
   fetchScheduledJobs,
 } from "../../services/jobService";
-import ScheduleJobModal from "./ScheduleJobModal";
 import "./Jobs.css";
 
 function formatWhen(iso) {
@@ -18,11 +18,11 @@ function formatWhen(iso) {
 }
 
 export default function Jobs() {
+  const navigate = useNavigate();
   const [booked, setBooked] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [scheduling, setScheduling] = useState(null); // lead being scheduled
 
   useEffect(() => {
     load();
@@ -41,11 +41,6 @@ export default function Jobs() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function handleScheduled() {
-    setScheduling(null);
-    load(); // refresh both lists
   }
 
   if (loading) return <div className="jobs__state">Loading…</div>;
@@ -73,7 +68,10 @@ export default function Jobs() {
                   </span>
                   <span className="jobrow__when">{formatWhen(lead.appointment_at)}</span>
                 </div>
-                <button className="jobrow__btn" onClick={() => setScheduling(lead)}>
+                <button
+                  className="jobrow__btn"
+                  onClick={() => navigate(`/jobs/schedule/${lead.id}`)}
+                >
                   Schedule
                 </button>
               </div>
@@ -109,14 +107,6 @@ export default function Jobs() {
           </div>
         )}
       </section>
-
-      {scheduling && (
-        <ScheduleJobModal
-          lead={scheduling}
-          onClose={() => setScheduling(null)}
-          onScheduled={handleScheduled}
-        />
-      )}
     </div>
   );
 }

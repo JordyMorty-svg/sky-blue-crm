@@ -1,0 +1,178 @@
+.scheduleJob {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.scheduleJob__state {
+  padding: 60px 24px;
+  text-align: center;
+  color: #64748b;
+}
+
+.scheduleJob__back {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 16px;
+}
+
+.scheduleJob__back:hover {
+  text-decoration: underline;
+}
+
+.scheduleJob__title {
+  font-size: 1.5rem;
+  color: #0f172a;
+  margin-bottom: 16px;
+}
+
+.scheduleJob__lead {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 20px;
+  font-size: 0.92rem;
+  color: #475569;
+}
+
+.scheduleJob__lead strong {
+  color: #0f172a;
+  font-size: 1.1rem;
+  margin-bottom: 2px;
+}
+
+.scheduleJob__error {
+  color: #dc2626;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.scheduleJob__form {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.scheduleJob__field {
+  margin-bottom: 20px;
+}
+
+.scheduleJob__label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.scheduleJob__input {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.98rem;
+  color: #0f172a;
+  font-family: inherit;
+}
+
+.scheduleJob__input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.scheduleJob__textarea {
+  resize: vertical;
+}
+
+.scheduleJob__techs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scheduleJob__tech {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.scheduleJob__tech input {
+  width: 18px;
+  height: 18px;
+  accent-color: #2563eb;
+}
+
+.scheduleJob__tech span:nth-child(2) {
+  flex: 1;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.scheduleJob__tech-role {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.scheduleJob__empty {
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.scheduleJob__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.scheduleJob__cancel {
+  background: none;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scheduleJob__cancel:hover {
+  border-color: #94a3b8;
+}
+
+.scheduleJob__submit {
+  flex: 1;
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 13px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.scheduleJob__submit:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.scheduleJob__submit:disabled {
+  background: #93c5fd;
+  cursor: default;
+}

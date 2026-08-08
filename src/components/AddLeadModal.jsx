@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createLead, TEMPERATURES } from "../services/leadService";
+import AppointmentPicker, { combineToISO } from "./AppointmentPicker";
 import "./AddLeadModal.css";
 
 // What each stage requires. Every stage collects name/address/phone/notes;
@@ -14,8 +15,10 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [estimate, setEstimate] = useState("");
-  const [appointmentAt, setAppointmentAt] = useState("");
+  const [appointmentDate, setAppointmentDate] = useState(null);
+  const [appointmentTime, setAppointmentTime] = useState("");
   const [temperature, setTemperature] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
@@ -37,8 +40,8 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
       setError("A quoted lead needs a price.");
       return;
     }
-    if (needsAppointment && !appointmentAt) {
-      setError("A booked lead needs an appointment time.");
+    if (needsAppointment && (!appointmentDate || !appointmentTime)) {
+      setError("A booked lead needs both a date and a time.");
       return;
     }
 
@@ -49,12 +52,13 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
         name: name.trim(),
         address: address.trim(),
         phone: phone.trim(),
+        email: email.trim() || null,
         // These columns are NOT NULL on the table, so give safe defaults.
         stories: "one",
         windows: 1,
         interior: false,
         estimate: estimate ? Number(estimate) : 0,
-        appointment_at: appointmentAt || null,
+        appointment_at: combineToISO(appointmentDate, appointmentTime),
         temperature: temperature || null,
         notes: notes.trim() || null,
       });
@@ -105,6 +109,21 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
             placeholder="(541) 555-0123"
           />
 
+          {stage === "booked" && (
+            <>
+              <label className="modal__label">
+                Email <span className="modal__optional">(optional)</span>
+              </label>
+              <input
+                className="modal__input"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="jane@email.com"
+              />
+            </>
+          )}
+
           {needsPrice && (
             <>
               <label className="modal__label">Quoted price ($)</label>
@@ -120,15 +139,12 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
           )}
 
           {needsAppointment && (
-            <>
-              <label className="modal__label">Appointment</label>
-              <input
-                className="modal__input"
-                type="datetime-local"
-                value={appointmentAt}
-                onChange={(e) => setAppointmentAt(e.target.value)}
-              />
-            </>
+            <AppointmentPicker
+              date={appointmentDate}
+              time={appointmentTime}
+              onDateChange={setAppointmentDate}
+              onTimeChange={setAppointmentTime}
+            />
           )}
 
           {stage !== "booked" && (
