@@ -9,6 +9,9 @@ import ScheduleJob from "./pages/jobs/ScheduleJob";
 import JobDetail from "./pages/jobs/JobDetail";
 import Schedule from "./pages/schedule/Schedule";
 import CompleteJob from "./pages/schedule/CompleteJob";
+import Income from "./pages/income/Income";
+import Customers from "./pages/customers/Customers";
+import CustomerDetail from "./pages/customers/CustomerDetail";
 import "./App.css";
 
 // Top navigation shell shown on every logged-in page.
@@ -20,8 +23,7 @@ function Shell({ children }) {
     { to: "/jobs", label: "Jobs" },
     { to: "/schedule", label: "Schedule" },
     { to: "/income", label: "Income" },
-    { to: "/map", label: "Map" },
-    { to: "/won", label: "Won" },
+    { to: "/customers", label: "Customers" },
   ];
 
   return (
@@ -91,9 +93,9 @@ export default function App() {
       <Route path="/jobs/:id" element={<Page><JobDetail /></Page>} />
       <Route path="/schedule" element={<Page><Schedule /></Page>} />
       <Route path="/schedule/complete/:jobId" element={<Page><CompleteJob /></Page>} />
-      <Route path="/income" element={<Page><ComingSoon title="Income" /></Page>} />
-      <Route path="/map" element={<Page><ComingSoon title="Map" /></Page>} />
-      <Route path="/won" element={<Page><ComingSoon title="Won leads" /></Page>} />
+      <Route path="/income" element={<Page><Income /></Page>} />
+      <Route path="/customers" element={<Page><Customers /></Page>} />
+      <Route path="/customers/:id" element={<Page><CustomerDetail /></Page>} />
 
       <Route path="*" element={<Navigate to="/leads" replace />} />
     </Routes>

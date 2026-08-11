@@ -1,0 +1,129 @@
+.income {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.income__state {
+  padding: 60px 24px;
+  text-align: center;
+  color: #64748b;
+}
+
+.income__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.income__title {
+  font-size: 1.5rem;
+  color: #0f172a;
+}
+
+.income__groups {
+  display: flex;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.income__group {
+  background: none;
+  border: none;
+  color: #475569;
+  padding: 7px 16px;
+  border-radius: 7px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.income__group:hover {
+  color: #2563eb;
+}
+
+.income__group--active {
+  background: #ffffff;
+  color: #2563eb;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.income__error {
+  color: #dc2626;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.income__total {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #2563eb;
+  color: white;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.income__total-label {
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.income__total-amount {
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.income__total-count {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.income__empty {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  padding: 20px 0;
+}
+
+.income__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.income__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.income__row-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.income__period {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.income__jobs {
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.income__amount {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #16a34a;
+}
