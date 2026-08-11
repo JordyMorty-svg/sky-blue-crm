@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Map, InfoWindow } from "@vis.gl/react-google-maps";
+import { Map, InfoWindow, useMap, useMapsLibrary, MapControl, ControlPosition } from "@vis.gl/react-google-maps";
 import { Circle } from "./Circle.jsx";
 import { fetchMapLeads, fetchMapCustomers } from "../../services/mapService";
+import MapAddLeadModal from "./MapAddLeadModal";
 import "./MapView.css";
 
 const DEFAULT_CENTER = { lat: 44.5646, lng: -123.262 };
@@ -27,12 +28,46 @@ const STATUS_LABELS = {
   none: "No status",
 };
 
-// Scheduled wins over completed (upcoming work is the active state).
 function customerStatus(customer) {
   const jobs = customer.jobs || [];
   if (jobs.some((j) => j.status === "scheduled")) return "scheduled";
   if (jobs.some((j) => j.status === "completed")) return "completed";
   return "none";
+}
+
+// Handles map clicks when "add mode" is on: reverse-geocodes the clicked
+// point and hands back { lat, lng, address }.
+function ClickToAdd({ active, onPicked }) {
+  const map = useMap();
+  const geocodingLib = useMapsLibrary("geocoding");
+  const [geocoder, setGeocoder] = useState(null);
+
+  useEffect(() => {
+    if (geocodingLib) setGeocoder(new geocodingLib.Geocoder());
+  }, [geocodingLib]);
+
+  useEffect(() => {
+    if (!map || !active) return;
+
+    const listener = map.addListener("click", (e) => {
+      const lat = e.latLng.lat();
+      const lng = e.latLng.lng();
+
+      if (geocoder) {
+        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+          const address =
+            status === "OK" && results?.[0] ? results[0].formatted_address : "";
+          onPicked({ lat, lng, address });
+        });
+      } else {
+        onPicked({ lat, lng, address: "" });
+      }
+    });
+
+    return () => listener.remove();
+  }, [map, active, geocoder, onPicked]);
+
+  return null;
 }
 
 export default function MapView() {
@@ -41,6 +76,9 @@ export default function MapView() {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [addMode, setAddMode] = useState(false);
+  const [newLeadLocation, setNewLeadLocation] = useState(null); // {lat,lng,address}
 
   useEffect(() => {
     load();
@@ -84,14 +122,18 @@ export default function MapView() {
     }
   }
 
-  // Route based on kind/status when a circle is clicked's "view" button.
+  const handlePicked = useCallback((loc) => {
+    setNewLeadLocation(loc);
+    setAddMode(false); // exit add mode once a spot is picked
+  }, []);
+
   function goToRecord(pin) {
-    if (pin.kind === "lead") {
-      navigate(`/leads/${pin.id}`);
-    } else {
-      // customer (completed or scheduled) -> customer profile
-      navigate(`/customers/${pin.id}`);
-    }
+    navigate(pin.kind === "lead" ? `/leads/${pin.id}` : `/customers/${pin.id}`);
+  }
+
+  function handleCreated() {
+    setNewLeadLocation(null);
+    load(); // refresh pins to show the new lead
   }
 
   if (loading) return <div className="mapview__state">Loading map…</div>;
@@ -109,7 +151,7 @@ export default function MapView() {
         ))}
       </div>
 
-      <div className="mapview__map">
+      <div className={`mapview__map ${addMode ? "mapview__map--adding" : ""}`}>
         <Map
           mapId="skyblue_crm_map"
           defaultCenter={DEFAULT_CENTER}
@@ -123,19 +165,37 @@ export default function MapView() {
               <Circle
                 key={pin.key}
                 center={pin.position}
-                radius={12}
+                radius={7}
                 strokeColor={color}
                 strokeOpacity={0.9}
                 strokeWeight={2}
                 fillColor={color}
                 fillOpacity={0.55}
-                clickable={true}
-                onClick={() => setSelected(pin)}
+                clickable={!addMode}
+                onClick={() => !addMode && setSelected(pin)}
               />
             );
           })}
 
-          {selected && (
+          <ClickToAdd active={addMode} onPicked={handlePicked} />
+
+          <MapControl position={ControlPosition.TOP_RIGHT}>
+            <button
+              className={`mapview__addbtn ${addMode ? "mapview__addbtn--active" : ""}`}
+              onClick={() => setAddMode((m) => !m)}
+            >
+              {addMode ? (
+                <>
+                  <span className="mapview__addbtn-dot" />
+                  Click a house to place it
+                </>
+              ) : (
+                <>+ Add lead by location</>
+              )}
+            </button>
+          </MapControl>
+
+          {selected && !addMode && (
             <InfoWindow
               position={selected.position}
               onCloseClick={() => setSelected(null)}
@@ -154,6 +214,14 @@ export default function MapView() {
           )}
         </Map>
       </div>
+
+      {newLeadLocation && (
+        <MapAddLeadModal
+          location={newLeadLocation}
+          onClose={() => setNewLeadLocation(null)}
+          onCreated={handleCreated}
+        />
+      )}
     </div>
   );
 }
