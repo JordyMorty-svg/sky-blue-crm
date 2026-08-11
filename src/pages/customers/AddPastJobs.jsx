@@ -14,6 +14,7 @@ function emptyRow() {
     latitude: null,
     longitude: null,
     date: "",
+    time: "09:00",
     amount: "",
     method: "cash",
     interior: false,
@@ -119,6 +120,12 @@ export default function AddPastJobs() {
                 type="date"
                 value={row.date}
                 onChange={(e) => updateRow(i, "date", e.target.value)}
+              />
+              <input
+                className="pastrow__input pastrow__input--time"
+                type="time"
+                value={row.time}
+                onChange={(e) => updateRow(i, "time", e.target.value)}
               />
               <input
                 className="pastrow__input pastrow__input--amount"

@@ -44,7 +44,9 @@ export async function addPastJobs(rows) {
   for (const row of rows) {
     const customerId = await findOrCreateCustomerFromRow(row);
 
-    const startsAt = row.date ? new Date(`${row.date}T09:00`).toISOString() : null;
+    const startsAt = row.date
+      ? new Date(`${row.date}T${row.time || "09:00"}`).toISOString()
+      : null;
 
     const { error } = await supabase.from("jobs").insert({
       customer_id: customerId,

@@ -102,6 +102,11 @@
   min-width: 180px;
 }
 
+.pastrow__input--time {
+  min-width: 110px;
+  flex: 0 0 120px;
+}
+
 .pastrow__input:focus {
   outline: none;
   border-color: #2563eb;

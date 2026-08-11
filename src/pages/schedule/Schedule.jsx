@@ -6,20 +6,14 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useAuth } from "../../context/AuthContext";
-import { useNavigate } from "react-router-dom";
-import { fetchMyJobs } from "../../services/jobService";
+import { fetchMyJobs, completeJob } from "../../services/jobService";
+import { fetchCalendarJobs } from "../../services/calendarService";
+import EventEditor from "./EventEditor";
 import "./Schedule.css";
 
 const locales = { "en-US": enUS };
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales,
-});
+const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
 
-// Calendar day window: 7:00 AM to 9:00 PM.
 const DAY_MIN = new Date(1970, 0, 1, 7, 0, 0);
 const DAY_MAX = new Date(1970, 0, 1, 21, 0, 0);
 
@@ -35,36 +29,29 @@ function sameDay(iso, day) {
 
 function formatTime(iso) {
   if (!iso) return "";
-  return new Date(iso).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-// Custom toolbar — our own buttons driving view/navigation directly,
-// so switching never depends on react-big-calendar's internal toolbar.
+// Clean custom toolbar (replaces react-big-calendar's dated default).
 function CalendarToolbar({ label, onNavigate, onView, view }) {
-  const views = [
-    { key: "day", label: "Day" },
-    { key: "week", label: "Week" },
-    { key: "month", label: "Month" },
-  ];
   return (
-    <div className="calbar">
-      <div className="calbar__nav">
-        <button onClick={() => onNavigate("TODAY")}>Today</button>
-        <button onClick={() => onNavigate("PREV")}>‹</button>
-        <button onClick={() => onNavigate("NEXT")}>›</button>
+    <div className="rbc-custom-toolbar">
+      <div className="rbc-custom-toolbar__nav">
+        <button onClick={() => onNavigate("TODAY")} className="rbc-custom-toolbar__today">
+          Today
+        </button>
+        <button onClick={() => onNavigate("PREV")} className="rbc-custom-toolbar__arrow">‹</button>
+        <button onClick={() => onNavigate("NEXT")} className="rbc-custom-toolbar__arrow">›</button>
       </div>
-      <span className="calbar__label">{label}</span>
-      <div className="calbar__views">
-        {views.map((v) => (
+      <span className="rbc-custom-toolbar__label">{label}</span>
+      <div className="rbc-custom-toolbar__views">
+        {["day", "week", "month"].map((v) => (
           <button
-            key={v.key}
-            className={view === v.key ? "calbar__view--active" : ""}
-            onClick={() => onView(v.key)}
+            key={v}
+            onClick={() => onView(v)}
+            className={`rbc-custom-toolbar__view ${view === v ? "is-active" : ""}`}
           >
-            {v.label}
+            {v.charAt(0).toUpperCase() + v.slice(1)}
           </button>
         ))}
       </div>
@@ -74,14 +61,16 @@ function CalendarToolbar({ label, onNavigate, onView, view }) {
 
 export default function Schedule() {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [mode, setMode] = useState("schedule"); // 'schedule' | 'calendar'
+  const [mode, setMode] = useState("schedule");
   const [selectedDay, setSelectedDay] = useState(new Date());
-  const [calDate, setCalDate] = useState(new Date());   // calendar's current date
-  const [calView, setCalView] = useState("week");        // calendar's current view
   const [jobs, setJobs] = useState([]);
+  const [calJobs, setCalJobs] = useState([]);
+  const [calView, setCalView] = useState("week");
+  const [calDate, setCalDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [completing, setCompleting] = useState(null);
+  const [editingEvent, setEditingEvent] = useState(null);
 
   useEffect(() => {
     if (user?.id) load();
@@ -91,8 +80,12 @@ export default function Schedule() {
   async function load() {
     try {
       setLoading(true);
-      const data = await fetchMyJobs(user.id);
-      setJobs(data);
+      const [mine, all] = await Promise.all([
+        fetchMyJobs(user.id),
+        fetchCalendarJobs(),
+      ]);
+      setJobs(mine);
+      setCalJobs(all);
       setError("");
     } catch (e) {
       console.error(e);
@@ -102,22 +95,54 @@ export default function Schedule() {
     }
   }
 
+  async function handleComplete(job) {
+    setCompleting(job.id);
+    try {
+      await completeJob(job);
+      setJobs((cur) => cur.filter((j) => j.id !== job.id));
+      load(); // refresh calendar so it reflects the new completed status
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't mark completed. Try again.");
+    } finally {
+      setCompleting(null);
+    }
+  }
+
   if (loading) return <div className="schedule__state">Loading your schedule…</div>;
 
   const dayJobs = jobs.filter((j) => sameDay(j.starts_at, selectedDay));
 
-  const events = jobs
-    .filter((j) => j.starts_at)
-    .map((j) => {
-      const start = new Date(j.starts_at);
-      const end = new Date(start.getTime() + (j.duration_hours || 3) * 3600000);
-      return {
-        id: j.id,
-        title: `${j.lead?.name || "Job"} — ${j.lead?.address || ""}`,
-        start,
-        end,
-      };
-    });
+  const events = calJobs.map((j) => {
+    const start = new Date(j.starts_at);
+    const end = new Date(start.getTime() + (j.duration_hours || 3) * 3600000);
+    const who = j.lead?.name || j.customer?.name || "Job";
+    return {
+      id: j.id,
+      title: who,
+      start,
+      end,
+      status: j.status,
+      duration_hours: j.duration_hours || 3,
+    };
+  });
+
+  // Color events by status: scheduled = blue, completed = light green.
+  function eventStyle(event) {
+    const isDone = event.status === "completed";
+    return {
+      style: {
+        backgroundColor: isDone ? "#dcfce7" : "#2563eb",
+        color: isDone ? "#166534" : "#ffffff",
+        border: isDone ? "1px solid #86efac" : "1px solid #1d4ed8",
+        borderRadius: "8px",
+        padding: "2px 6px",
+        fontSize: "0.8rem",
+        fontWeight: 600,
+        boxShadow: "0 1px 2px rgba(15,23,42,0.12)",
+      },
+    };
+  }
 
   return (
     <div className="schedule">
@@ -144,10 +169,7 @@ export default function Schedule() {
               dateFormat="EEEE, MMMM d"
               className="schedule__dateinput"
             />
-            <button
-              className="schedule__today"
-              onClick={() => setSelectedDay(new Date())}
-            >
+            <button className="schedule__today" onClick={() => setSelectedDay(new Date())}>
               Today
             </button>
           </div>
@@ -172,9 +194,10 @@ export default function Schedule() {
                   </div>
                   <button
                     className="schedjob__complete"
-                    onClick={() => navigate(`/schedule/complete/${job.id}`)}
+                    onClick={() => handleComplete(job)}
+                    disabled={completing === job.id}
                   >
-                    Mark completed
+                    {completing === job.id ? "…" : "Mark completed"}
                   </button>
                 </div>
               ))}
@@ -183,22 +206,45 @@ export default function Schedule() {
         </div>
       ) : (
         <div className="schedule__calendar">
+          <div className="schedule__legend">
+            <span className="schedule__legend-item">
+              <span className="schedule__legend-dot" style={{ background: "#2563eb" }} />
+              Scheduled
+            </span>
+            <span className="schedule__legend-item">
+              <span className="schedule__legend-dot" style={{ background: "#dcfce7", border: "1px solid #86efac" }} />
+              Completed
+            </span>
+          </div>
           <Calendar
             localizer={localizer}
             events={events}
             startAccessor="start"
             endAccessor="end"
-            date={calDate}
             view={calView}
-            onNavigate={(newDate) => setCalDate(newDate)}
-            onView={(newView) => setCalView(newView)}
+            onView={setCalView}
+            date={calDate}
+            onNavigate={setCalDate}
             views={["day", "week", "month"]}
-            components={{ toolbar: CalendarToolbar }}
             min={DAY_MIN}
             max={DAY_MAX}
-            style={{ height: 640 }}
+            eventPropGetter={eventStyle}
+            onSelectEvent={(event) => setEditingEvent(event)}
+            components={{ toolbar: CalendarToolbar }}
+            style={{ height: 680 }}
           />
         </div>
+      )}
+
+      {editingEvent && (
+        <EventEditor
+          event={editingEvent}
+          onClose={() => setEditingEvent(null)}
+          onSaved={() => {
+            setEditingEvent(null);
+            load();
+          }}
+        />
       )}
     </div>
   );
