@@ -24,6 +24,7 @@ function Shell({ children }) {
     { to: "/schedule", label: "Schedule" },
     { to: "/income", label: "Income" },
     { to: "/customers", label: "Customers" },
+    { to: "/map", label: "Map" },
   ];
 
   return (
@@ -96,6 +97,7 @@ export default function App() {
       <Route path="/income" element={<Page><Income /></Page>} />
       <Route path="/customers" element={<Page><Customers /></Page>} />
       <Route path="/customers/:id" element={<Page><CustomerDetail /></Page>} />
+      <Route path="/map" element={<Page><ComingSoon title="Map" /></Page>} />
 
       <Route path="*" element={<Navigate to="/leads" replace />} />
     </Routes>
