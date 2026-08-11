@@ -99,6 +99,7 @@ export default function LeadDetail() {
         </button>
         <span className="detail__source">
           {form.source === "door" ? "Door knock" : "Website"}
+          {form.creator?.full_name ? ` · ${form.creator.full_name}` : ""}
         </span>
       </div>
 

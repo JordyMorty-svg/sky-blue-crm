@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createLead, TEMPERATURES } from "../services/leadService";
+import { useAuth } from "../context/AuthContext";
 import AppointmentPicker, { combineToISO } from "./AppointmentPicker";
 import "./AddLeadModal.css";
 
@@ -12,6 +13,7 @@ const STAGE_LABELS = {
 };
 
 export default function AddLeadModal({ stage, onClose, onCreated }) {
+  const { user } = useAuth();
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
@@ -47,21 +49,24 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
 
     setBusy(true);
     try {
-      const newLead = await createLead({
-        status: stage,
-        name: name.trim(),
-        address: address.trim(),
-        phone: phone.trim(),
-        email: email.trim() || null,
-        // These columns are NOT NULL on the table, so give safe defaults.
-        stories: "one",
-        windows: 1,
-        interior: false,
-        estimate: estimate ? Number(estimate) : 0,
-        appointment_at: combineToISO(appointmentDate, appointmentTime),
-        temperature: temperature || null,
-        notes: notes.trim() || null,
-      });
+      const newLead = await createLead(
+        {
+          status: stage,
+          name: name.trim(),
+          address: address.trim(),
+          phone: phone.trim(),
+          email: email.trim() || null,
+          // These columns are NOT NULL on the table, so give safe defaults.
+          stories: "one",
+          windows: 1,
+          interior: false,
+          estimate: estimate ? Number(estimate) : 0,
+          appointment_at: combineToISO(appointmentDate, appointmentTime),
+          temperature: temperature || null,
+          notes: notes.trim() || null,
+        },
+        user?.id ?? null
+      );
       onCreated(newLead);
     } catch (err) {
       console.error(err);

@@ -79,11 +79,11 @@ export async function updateLead(id, changes) {
   return data;
 }
 
-// Fetch a single lead by id.
+// Fetch a single lead by id, including who created it.
 export async function fetchLead(id) {
   const { data, error } = await supabase
     .from("leads")
-    .select("*")
+    .select("*, creator:created_by ( full_name )")
     .eq("id", id)
     .single();
 
@@ -106,11 +106,12 @@ export function missingFieldFor(stage, lead) {
 }
 
 // Create a manual (door-knock) lead at a given stage.
+// createdBy = the logged-in user's id, for rep attribution.
 // Returns the newly created row.
-export async function createLead(lead) {
+export async function createLead(lead, createdBy = null) {
   const { data, error } = await supabase
     .from("leads")
-    .insert({ ...lead, source: "door" })
+    .insert({ ...lead, source: "door", created_by: createdBy })
     .select()
     .single();
 

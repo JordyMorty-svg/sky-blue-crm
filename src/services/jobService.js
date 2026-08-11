@@ -11,18 +11,29 @@ export async function fetchLeadById(id) {
   return data;
 }
 
+// Strip a phone number down to digits only, for reliable matching.
+function normalizePhone(phone) {
+  return (phone || "").replace(/\D/g, "");
+}
+
 // Find an existing customer by phone number, or create a new one from
-// the lead's info. Returns the customer id either way.
+// the lead's info. Matches on digits-only so "(425) 951-3646" and
+// "4259513646" are treated as the same customer. Returns the customer id.
 async function findOrCreateCustomer(lead) {
-  if (lead.phone) {
-    const { data: existing, error: findErr } = await supabase
+  const norm = normalizePhone(lead.phone);
+
+  if (norm) {
+    // Pull candidate customers and compare normalized phones in JS,
+    // since the DB stores them in whatever format they were entered.
+    const { data: candidates, error: findErr } = await supabase
       .from("customers")
-      .select("id")
-      .eq("phone", lead.phone)
-      .maybeSingle();
+      .select("id, phone");
 
     if (findErr) throw findErr;
-    if (existing) return existing.id; // match — just link, don't overwrite
+    const match = (candidates || []).find(
+      (c) => normalizePhone(c.phone) === norm
+    );
+    if (match) return match.id; // reuse — don't overwrite existing data
   }
 
   // No phone, or no match — create a new customer record.
@@ -196,11 +207,18 @@ export async function fetchMyJobs(techId, { status = "scheduled" } = {}) {
   return data;
 }
 
-// Mark a job completed, and cascade its linked lead to 'completed' too.
-export async function completeJob(job) {
+// Mark a job completed with payment details, and cascade its linked
+// lead to 'completed' too.
+export async function completeJob(job, { finalPrice, paymentMethod, paymentNotes }) {
   const { error: jobErr } = await supabase
     .from("jobs")
-    .update({ status: "completed" })
+    .update({
+      status: "completed",
+      final_price: finalPrice,
+      paid: true,
+      payment_method: paymentMethod,
+      notes: paymentNotes ? `${job.notes ? job.notes + " — " : ""}${paymentNotes}` : job.notes,
+    })
     .eq("id", job.id);
   if (jobErr) throw jobErr;
 

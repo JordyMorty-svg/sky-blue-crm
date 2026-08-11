@@ -6,7 +6,8 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useAuth } from "../../context/AuthContext";
-import { fetchMyJobs, completeJob } from "../../services/jobService";
+import { useNavigate } from "react-router-dom";
+import { fetchMyJobs } from "../../services/jobService";
 import "./Schedule.css";
 
 const locales = { "en-US": enUS };
@@ -73,6 +74,7 @@ function CalendarToolbar({ label, onNavigate, onView, view }) {
 
 export default function Schedule() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [mode, setMode] = useState("schedule"); // 'schedule' | 'calendar'
   const [selectedDay, setSelectedDay] = useState(new Date());
   const [calDate, setCalDate] = useState(new Date());   // calendar's current date
@@ -80,7 +82,6 @@ export default function Schedule() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [completing, setCompleting] = useState(null);
 
   useEffect(() => {
     if (user?.id) load();
@@ -98,19 +99,6 @@ export default function Schedule() {
       setError("Couldn't load your schedule.");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleComplete(job) {
-    setCompleting(job.id);
-    try {
-      await completeJob(job);
-      setJobs((cur) => cur.filter((j) => j.id !== job.id));
-    } catch (e) {
-      console.error(e);
-      setError("Couldn't mark completed. Try again.");
-    } finally {
-      setCompleting(null);
     }
   }
 
@@ -184,10 +172,9 @@ export default function Schedule() {
                   </div>
                   <button
                     className="schedjob__complete"
-                    onClick={() => handleComplete(job)}
-                    disabled={completing === job.id}
+                    onClick={() => navigate(`/schedule/complete/${job.id}`)}
                   >
-                    {completing === job.id ? "…" : "Mark completed"}
+                    Mark completed
                   </button>
                 </div>
               ))}
