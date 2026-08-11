@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -6,7 +7,7 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useAuth } from "../../context/AuthContext";
-import { fetchMyJobs, completeJob } from "../../services/jobService";
+import { fetchMyJobs } from "../../services/jobService";
 import { fetchCalendarJobs } from "../../services/calendarService";
 import EventEditor from "./EventEditor";
 import "./Schedule.css";
@@ -61,6 +62,7 @@ function CalendarToolbar({ label, onNavigate, onView, view }) {
 
 export default function Schedule() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [mode, setMode] = useState("schedule");
   const [selectedDay, setSelectedDay] = useState(new Date());
   const [jobs, setJobs] = useState([]);
@@ -69,7 +71,6 @@ export default function Schedule() {
   const [calDate, setCalDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [completing, setCompleting] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
 
   useEffect(() => {
@@ -95,18 +96,10 @@ export default function Schedule() {
     }
   }
 
-  async function handleComplete(job) {
-    setCompleting(job.id);
-    try {
-      await completeJob(job);
-      setJobs((cur) => cur.filter((j) => j.id !== job.id));
-      load(); // refresh calendar so it reflects the new completed status
-    } catch (e) {
-      console.error(e);
-      setError("Couldn't mark completed. Try again.");
-    } finally {
-      setCompleting(null);
-    }
+  function handleComplete(job) {
+    // Go to the completion page to record amount + payment method,
+    // which then calls completeJob with the full details.
+    navigate(`/schedule/complete/${job.id}`);
   }
 
   if (loading) return <div className="schedule__state">Loading your schedule…</div>;
@@ -195,9 +188,8 @@ export default function Schedule() {
                   <button
                     className="schedjob__complete"
                     onClick={() => handleComplete(job)}
-                    disabled={completing === job.id}
                   >
-                    {completing === job.id ? "…" : "Mark completed"}
+                    Mark completed
                   </button>
                 </div>
               ))}
