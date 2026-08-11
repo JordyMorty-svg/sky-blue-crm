@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Map, InfoWindow, useMap, useMapsLibrary, MapControl, ControlPosition } from "@vis.gl/react-google-maps";
 import { Circle } from "./Circle.jsx";
@@ -29,13 +29,18 @@ const STATUS_LABELS = {
   none: "No status",
 };
 
-// Recenters the map on the user when the signal changes.
+// Recenters the map on the user when the signal changes. Zooms in on the
+// first locate, then just pans (so following doesn't fight your zoom).
 function RecenterOnUser({ position, signal }) {
   const map = useMap();
+  const zoomedRef = useRef(false);
   useEffect(() => {
     if (map && position && signal > 0) {
       map.panTo(position);
-      map.setZoom(16);
+      if (!zoomedRef.current) {
+        map.setZoom(16);
+        zoomedRef.current = true;
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signal]);
@@ -152,21 +157,30 @@ export default function MapView() {
       setError("Location isn't available on this device/browser.");
       return;
     }
+    const onOk = (pos) => {
+      setError("");
+      setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      setAccuracy(pos.coords.accuracy);
+      setRecenterSignal((n) => n + 1);
+    };
+    // Try GPS first; if it times out (common on desktop), retry rougher.
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setAccuracy(pos.coords.accuracy);
-        setRecenterSignal((n) => n + 1);
-      },
-      (err) => {
-        console.error(err);
-        setError(
-          err.code === 1
-            ? "Location permission was denied. Enable it in your browser settings."
-            : "Couldn't get your location."
+      onOk,
+      () => {
+        navigator.geolocation.getCurrentPosition(
+          onOk,
+          (err) => {
+            console.error(err);
+            setError(
+              err.code === 1
+                ? "Location permission was denied. Enable it in your browser settings."
+                : "Couldn't get your location. (Desktop often can't — try your phone.)"
+            );
+          },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
         );
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 8000 }
     );
   }
 
@@ -180,15 +194,17 @@ export default function MapView() {
     }
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
+        setError("");
         setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         setAccuracy(pos.coords.accuracy);
+        setRecenterSignal((n) => n + 1); // follow me
       },
       (err) => {
         console.error(err);
         setError(
           err.code === 1
             ? "Location permission was denied. Enable it in your browser settings."
-            : "Lost your location signal."
+            : "Couldn't track your location. (Desktop often can't — try your phone.)"
         );
         setTracking(false);
       },
