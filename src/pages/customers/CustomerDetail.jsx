@@ -206,29 +206,62 @@ export default function CustomerDetail() {
       {jobs.length === 0 ? (
         <p className="customers__empty">No jobs yet.</p>
       ) : (
-        <div className="customers__list">
-          {jobs.map((job) => (
-            <div className="custjob" key={job.id}>
-              <div className="custjob__main">
-                <span className="custjob__when">{formatWhen(job.starts_at)}</span>
-                <span className="custjob__meta">
-                  {job.services} · {job.duration_hours}h
-                </span>
-                <span className="custjob__crew">
-                  {job.assignments?.map((a) => a.tech?.full_name).filter(Boolean).join(", ")}
-                </span>
-              </div>
-              <div className="custjob__right">
-                <span className="custjob__price">
-                  ${(job.final_price ?? job.price ?? 0).toLocaleString()}
-                </span>
-                <span className={`custjob__status custjob__status--${job.status}`}>
-                  {STATUS_LABELS[job.status] || job.status}
-                </span>
-              </div>
+        <>
+          {jobs.some((j) => j.status === "scheduled") && (
+            <div className="custdetail__scheduled">
+              <span className="custdetail__scheduled-label">Upcoming — scheduled, not yet complete</span>
+              {jobs
+                .filter((j) => j.status === "scheduled")
+                .map((job) => (
+                  <div className="custjob custjob--upcoming" key={job.id}>
+                    <div className="custjob__main">
+                      <span className="custjob__when">{formatWhen(job.starts_at)}</span>
+                      <span className="custjob__meta">
+                        {job.services} · {job.duration_hours}h
+                      </span>
+                      <span className="custjob__crew">
+                        {job.assignments?.map((a) => a.tech?.full_name).filter(Boolean).join(", ")}
+                      </span>
+                    </div>
+                    <div className="custjob__right">
+                      <span className="custjob__price">
+                        ${(job.final_price ?? job.price ?? 0).toLocaleString()}
+                      </span>
+                      <span className="custjob__status custjob__status--scheduled">
+                        Scheduled
+                      </span>
+                    </div>
+                  </div>
+                ))}
             </div>
-          ))}
-        </div>
+          )}
+
+          <div className="customers__list">
+            {jobs
+              .filter((j) => j.status !== "scheduled")
+              .map((job) => (
+                <div className="custjob" key={job.id}>
+                  <div className="custjob__main">
+                    <span className="custjob__when">{formatWhen(job.starts_at)}</span>
+                    <span className="custjob__meta">
+                      {job.services} · {job.duration_hours}h
+                    </span>
+                    <span className="custjob__crew">
+                      {job.assignments?.map((a) => a.tech?.full_name).filter(Boolean).join(", ")}
+                    </span>
+                  </div>
+                  <div className="custjob__right">
+                    <span className="custjob__price">
+                      ${(job.final_price ?? job.price ?? 0).toLocaleString()}
+                    </span>
+                    <span className={`custjob__status custjob__status--${job.status}`}>
+                      {STATUS_LABELS[job.status] || job.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </>
       )}
     </div>
   );

@@ -382,6 +382,34 @@
   border-radius: 999px;
 }
 
+.custdetail__scheduled {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.custdetail__scheduled-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #ea580c;
+  margin-bottom: 10px;
+}
+
+.custjob--upcoming {
+  border-color: #fed7aa;
+  margin-bottom: 8px;
+}
+
+.custjob__status--scheduled {
+  color: #ea580c;
+  background: #fff7ed;
+}
+
 .custjob__status--completed {
   color: #16a34a;
   background: #f0fdf4;
