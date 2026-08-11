@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Map, InfoWindow, useMap, useMapsLibrary, MapControl, ControlPosition } from "@vis.gl/react-google-maps";
 import { Circle } from "./Circle.jsx";
+import UserLocation from "./UserLocation";
 import { fetchMapLeads, fetchMapCustomers } from "../../services/mapService";
 import MapAddLeadModal from "./MapAddLeadModal";
 import "./MapView.css";
@@ -27,6 +28,19 @@ const STATUS_LABELS = {
   completed: "Completed",
   none: "No status",
 };
+
+// Recenters the map on the user when the signal changes.
+function RecenterOnUser({ position, signal }) {
+  const map = useMap();
+  useEffect(() => {
+    if (map && position && signal > 0) {
+      map.panTo(position);
+      map.setZoom(16);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signal]);
+  return null;
+}
 
 function customerStatus(customer) {
   const jobs = customer.jobs || [];
@@ -80,6 +94,11 @@ export default function MapView() {
   const [addMode, setAddMode] = useState(false);
   const [newLeadLocation, setNewLeadLocation] = useState(null); // {lat,lng,address}
 
+  const [userPos, setUserPos] = useState(null); // {lat,lng}
+  const [accuracy, setAccuracy] = useState(null);
+  const [tracking, setTracking] = useState(false);
+  const [recenterSignal, setRecenterSignal] = useState(0); // bump to recenter
+
   useEffect(() => {
     load();
   }, []);
@@ -126,6 +145,65 @@ export default function MapView() {
     setNewLeadLocation(loc);
     setAddMode(false); // exit add mode once a spot is picked
   }, []);
+
+  // One-time "find me" — gets current position and recenters.
+  function locateOnce() {
+    if (!navigator.geolocation) {
+      setError("Location isn't available on this device/browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setAccuracy(pos.coords.accuracy);
+        setRecenterSignal((n) => n + 1);
+      },
+      (err) => {
+        console.error(err);
+        setError(
+          err.code === 1
+            ? "Location permission was denied. Enable it in your browser settings."
+            : "Couldn't get your location."
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  // Live tracking — watch position as the user moves.
+  useEffect(() => {
+    if (!tracking) return;
+    if (!navigator.geolocation) {
+      setError("Location isn't available on this device/browser.");
+      setTracking(false);
+      return;
+    }
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setAccuracy(pos.coords.accuracy);
+      },
+      (err) => {
+        console.error(err);
+        setError(
+          err.code === 1
+            ? "Location permission was denied. Enable it in your browser settings."
+            : "Lost your location signal."
+        );
+        setTracking(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 2000 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [tracking]);
+
+  function toggleTracking() {
+    setTracking((t) => {
+      const next = !t;
+      if (next) setRecenterSignal((n) => n + 1); // center when turning on
+      return next;
+    });
+  }
 
   function goToRecord(pin) {
     navigate(pin.kind === "lead" ? `/leads/${pin.id}` : `/customers/${pin.id}`);
@@ -179,6 +257,9 @@ export default function MapView() {
 
           <ClickToAdd active={addMode} onPicked={handlePicked} />
 
+          {userPos && <UserLocation position={userPos} accuracy={accuracy} />}
+          <RecenterOnUser position={userPos} signal={recenterSignal} />
+
           <MapControl position={ControlPosition.TOP_RIGHT}>
             <button
               className={`mapview__addbtn ${addMode ? "mapview__addbtn--active" : ""}`}
@@ -193,6 +274,25 @@ export default function MapView() {
                 <>+ Add lead by location</>
               )}
             </button>
+          </MapControl>
+
+          <MapControl position={ControlPosition.RIGHT_BOTTOM}>
+            <div className="mapview__loc-controls">
+              <button
+                className="mapview__loc-btn"
+                onClick={locateOnce}
+                title="Find my location"
+              >
+                ◎ My location
+              </button>
+              <button
+                className={`mapview__loc-btn ${tracking ? "mapview__loc-btn--tracking" : ""}`}
+                onClick={toggleTracking}
+                title="Follow my location as I move"
+              >
+                {tracking ? "● Tracking on" : "○ Live tracking"}
+              </button>
+            </div>
           </MapControl>
 
           {selected && !addMode && (

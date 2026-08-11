@@ -30,7 +30,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: 10px 10px 0 0;
+  margin: 10px 0 0 0;
   background: #2563eb;
   color: #ffffff;
   border: none;
@@ -71,6 +71,40 @@
 @keyframes mapview-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
+}
+
+.mapview__loc-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 10px 10px 0;
+}
+
+.mapview__loc-btn {
+  background: #ffffff;
+  color: #0f172a;
+  border: none;
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.28);
+  white-space: nowrap;
+}
+
+.mapview__loc-btn:hover {
+  background: #f1f5f9;
+}
+
+.mapview__loc-btn--tracking {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.mapview__loc-btn--tracking:hover {
+  background: #1d4ed8;
 }
 
 .mapview__legend-item {
