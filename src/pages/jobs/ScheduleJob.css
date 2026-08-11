@@ -176,3 +176,14 @@
   background: #93c5fd;
   cursor: default;
 }
+
+.scheduleJob__conflict {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 14px;
+}

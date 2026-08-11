@@ -81,8 +81,15 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
   }
 
   return (
-    <div className="modal" onClick={onClose}>
-      <div className="modal__card" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="modal"
+      onMouseDown={(e) => {
+        // Only close if the press STARTED on the overlay itself — not a
+        // text selection/delete drag that happens to end here.
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="modal__card">
         <div className="modal__head">
           <h2 className="modal__title">
             Add to <span className="modal__stage">{STAGE_LABELS[stage]}</span>

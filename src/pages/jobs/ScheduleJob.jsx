@@ -6,6 +6,7 @@ import AppointmentPicker, {
   splitFromISO,
 } from "../../components/AppointmentPicker";
 import TechPicker from "../../components/TechPicker";
+import DayPreview from "./DayPreview";
 import "./ScheduleJob.css";
 
 export default function ScheduleJob() {
@@ -19,6 +20,7 @@ export default function ScheduleJob() {
   const [apptDate, setApptDate] = useState(null);
   const [apptTime, setApptTime] = useState("");
   const [notes, setNotes] = useState("");
+  const [conflicts, setConflicts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -138,6 +140,17 @@ export default function ScheduleJob() {
         </div>
 
         <div className="scheduleJob__field">
+          <label className="scheduleJob__label">Day preview & conflicts</label>
+          <DayPreview
+            day={apptDate}
+            time={apptTime}
+            duration={Number(duration)}
+            techIds={selectedTechs}
+            onConflictChange={setConflicts}
+          />
+        </div>
+
+        <div className="scheduleJob__field">
           <label className="scheduleJob__label">Notes</label>
           <textarea
             className="scheduleJob__input scheduleJob__textarea"
@@ -147,6 +160,14 @@ export default function ScheduleJob() {
             onChange={(e) => setNotes(e.target.value)}
           />
         </div>
+
+        {conflicts.length > 0 && (
+          <p className="scheduleJob__conflict">
+            ⚠️ This overlaps an existing job for{" "}
+            {[...new Set(conflicts.map((c) => c.techName))].join(", ")}. You can
+            still schedule if that's intended.
+          </p>
+        )}
 
         <div className="scheduleJob__actions">
           <button

@@ -230,6 +230,17 @@ export default function Schedule() {
             max={DAY_MAX}
             eventPropGetter={eventStyle}
             onSelectEvent={(event) => setEditingEvent(event)}
+            onDrillDown={(date) => {
+              setCalDate(date);
+              setCalView("day");
+            }}
+            onSelectSlot={(slot) => {
+              if (calView === "month") {
+                setCalDate(slot.start);
+                setCalView("day");
+              }
+            }}
+            selectable
             components={{ toolbar: CalendarToolbar }}
             style={{ height: 680 }}
           />

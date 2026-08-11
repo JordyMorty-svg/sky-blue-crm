@@ -1,0 +1,137 @@
+.daypreview {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.daypreview--empty {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 28px 16px;
+}
+
+.daypreview__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.daypreview__date {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.daypreview__loading {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.daypreview__conflict {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.daypreview__conflict ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-weight: 500;
+}
+
+.daypreview__conflict li {
+  margin-bottom: 3px;
+}
+
+.daypreview__timeline {
+  position: relative;
+  height: 420px;
+  margin-left: 48px;
+  border-left: 1px solid #e2e8f0;
+}
+
+.daypreview__hour {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+}
+
+.daypreview__hourlabel {
+  position: absolute;
+  left: -48px;
+  top: -7px;
+  width: 44px;
+  text-align: right;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.daypreview__hourline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  border-top: 1px solid #f1f5f9;
+}
+
+.daypreview__job,
+.daypreview__proposed {
+  position: absolute;
+  left: 4px;
+  right: 8px;
+  border-radius: 7px;
+  padding: 3px 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-size: 0.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.daypreview__job--scheduled {
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+  color: #1e40af;
+}
+
+.daypreview__job--completed {
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #166534;
+}
+
+.daypreview__proposed {
+  background: #fde68a;
+  border: 2px dashed #d97706;
+  color: #92400e;
+  z-index: 5;
+}
+
+.daypreview__proposed--conflict {
+  background: #fecaca;
+  border: 2px dashed #dc2626;
+  color: #991b1b;
+}
+
+.daypreview__jobname {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.daypreview__jobtime {
+  font-size: 0.68rem;
+  opacity: 0.85;
+}

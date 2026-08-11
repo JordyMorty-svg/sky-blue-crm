@@ -58,7 +58,12 @@ export default function EventEditor({ event, onClose, onSaved }) {
   }
 
   return (
-    <div className="eventeditor__overlay" onClick={onClose}>
+    <div
+      className="eventeditor__overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="eventeditor" onClick={(e) => e.stopPropagation()}>
         <div className="eventeditor__head">
           <div>
