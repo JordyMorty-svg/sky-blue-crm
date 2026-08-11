@@ -41,15 +41,22 @@
   transition: all 0.15s ease;
 }
 
-.income__period-btn:hover {
+.income__period-btn:not(.income__period-btn--active):hover {
   border-color: #2563eb;
   color: #2563eb;
 }
 
+.income__periods .income__period-btn--active,
 .income__period-btn--active {
   background: #2563eb;
   border-color: #2563eb;
-  color: #ffffff;
+  color: #ffffff !important;
+}
+
+.income__period-btn--active:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff !important;
 }
 
 .income__custom {
