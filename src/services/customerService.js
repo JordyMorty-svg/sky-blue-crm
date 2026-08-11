@@ -26,6 +26,8 @@ async function findOrCreateCustomerFromRow(row) {
       name: row.name,
       phone: row.phone || null,
       address: row.address || null,
+      latitude: row.latitude ?? null,
+      longitude: row.longitude ?? null,
       notes: row.notes || null,
     })
     .select("id")

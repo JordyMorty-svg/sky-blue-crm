@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchCustomer, updateCustomer } from "../../services/customerService";
+import AddressPicker from "../../components/AddressPicker";
 import "./Customers.css";
 
 function formatWhen(iso) {
@@ -68,6 +69,8 @@ export default function CustomerDetail() {
         phone: form.phone?.trim() || null,
         email: form.email?.trim() || null,
         address: form.address?.trim() || null,
+        latitude: form.latitude ?? null,
+        longitude: form.longitude ?? null,
         notes: form.notes?.trim() || null,
       });
       setCustomer(form);
@@ -123,10 +126,20 @@ export default function CustomerDetail() {
             onChange={(e) => set("email", e.target.value)}
           />
           <label className="custedit__label">Address</label>
-          <input
-            className="custedit__input"
+          <AddressPicker
             value={form.address || ""}
-            onChange={(e) => set("address", e.target.value)}
+            onChange={({ address, latitude, longitude }) => {
+              setForm((cur) => ({ ...cur, address, latitude, longitude }));
+            }}
+            onTextChange={(text) => {
+              setForm((cur) => ({
+                ...cur,
+                address: text,
+                latitude: null,
+                longitude: null,
+              }));
+            }}
+            placeholder="123 Main St, Corvallis"
           />
           <label className="custedit__label">Notes</label>
           <textarea

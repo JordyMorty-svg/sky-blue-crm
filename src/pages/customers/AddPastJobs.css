@@ -97,6 +97,11 @@
   flex: 0 0 100px;
 }
 
+.pastrow__addr {
+  flex: 2;
+  min-width: 180px;
+}
+
 .pastrow__input:focus {
   outline: none;
   border-color: #2563eb;

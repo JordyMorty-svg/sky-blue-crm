@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createLead, TEMPERATURES } from "../services/leadService";
 import { useAuth } from "../context/AuthContext";
 import AppointmentPicker, { combineToISO } from "./AppointmentPicker";
+import AddressPicker from "./AddressPicker";
 import "./AddLeadModal.css";
 
 // What each stage requires. Every stage collects name/address/phone/notes;
@@ -16,6 +17,8 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
   const { user } = useAuth();
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [estimate, setEstimate] = useState("");
@@ -54,6 +57,8 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
           status: stage,
           name: name.trim(),
           address: address.trim(),
+          latitude,
+          longitude,
           phone: phone.trim(),
           email: email.trim() || null,
           // These columns are NOT NULL on the table, so give safe defaults.
@@ -98,10 +103,19 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
           />
 
           <label className="modal__label">Address</label>
-          <input
-            className="modal__input"
+          <AddressPicker
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
+            onChange={({ address, latitude, longitude }) => {
+              setAddress(address);
+              setLatitude(latitude);
+              setLongitude(longitude);
+            }}
+            onTextChange={(text) => {
+              setAddress(text);
+              // Typed freely (not selected) — clear stale coordinates.
+              setLatitude(null);
+              setLongitude(null);
+            }}
             placeholder="123 Main St, Corvallis"
           />
 

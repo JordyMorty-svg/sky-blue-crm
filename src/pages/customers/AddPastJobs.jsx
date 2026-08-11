@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { addPastJobs } from "../../services/customerService";
+import AddressPicker from "../../components/AddressPicker";
 import "./AddPastJobs.css";
 
 const METHODS = ["cash", "check", "card", "square"];
@@ -10,6 +11,8 @@ function emptyRow() {
     name: "",
     phone: "",
     address: "",
+    latitude: null,
+    longitude: null,
     date: "",
     amount: "",
     method: "cash",
@@ -89,12 +92,28 @@ export default function AddPastJobs() {
                 value={row.phone}
                 onChange={(e) => updateRow(i, "phone", e.target.value)}
               />
-              <input
-                className="pastrow__input pastrow__input--wide"
-                placeholder="Address"
-                value={row.address}
-                onChange={(e) => updateRow(i, "address", e.target.value)}
-              />
+              <div className="pastrow__addr">
+                <AddressPicker
+                  value={row.address}
+                  onChange={({ address, latitude, longitude }) => {
+                    setRows((cur) =>
+                      cur.map((r, idx) =>
+                        idx === i ? { ...r, address, latitude, longitude } : r
+                      )
+                    );
+                  }}
+                  onTextChange={(text) =>
+                    setRows((cur) =>
+                      cur.map((r, idx) =>
+                        idx === i
+                          ? { ...r, address: text, latitude: null, longitude: null }
+                          : r
+                      )
+                    )
+                  }
+                  placeholder="Address"
+                />
+              </div>
               <input
                 className="pastrow__input"
                 type="date"
