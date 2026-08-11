@@ -12,6 +12,7 @@ import CompleteJob from "./pages/schedule/CompleteJob";
 import Income from "./pages/income/Income";
 import Customers from "./pages/customers/Customers";
 import CustomerDetail from "./pages/customers/CustomerDetail";
+import AddPastJobs from "./pages/customers/AddPastJobs";
 import "./App.css";
 
 // Top navigation shell shown on every logged-in page.
@@ -96,6 +97,7 @@ export default function App() {
       <Route path="/schedule/complete/:jobId" element={<Page><CompleteJob /></Page>} />
       <Route path="/income" element={<Page><Income /></Page>} />
       <Route path="/customers" element={<Page><Customers /></Page>} />
+      <Route path="/customers/add-past" element={<Page><AddPastJobs /></Page>} />
       <Route path="/customers/:id" element={<Page><CustomerDetail /></Page>} />
       <Route path="/map" element={<Page><ComingSoon title="Map" /></Page>} />
 

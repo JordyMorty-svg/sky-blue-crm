@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fetchCustomer } from "../../services/customerService";
+import { fetchCustomer, updateCustomer } from "../../services/customerService";
 import "./Customers.css";
 
 function formatWhen(iso) {
@@ -22,7 +22,11 @@ export default function CustomerDetail() {
   const navigate = useNavigate();
   const [customer, setCustomer] = useState(null);
   const [jobs, setJobs] = useState([]);
+  const [leadNotes, setLeadNotes] = useState([]);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -33,9 +37,11 @@ export default function CustomerDetail() {
   async function load() {
     try {
       setLoading(true);
-      const { customer, jobs } = await fetchCustomer(id);
+      const { customer, jobs, leadNotes } = await fetchCustomer(id);
       setCustomer(customer);
+      setForm(customer);
       setJobs(jobs);
+      setLeadNotes(leadNotes);
       setError("");
     } catch (e) {
       console.error(e);
@@ -43,6 +49,41 @@ export default function CustomerDetail() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function set(field, value) {
+    setForm((cur) => ({ ...cur, [field]: value }));
+  }
+
+  async function handleSave() {
+    setError("");
+    if (!form.name?.trim()) {
+      setError("Name can't be empty.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateCustomer(id, {
+        name: form.name.trim(),
+        phone: form.phone?.trim() || null,
+        email: form.email?.trim() || null,
+        address: form.address?.trim() || null,
+        notes: form.notes?.trim() || null,
+      });
+      setCustomer(form);
+      setEditing(false);
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't save changes. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCancel() {
+    setForm(customer);
+    setEditing(false);
+    setError("");
   }
 
   if (loading) return <div className="customers__state">Loading…</div>;
@@ -58,13 +99,84 @@ export default function CustomerDetail() {
         ← Back to customers
       </button>
 
-      <h1 className="custdetail__name">{customer.name}</h1>
+      {error && <p className="customers__error">{error}</p>}
 
-      <div className="custdetail__info">
-        {customer.phone && <span>{customer.phone}</span>}
-        {customer.email && <span>{customer.email}</span>}
-        {customer.address && <span>{customer.address}</span>}
-      </div>
+      {editing ? (
+        <div className="custedit">
+          <label className="custedit__label">Name</label>
+          <input
+            className="custedit__input"
+            value={form.name || ""}
+            onChange={(e) => set("name", e.target.value)}
+          />
+          <label className="custedit__label">Phone</label>
+          <input
+            className="custedit__input"
+            value={form.phone || ""}
+            onChange={(e) => set("phone", e.target.value)}
+          />
+          <label className="custedit__label">Email</label>
+          <input
+            className="custedit__input"
+            type="email"
+            value={form.email || ""}
+            onChange={(e) => set("email", e.target.value)}
+          />
+          <label className="custedit__label">Address</label>
+          <input
+            className="custedit__input"
+            value={form.address || ""}
+            onChange={(e) => set("address", e.target.value)}
+          />
+          <label className="custedit__label">Notes</label>
+          <textarea
+            className="custedit__input custedit__textarea"
+            rows="4"
+            placeholder="Prefers morning appointments, gate code, has a dog…"
+            value={form.notes || ""}
+            onChange={(e) => set("notes", e.target.value)}
+          />
+          <div className="custedit__actions">
+            <button className="custedit__save" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button className="custedit__cancel" onClick={handleCancel}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="custdetail__namerow">
+            <h1 className="custdetail__name">{customer.name}</h1>
+            <button className="custdetail__edit" onClick={() => setEditing(true)}>
+              Edit
+            </button>
+          </div>
+
+          <div className="custdetail__info">
+            {customer.phone && <span>{customer.phone}</span>}
+            {customer.email && <span>{customer.email}</span>}
+            {customer.address && <span>{customer.address}</span>}
+          </div>
+
+          {customer.notes && (
+            <div className="custdetail__notes">
+              <span className="custdetail__notes-label">Notes</span>
+              <p className="custdetail__notes-text">{customer.notes}</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {leadNotes.length > 0 && (
+        <div className="custdetail__leadnotes">
+          <span className="custdetail__notes-label">From the original lead</span>
+          {leadNotes.map((ln) => (
+            <p key={ln.id} className="custdetail__notes-text">{ln.notes}</p>
+          ))}
+        </div>
+      )}
 
       <div className="custdetail__stats">
         <div className="custdetail__stat">

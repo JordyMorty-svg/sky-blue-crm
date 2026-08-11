@@ -45,6 +45,12 @@ export default function Customers() {
       <div className="customers__head">
         <h1 className="customers__title">Customers</h1>
         <span className="customers__count">{customers.length}</span>
+        <button
+          className="customers__addpast"
+          onClick={() => navigate("/customers/add-past")}
+        >
+          + Add past jobs
+        </button>
       </div>
 
       {error && <p className="customers__error">{error}</p>}
