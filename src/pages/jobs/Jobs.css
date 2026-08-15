@@ -98,7 +98,7 @@
   transition: all 0.15s ease;
 }
 
-.jobs__range:hover {
+.jobs__range:not(.jobs__range--active):hover {
   border-color: #2563eb;
   color: #2563eb;
 }
@@ -106,7 +106,13 @@
 .jobs__range--active {
   background: #2563eb;
   border-color: #2563eb;
-  color: #ffffff;
+  color: #ffffff !important;
+}
+
+.jobs__range--active:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff !important;
 }
 
 .jobs__title {
