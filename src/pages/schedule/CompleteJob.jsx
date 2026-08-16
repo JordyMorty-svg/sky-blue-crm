@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchJob, completeJob } from "../../services/jobService";
+import {
+  createSquareInvoice,
+  saveInvoiceOnJob,
+  sendReceipt,
+} from "../../services/invoiceService";
 import "./CompleteJob.css";
 
 const PAYMENT_METHODS = [
@@ -8,6 +13,7 @@ const PAYMENT_METHODS = [
   { key: "check", label: "Check" },
   { key: "card", label: "Card" },
   { key: "square", label: "Square" },
+  { key: "invoice", label: "Email invoice" },
 ];
 
 export default function CompleteJob() {
@@ -17,6 +23,7 @@ export default function CompleteJob() {
   const [job, setJob] = useState(null);
   const [finalPrice, setFinalPrice] = useState("");
   const [method, setMethod] = useState("");
+  const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,6 +41,8 @@ export default function CompleteJob() {
       setJob(data);
       // Default the amount to the quoted price — editable for upsells.
       setFinalPrice(data.price ?? "");
+      // Prefill email if we have one on file.
+      setEmail(data.customer?.email || data.lead?.email || "");
       setError("");
     } catch (e) {
       console.error(e);
@@ -53,18 +62,69 @@ export default function CompleteJob() {
       setError("Select a payment method.");
       return;
     }
+    if (method === "invoice" && !email.trim()) {
+      setError("An email address is needed to send the invoice.");
+      return;
+    }
 
     setSaving(true);
     try {
+      let invoice = null;
+
+      // Create the Square invoice FIRST — if it fails, we stop and the
+      // job stays incomplete rather than completing with no invoice sent.
+      if (method === "invoice") {
+        invoice = await createSquareInvoice({
+          customerName: job.lead?.name || job.customer?.name || "Customer",
+          customerEmail: email.trim(),
+          amount: Number(finalPrice),
+          description:
+            job.services ||
+            `Window cleaning — ${job.lead?.address || "service"}`,
+        });
+      }
+
       await completeJob(job, {
         finalPrice: Number(finalPrice),
         paymentMethod: method,
         paymentNotes: notes.trim() || null,
       });
+
+      // Record the invoice on the job (also marks paid=false until they pay).
+      if (invoice) {
+        await saveInvoiceOnJob(job.id, invoice);
+      }
+
+      // For paid methods, email a receipt if we have an address to send to.
+      // Receipt failure shouldn't undo a completed job — warn, don't block.
+      if (
+        (method === "cash" || method === "check" || method === "square") &&
+        email.trim()
+      ) {
+        try {
+          await sendReceipt({
+            customerName: job.lead?.name || job.customer?.name || "Customer",
+            customerEmail: email.trim(),
+            amount: Number(finalPrice),
+            method,
+            description:
+              job.services ||
+              `Window cleaning — ${job.lead?.address || "service"}`,
+            address: job.lead?.address || job.customer?.address || "",
+          });
+        } catch (receiptErr) {
+          console.error("Receipt failed (job still completed):", receiptErr);
+        }
+      }
+
       navigate("/schedule");
     } catch (e) {
       console.error(e);
-      setError("Couldn't complete the job. Try again.");
+      setError(
+        method === "invoice"
+          ? `Invoice problem: ${e.message}`
+          : "Couldn't complete the job. Try again."
+      );
       setSaving(false);
     }
   }
@@ -121,6 +181,42 @@ export default function CompleteJob() {
             </button>
           ))}
         </div>
+
+        {method === "invoice" && (
+          <>
+            <label className="complete__label">Customer email</label>
+            <input
+              className="complete__input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="customer@email.com"
+            />
+            <p className="complete__hint">
+              Square will email an invoice they can pay online by card. The
+              job records as completed but unpaid until they pay.
+            </p>
+          </>
+        )}
+
+        {(method === "cash" || method === "check" || method === "square") && (
+          <>
+            <label className="complete__label">
+              Customer email <span className="complete__optional">(optional — for receipt)</span>
+            </label>
+            <input
+              className="complete__input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="customer@email.com"
+            />
+            <p className="complete__hint">
+              If provided, we'll email a receipt confirming this payment.
+              Leave blank to skip.
+            </p>
+          </>
+        )}
 
         <label className="complete__label">Notes (optional)</label>
         <textarea
