@@ -2,6 +2,7 @@ import {
   PROPERTY_TYPES,
   SERVICE_PLANS,
   discountFor,
+  planFor,
 } from "../services/leadService";
 import "./PlanPicker.css";
 
@@ -18,8 +19,14 @@ export default function PlanPicker({
   onPropertyTypeChange,
   onPlanChange,
   basePrice,
+  // The plan the customer is already on, when this picker sits on a job
+  // screen. Job screens can only put someone onto a plan, never take them
+  // off one, so say so rather than letting the control imply otherwise.
+  currentPlan,
 }) {
   const base = Number(basePrice) || 0;
+  const onAPlan = currentPlan && currentPlan !== "one_time";
+  const wouldDowngrade = onAPlan && plan === "one_time";
 
   return (
     <div className="planpick">
@@ -70,6 +77,14 @@ export default function PlanPicker({
 
       {/* Spell out the money, because "the first one is full price" is the
           part people get wrong when quoting at the door. */}
+      {wouldDowngrade && (
+        <p className="planpick__notice">
+          This customer is on the {planFor(currentPlan).label} plan. Booking a
+          one-time job won't cancel it — change the plan on their profile if
+          that's what you want.
+        </p>
+      )}
+
       {plan !== "one_time" && base > 0 && (
         <p className="planpick__preview">
           First cleaning <strong>${base}</strong>, then{" "}

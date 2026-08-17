@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fetchJob, completeJob } from "../../services/jobService";
+import { fetchJob, completeJob, setJobPlan } from "../../services/jobService";
 import {
   createSquareInvoice,
   saveInvoiceOnJob,
@@ -11,7 +11,10 @@ import {
   saveCardOnCustomer,
   savePaymentOnJob,
 } from "../../services/paymentService";
-import { updateCustomer } from "../../services/customerService";
+import {
+  updateCustomer,
+  applyPlanFromJob,
+} from "../../services/customerService";
 import CardPaymentForm from "../../components/CardPaymentForm";
 import PlanPicker from "../../components/PlanPicker";
 import "./CompleteJob.css";
@@ -101,23 +104,29 @@ export default function CompleteJob() {
   async function finalize({ invoice = null, payment = null } = {}) {
     // Save the plan first: completeJob generates the next visit from the
     // customer's plan, so writing it afterwards would be a cycle too late.
-    if (job.customer_id) {
-      const planChanged =
-        servicePlan !== (job.customer?.service_plan || "one_time") ||
-        propertyType !== (job.customer?.property_type || "residential");
-      if (planChanged) {
-        try {
-          await updateCustomer(job.customer_id, {
-            service_plan: servicePlan,
-            property_type: propertyType,
-          });
-        } catch (planErr) {
-          console.error("Couldn't save the service plan:", planErr);
-        }
+    // Only a job that's on a plan generates the next visit, so if the plan
+    // was just set here the job has to carry it before completing. A copy
+    // rather than a mutation — `job` is state.
+    let jobToComplete = job;
+    try {
+      await applyPlanFromJob(
+        job.customer_id,
+        { servicePlan, propertyType },
+        job.customer
+      );
+      await setJobPlan(job.id, { servicePlan, propertyType });
+      if (servicePlan && servicePlan !== "one_time") {
+        jobToComplete = {
+          ...job,
+          service_plan: servicePlan,
+          property_type: propertyType,
+        };
       }
+    } catch (planErr) {
+      console.error("Couldn't save the service plan:", planErr);
     }
 
-    const { nextVisit } = await completeJob(job, {
+    const { nextVisit } = await completeJob(jobToComplete, {
       finalPrice: Number(finalPrice),
       paymentMethod: method,
       paymentNotes: notes.trim() || null,
@@ -441,6 +450,7 @@ export default function CompleteJob() {
               onPropertyTypeChange={setPropertyType}
               onPlanChange={setServicePlan}
               basePrice={finalPrice}
+              currentPlan={job.customer?.service_plan}
             />
           </>
         )}

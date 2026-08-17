@@ -112,6 +112,46 @@ export async function updateCustomer(id, changes) {
   if (error) throw error;
 }
 
+// Apply a plan chosen on a JOB screen to the customer record.
+//
+// Job screens can only ever put someone ONTO a plan, never take them off
+// it. Booking a one-off extra clean for a BiAnnual customer must not
+// cancel their plan — and because every job screen reads the plan from the
+// customer, a stray downgrade would appear to change all their jobs at
+// once. Cancelling is a deliberate act and lives on the customer profile.
+//
+// Property type is different: it's a fact about the building, not a
+// commitment, so a correction either way is applied.
+//
+// Returns true if anything was written.
+export async function applyPlanFromJob(
+  customerId,
+  { servicePlan, propertyType },
+  currentCustomer
+) {
+  if (!customerId) return false;
+
+  const currentPlan = currentCustomer?.service_plan || "one_time";
+  const currentType = currentCustomer?.property_type || "residential";
+  const changes = {};
+
+  // Upgrades and switches between recurring plans only.
+  if (servicePlan && servicePlan !== "one_time" && servicePlan !== currentPlan) {
+    changes.service_plan = servicePlan;
+  }
+  if (propertyType && propertyType !== currentType) {
+    changes.property_type = propertyType;
+  }
+  if (Object.keys(changes).length === 0) return false;
+
+  const { error } = await supabase
+    .from("customers")
+    .update(changes)
+    .eq("id", customerId);
+  if (error) throw error;
+  return true;
+}
+
 // Delete a customer.
 //
 // Refuses by default when they have jobs, because those carry final_price

@@ -10,6 +10,7 @@ import { useAuth } from "../../context/useAuth";
 import { fetchMyJobs } from "../../services/jobService";
 import { fetchCalendarJobs } from "../../services/calendarService";
 import EventEditor from "./EventEditor";
+import JobPlanTag from "../../components/JobPlanTag";
 import ViewSwitcher from "../../components/ViewSwitcher";
 import { SCHEDULE_VIEWS } from "../../components/navViews";
 import "./Schedule.css";
@@ -200,6 +201,9 @@ export default function Schedule() {
                     {job.notes && <div className="schedjob__notes">{job.notes}</div>}
                     <div className="schedjob__crew">
                       {job.assignments?.map((a) => a.tech?.full_name).filter(Boolean).join(", ")}
+                    </div>
+                    <div className="schedjob__tags">
+                      <JobPlanTag job={job} />
                     </div>
                   </div>
                   <div className="schedjob__actions">

@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fetchCustomer, updateCustomer } from "../../services/customerService";
+import {
+  fetchCustomer,
+  applyPlanFromJob,
+} from "../../services/customerService";
 import { fetchTechs, scheduleJobForCustomer } from "../../services/jobService";
 import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO } from "../../components/appointmentUtils";
@@ -82,17 +85,9 @@ export default function ScheduleForCustomer() {
 
     setSaving(true);
     try {
-      // Keep the customer's plan in step with what was just chosen, so the
-      // recurrence created on completion uses the right interval.
-      if (
-        servicePlan !== (customer.service_plan || "one_time") ||
-        propertyType !== (customer.property_type || "residential")
-      ) {
-        await updateCustomer(id, {
-          service_plan: servicePlan,
-          property_type: propertyType,
-        });
-      }
+      // Only ever an upgrade — booking a one-off for a plan customer must
+      // not cancel their plan.
+      await applyPlanFromJob(id, { servicePlan, propertyType }, customer);
 
       await scheduleJobForCustomer({
         customer,
@@ -180,6 +175,7 @@ export default function ScheduleForCustomer() {
             onPropertyTypeChange={setPropertyType}
             onPlanChange={setServicePlan}
             basePrice={price}
+            currentPlan={customer.service_plan}
           />
         </div>
 

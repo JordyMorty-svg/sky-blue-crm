@@ -11,6 +11,7 @@ import {
 } from "../../services/jobService";
 import TechPicker from "../../components/TechPicker";
 import ViewSwitcher from "../../components/ViewSwitcher";
+import JobPlanTag from "../../components/JobPlanTag";
 import { JOB_VIEWS } from "../../components/navViews";
 import "./Jobs.css";
 
@@ -273,6 +274,9 @@ export default function Jobs() {
                     <span className="jobrow__when">{formatWhen(job.starts_at)}</span>
                     <span className="jobrow__techs">
                       {job.assignments?.map((a) => a.tech?.full_name).filter(Boolean).join(", ") || "Unassigned"}
+                    </span>
+                    <span className="jobrow__tags">
+                      <JobPlanTag job={job} />
                     </span>
                   </div>
                 </div>

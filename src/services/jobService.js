@@ -216,6 +216,18 @@ export async function deleteJob(jobId) {
   if (error) throw error;
 }
 
+// Mark a job as belonging to a plan. Called when someone is put onto a
+// plan from a job screen: that job becomes their first plan visit, so it's
+// the one the next visit is counted from.
+export async function setJobPlan(jobId, { servicePlan, propertyType }) {
+  if (!jobId || !servicePlan || servicePlan === "one_time") return;
+  const changes = { service_plan: servicePlan };
+  if (propertyType) changes.property_type = propertyType;
+
+  const { error } = await supabase.from("jobs").update(changes).eq("id", jobId);
+  if (error) throw error;
+}
+
 // Update a job's editable fields.
 export async function updateJob(id, changes) {
   const { error } = await supabase.from("jobs").update(changes).eq("id", id);
@@ -292,12 +304,29 @@ export async function createNextVisit(job) {
     .single();
   if (custErr) throw custErr;
 
-  const plan = customer?.service_plan || job.service_plan || "one_time";
+  // A job stamped one_time is an extra — a touch-up, a mid-cycle callout.
+  // It gets done and paid for, but it must not move the recurring clock:
+  // otherwise a touch-up two months into a six-month cycle would push the
+  // next plan visit out to month eight. Only plan jobs continue the cycle.
+  //
+  // Every screen that puts someone on a plan stamps the job as well, so a
+  // job booked before they signed up still counts once you set the plan
+  // from that job.
+  const jobPlan = job.service_plan || "one_time";
+  if (jobPlan === "one_time") return null;
+
+  // Interval and discount come from the customer, which is the current
+  // truth — they may have moved from BiAnnual to Quarterly since booking.
+  // The job's own plan is the fallback for rows predating that.
+  const plan =
+    customer?.service_plan && customer.service_plan !== "one_time"
+      ? customer.service_plan
+      : jobPlan;
   const propertyType =
     customer?.property_type || job.property_type || "residential";
 
   const startsAt = nextVisitDate(job.starts_at, plan);
-  if (!startsAt) return null; // one-time — no next visit
+  if (!startsAt) return null;
 
   const visitNumber = (job.visit_number || 1) + 1;
   const price = priceForVisit(job.price, plan, visitNumber, propertyType);

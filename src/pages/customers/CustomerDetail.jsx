@@ -14,6 +14,7 @@ import {
   priceForVisit,
 } from "../../services/leadService";
 import AddressPicker from "../../components/AddressPicker";
+import JobPlanTag from "../../components/JobPlanTag";
 import "./Customers.css";
 
 function formatWhen(iso) {
@@ -397,6 +398,7 @@ export default function CustomerDetail() {
                       <span className="custjob__meta">
                         {job.services} · {job.duration_hours}h
                       </span>
+                      <JobPlanTag job={job} />
                       <span className="custjob__crew">
                         {job.assignments?.map((a) => a.tech?.full_name).filter(Boolean).join(", ")}
                       </span>
@@ -424,6 +426,7 @@ export default function CustomerDetail() {
                     <span className="custjob__meta">
                       {job.services} · {job.duration_hours}h
                     </span>
+                    <JobPlanTag job={job} />
                     <span className="custjob__crew">
                       {job.assignments?.map((a) => a.tech?.full_name).filter(Boolean).join(", ")}
                     </span>

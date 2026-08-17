@@ -6,8 +6,9 @@ import {
   updateJobTechs,
   fetchTechs,
   deleteJob,
+  setJobPlan,
 } from "../../services/jobService";
-import { updateCustomer } from "../../services/customerService";
+import { applyPlanFromJob } from "../../services/customerService";
 import PlanPicker from "../../components/PlanPicker";
 import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
@@ -107,19 +108,16 @@ export default function JobDetail() {
       });
       await updateJobTechs(id, originalTechs, selectedTechs);
 
-      // Putting someone onto a plan mid-job is the common case. Write it to
-      // the customer, since that's what createNextVisit reads on completion.
-      if (job.customer_id) {
-        const planChanged =
-          servicePlan !== (job.customer?.service_plan || "one_time") ||
-          propertyType !== (job.customer?.property_type || "residential");
-        if (planChanged) {
-          await updateCustomer(job.customer_id, {
-            service_plan: servicePlan,
-            property_type: propertyType,
-          });
-        }
-      }
+      // Putting someone onto a plan mid-job is the common case. Upgrades
+      // only — see applyPlanFromJob.
+      await applyPlanFromJob(
+        job.customer_id,
+        { servicePlan, propertyType },
+        job.customer
+      );
+      // Stamp the job too, so it counts as the first plan visit and the
+      // next one is generated from it.
+      await setJobPlan(id, { servicePlan, propertyType });
 
       navigate(returnTo);
     } catch (e) {
@@ -207,6 +205,7 @@ export default function JobDetail() {
               onPropertyTypeChange={setPropertyType}
               onPlanChange={setServicePlan}
               basePrice={price}
+              currentPlan={job.customer?.service_plan}
             />
           </>
         )}

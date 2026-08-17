@@ -683,3 +683,9 @@
 .custdetail__nextvisit--estimate .custdetail__nextvisit-note {
   color: #64748b;
 }
+
+/* Give the plan tag a little air inside a job history row. */
+.custjob__main .plantag {
+  margin-top: 5px;
+  align-self: flex-start;
+}

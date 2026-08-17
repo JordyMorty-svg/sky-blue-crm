@@ -460,19 +460,27 @@
 .schedule__calendar .rbc-off-range-bg {
   background: #f8fafc;
 }
-/* Complete + edit sit together on a scheduled job row. */
+/* Plan tag under the crew line on a scheduled job. */
+.schedjob__tags {
+  margin-top: 6px;
+}
+
+/* Complete + Edit stack on the right of a scheduled job row. Stacked
+   rather than side by side so the row height stays predictable and the
+   green primary action keeps its weight. */
 .schedjob__actions {
   display: flex;
   flex-direction: column;
   gap: 8px;
   align-items: stretch;
+  flex-shrink: 0;
 }
 
 .schedjob__edit {
-  background: none;
+  background: #ffffff;
   border: 1px solid #e2e8f0;
   color: #475569;
-  padding: 8px 14px;
+  padding: 8px 16px;
   border-radius: 999px;
   font-weight: 600;
   font-size: 0.82rem;
@@ -483,4 +491,17 @@
 .schedjob__edit:hover {
   border-color: #2563eb;
   color: #2563eb;
+}
+
+/* Confirmation shown after a recurring job completes and the next one is
+   booked — arrives via route state from the complete-job screen. */
+.schedule__nextvisit {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #14532d;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin-bottom: 16px;
 }
