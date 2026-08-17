@@ -6,10 +6,8 @@ import {
   updateJobTechs,
   fetchTechs,
 } from "../../services/jobService";
-import AppointmentPicker, {
-  combineToISO,
-  splitFromISO,
-} from "../../components/AppointmentPicker";
+import AppointmentPicker from "../../components/AppointmentPicker";
+import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import TechPicker from "../../components/TechPicker";
 import "./JobDetail.css";
 
@@ -30,14 +28,8 @@ export default function JobDetail() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
   async function load() {
     try {
-      setLoading(true);
       const [jobData, techData] = await Promise.all([fetchJob(id), fetchTechs()]);
       setJob(jobData);
       setTechs(techData);
@@ -61,11 +53,15 @@ export default function JobDetail() {
     }
   }
 
-  function toggleTech(techId) {
-    setSelectedTechs((cur) =>
-      cur.includes(techId) ? cur.filter((t) => t !== techId) : [...cur, techId]
-    );
-  }
+  useEffect(() => {
+    // Started inside the effect rather than called directly, so its
+    // state updates land after the await instead of synchronously
+    // during the effect (react-hooks/set-state-in-effect).
+    void (async () => {
+      await load();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   async function handleSave() {
     setError("");

@@ -9,10 +9,8 @@ import {
   LEADS_SETTABLE_STATUSES,
   TEMPERATURES,
 } from "../../services/leadService";
-import AppointmentPicker, {
-  combineToISO,
-  splitFromISO,
-} from "../../components/AppointmentPicker";
+import AppointmentPicker from "../../components/AppointmentPicker";
+import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import "./LeadDetail.css";
 
 export default function LeadDetail() {
@@ -28,14 +26,8 @@ export default function LeadDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [events, setEvents] = useState([]);
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
   async function load() {
     try {
-      setLoading(true);
       const lead = await fetchLead(id);
       setForm(lead);
       // History is nice-to-have — a failure here shouldn't stop the page
@@ -57,6 +49,16 @@ export default function LeadDetail() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    // Started inside the effect rather than called directly, so its
+    // state updates land after the await instead of synchronously
+    // during the effect (react-hooks/set-state-in-effect).
+    void (async () => {
+      await load();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));

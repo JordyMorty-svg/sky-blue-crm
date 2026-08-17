@@ -33,10 +33,49 @@ async function square(path, method, body) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const detail = data?.errors?.[0]?.detail || res.statusText;
-    throw new Error(`Square ${path}: ${detail}`);
+    const first = data?.errors?.[0] || {};
+    const err = new Error(`Square ${path}: ${first.detail || res.statusText}`);
+    // Keep the machine-readable code so the handler can turn it into
+    // something a customer standing at the door can act on.
+    err.squareCode = first.code;
+    throw err;
   }
   return data;
+}
+
+// Square's own messages are written for developers — "Authorization error:
+// 'GENERIC_DECLINE'" is not something to show someone whose card just
+// failed. These say what happened and what to do next.
+const DECLINE_MESSAGES = {
+  GENERIC_DECLINE:
+    "The card was declined. Try another card, or take cash or a check.",
+  CVV_FAILURE:
+    "The security code didn't match. Check the 3 digits on the back and try again.",
+  ADDRESS_VERIFICATION_FAILURE:
+    "The billing ZIP code didn't match the card. Check it and try again.",
+  INVALID_POSTAL_CODE:
+    "That ZIP code isn't valid for this card. Check it and try again.",
+  EXPIRATION_FAILURE:
+    "That expiry date doesn't look right. Check it and try again.",
+  CARD_EXPIRED: "That card has expired. Try another card.",
+  INSUFFICIENT_FUNDS:
+    "The card was declined for insufficient funds. Try another card.",
+  PAN_FAILURE: "That card number isn't valid. Check it and try again.",
+  CARD_DECLINED_VERIFICATION_REQUIRED:
+    "The bank wants to verify this payment. Try another card, or take cash or a check.",
+  CARD_NOT_SUPPORTED: "That card type isn't supported. Try another card.",
+  INVALID_CARD: "Those card details aren't valid. Check them and try again.",
+  TRANSACTION_LIMIT:
+    "That amount is over the card's limit. Try another card, or split the payment.",
+  CARD_TOKEN_USED:
+    "That card was already submitted. Re-enter the card and try again.",
+};
+
+function friendlyMessage(err) {
+  return (
+    DECLINE_MESSAGES[err.squareCode] ||
+    "The card couldn't be charged. Try another card, or take cash or a check."
+  );
 }
 
 // Verify the request comes from a logged-in CRM user by checking their
@@ -186,8 +225,18 @@ export default async (req) => {
       cardSaveFailed: saveCard && !!sourceId && !card,
     });
   } catch (err) {
+    // Full detail to the function log, plain language to the field.
     console.error(err);
-    return Response.json({ error: err.message }, { status: 500 });
+    const declined = Boolean(err.squareCode);
+    return Response.json(
+      {
+        error: friendlyMessage(err),
+        code: err.squareCode || null,
+        detail: err.message,
+      },
+      // A declined card is a normal outcome, not a server fault.
+      { status: declined ? 402 : 500 }
+    );
   }
 };
 

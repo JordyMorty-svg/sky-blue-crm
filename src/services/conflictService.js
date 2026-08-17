@@ -52,10 +52,6 @@ export function findConflicts(proposedStart, proposedEnd, techIds, existingJobs)
     const jEnd = new Date(jStart.getTime() + (job.duration_hours || 3) * 3600000);
     if (!windowsOverlap(proposedStart, proposedEnd, jStart, jEnd)) continue;
 
-    // Which of the proposed techs are on this overlapping job?
-    const jobTechIds = (job.assignments || [])
-      .map((a) => a.tech?.id)
-      .filter(Boolean);
     const clashingTechs = (job.assignments || []).filter(
       (a) => a.tech?.id && techIds.includes(a.tech.id)
     );

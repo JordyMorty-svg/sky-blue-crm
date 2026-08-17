@@ -126,10 +126,16 @@ export default function CardPaymentForm({
       const result = await cardRef.current.tokenize(verificationDetails);
 
       if (result.status !== "OK") {
-        const detail =
+        // Square marks the offending field inside its own iframe, so
+        // repeating the same complaint underneath just doubles the noise.
+        // Only speak up when Square hasn't.
+        const fieldErrors = (result.errors || []).filter((e) => e.field);
+        if (fieldErrors.length > 0) return;
+
+        throw new Error(
           result.errors?.map((e) => e.message).join(" ") ||
-          "That card was declined. Try another.";
-        throw new Error(detail);
+            "That card couldn't be read. Check the details and try again."
+        );
       }
 
       // Buyer verification is handled inside tokenize() now — the old

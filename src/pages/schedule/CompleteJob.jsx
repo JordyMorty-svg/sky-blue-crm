@@ -43,14 +43,8 @@ export default function CompleteJob() {
   // Set when the customer has a card on file but we want a different one.
   const [useNewCard, setUseNewCard] = useState(false);
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId]);
-
   async function load() {
     try {
-      setLoading(true);
       const data = await fetchJob(jobId);
       setJob(data);
       // Default the amount to the quoted price — editable for upsells.
@@ -65,6 +59,13 @@ export default function CompleteJob() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    void (async () => {
+      await load();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId]);
 
   const customerName =
     job?.lead?.name || job?.customer?.name || "Customer";

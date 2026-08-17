@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, NavLink, useLocation } from "react-router-dom";
-import { useAuth } from "./context/AuthContext";
+import { useAuth } from "./context/useAuth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/login/Login";
 import Leads from "./pages/leads/Leads";
@@ -90,15 +90,6 @@ function Shell({ children }) {
       </header>
 
       <main className="shell__main">{children}</main>
-    </div>
-  );
-}
-
-function ComingSoon({ title }) {
-  return (
-    <div className="coming-soon">
-      <h2>{title}</h2>
-      <p>Coming soon.</p>
     </div>
   );
 }

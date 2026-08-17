@@ -1,5 +1,5 @@
 import { Navigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 // Wrap any page that should require a login. If nobody's signed in,
 // it bounces to /login instead of rendering the page.

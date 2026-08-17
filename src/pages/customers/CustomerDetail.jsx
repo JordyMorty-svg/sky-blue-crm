@@ -30,14 +30,8 @@ export default function CustomerDetail() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
   async function load() {
     try {
-      setLoading(true);
       const { customer, jobs, leadNotes } = await fetchCustomer(id);
       setCustomer(customer);
       setForm(customer);
@@ -51,6 +45,16 @@ export default function CustomerDetail() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    // Started inside the effect rather than called directly, so its
+    // state updates land after the await instead of synchronously
+    // during the effect (react-hooks/set-state-in-effect).
+    void (async () => {
+      await load();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   function set(field, value) {
     setForm((cur) => ({ ...cur, [field]: value }));

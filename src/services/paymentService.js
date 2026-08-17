@@ -43,6 +43,11 @@ export async function chargeCard({
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    // data.error is already written for the customer; data.detail and
+    // data.code are the developer view, logged rather than displayed.
+    if (data.detail || data.code) {
+      console.error("Square declined:", data.code, data.detail);
+    }
     throw new Error(data.error || "The card couldn't be charged.");
   }
   return data; // { paymentId, status, receiptUrl, squareCustomerId, card, cardSaveFailed }

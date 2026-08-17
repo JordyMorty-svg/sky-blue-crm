@@ -11,13 +11,8 @@ export default function Customers() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    load();
-  }, []);
-
   async function load() {
     try {
-      setLoading(true);
       const data = await fetchCustomers();
       setCustomers(data);
       setError("");
@@ -28,6 +23,15 @@ export default function Customers() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    // Started inside the effect rather than called directly, so its
+    // state updates land after the await instead of synchronously
+    // during the effect (react-hooks/set-state-in-effect).
+    void (async () => {
+      await load();
+    })();
+  }, []);
 
   if (loading) return <div className="customers__state">Loading…</div>;
 

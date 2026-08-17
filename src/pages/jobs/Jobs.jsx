@@ -85,13 +85,8 @@ export default function Jobs() {
   const [customEnd, setCustomEnd] = useState(null);
   const [techFilter, setTechFilter] = useState([]); // tech ids; empty = all
 
-  useEffect(() => {
-    load();
-  }, []);
-
   async function load() {
     try {
-      setLoading(true);
       const [b, j, t] = await Promise.all([
         fetchBookedLeads(),
         fetchScheduledJobs(),
@@ -108,6 +103,15 @@ export default function Jobs() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    // Started inside the effect rather than called directly, so its
+    // state updates land after the await instead of synchronously
+    // during the effect (react-hooks/set-state-in-effect).
+    void (async () => {
+      await load();
+    })();
+  }, []);
 
   if (loading) return <div className="jobs__state">Loading…</div>;
 

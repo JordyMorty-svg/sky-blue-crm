@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { createLead, TEMPERATURES } from "../../services/leadService";
-import { useAuth } from "../../context/AuthContext";
-import AppointmentPicker, { combineToISO } from "../../components/AppointmentPicker";
+import { useAuth } from "../../context/useAuth";
+import AppointmentPicker from "../../components/AppointmentPicker";
+import { combineToISO } from "../../components/appointmentUtils";
 import "../../components/AddLeadModal.css";
 
 // Create a lead from a location clicked on the map. Address + coordinates

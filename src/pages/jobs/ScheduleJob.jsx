@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchLeadById, fetchTechs, scheduleJob } from "../../services/jobService";
-import AppointmentPicker, {
-  combineToISO,
-  splitFromISO,
-} from "../../components/AppointmentPicker";
+import AppointmentPicker from "../../components/AppointmentPicker";
+import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import TechPicker from "../../components/TechPicker";
 import DayPreview from "./DayPreview";
 import "./ScheduleJob.css";
@@ -25,14 +23,8 @@ export default function ScheduleJob() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadId]);
-
   async function load() {
     try {
-      setLoading(true);
       const [leadData, techData] = await Promise.all([
         fetchLeadById(leadId),
         fetchTechs(),
@@ -51,11 +43,15 @@ export default function ScheduleJob() {
     }
   }
 
-  function toggleTech(id) {
-    setSelectedTechs((cur) =>
-      cur.includes(id) ? cur.filter((t) => t !== id) : [...cur, id]
-    );
-  }
+  useEffect(() => {
+    // Started inside the effect rather than called directly, so its
+    // state updates land after the await instead of synchronously
+    // during the effect (react-hooks/set-state-in-effect).
+    void (async () => {
+      await load();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leadId]);
 
   async function handleSubmit(e) {
     e.preventDefault();

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Map, InfoWindow, useMap, useMapsLibrary, MapControl, ControlPosition } from "@vis.gl/react-google-maps";
 import { Circle } from "./Circle.jsx";
@@ -6,6 +6,11 @@ import UserLocation from "./UserLocation";
 import { fetchMapLeads, fetchMapCustomers } from "../../services/mapService";
 import MapAddLeadModal from "./MapAddLeadModal";
 import "./MapView.css";
+
+// Evaluated once at module load — geolocation support never changes at
+// runtime, so there's no reason to re-check it inside a render or effect.
+const GEO_SUPPORTED =
+  typeof navigator !== "undefined" && "geolocation" in navigator;
 
 const DEFAULT_CENTER = { lat: 44.5646, lng: -123.262 };
 
@@ -59,11 +64,12 @@ function customerStatus(customer) {
 function ClickToAdd({ active, onPicked }) {
   const map = useMap();
   const geocodingLib = useMapsLibrary("geocoding");
-  const [geocoder, setGeocoder] = useState(null);
-
-  useEffect(() => {
-    if (geocodingLib) setGeocoder(new geocodingLib.Geocoder());
-  }, [geocodingLib]);
+  // Derived from the library, not independent state — a useState/useEffect
+  // pair here just causes an extra render for a value we can compute.
+  const geocoder = useMemo(
+    () => (geocodingLib ? new geocodingLib.Geocoder() : null),
+    [geocodingLib]
+  );
 
   useEffect(() => {
     if (!map || !active) return;
@@ -184,14 +190,13 @@ export default function MapView() {
     );
   }
 
-  // Live tracking — watch position as the user moves.
+  // Live tracking — watch position as the user moves. Support is checked
+  // in toggleTracking rather than here: setting state synchronously inside
+  // an effect triggers a second render pass, and the check doesn't need to
+  // wait for the effect anyway.
   useEffect(() => {
-    if (!tracking) return;
-    if (!navigator.geolocation) {
-      setError("Location isn't available on this device/browser.");
-      setTracking(false);
-      return;
-    }
+    if (!tracking || !GEO_SUPPORTED) return;
+
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         setError("");
@@ -214,6 +219,10 @@ export default function MapView() {
   }, [tracking]);
 
   function toggleTracking() {
+    if (!tracking && !GEO_SUPPORTED) {
+      setError("Location isn't available on this device/browser.");
+      return;
+    }
     setTracking((t) => {
       const next = !t;
       if (next) setRecenterSignal((n) => n + 1); // center when turning on

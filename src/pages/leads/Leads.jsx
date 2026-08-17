@@ -35,18 +35,8 @@ export default function Leads() {
   const [staleOnly, setStaleOnly] = useState(false);
   const [archiving, setArchiving] = useState(false);
 
-  useEffect(() => {
-    loadLeads();
-  }, []);
-
-  // Persist collapse state whenever it changes.
-  useEffect(() => {
-    localStorage.setItem("leadsCollapsed", JSON.stringify(collapsed));
-  }, [collapsed]);
-
   async function loadLeads() {
     try {
-      setLoading(true);
       const data = await fetchActiveLeads();
       setLeads(data);
       setError("");
@@ -57,6 +47,20 @@ export default function Leads() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    // Started inside the effect rather than called directly, so its
+    // state updates land after the await instead of synchronously
+    // during the effect (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadLeads();
+    })();
+  }, []);
+
+  // Persist collapse state whenever it changes.
+  useEffect(() => {
+    localStorage.setItem("leadsCollapsed", JSON.stringify(collapsed));
+  }, [collapsed]);
 
   function toggleCollapse(stageKey) {
     setCollapsed((cur) => ({ ...cur, [stageKey]: !cur[stageKey] }));

@@ -84,13 +84,8 @@ export default function Income() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    load();
-  }, []);
-
   async function load() {
     try {
-      setLoading(true);
       const data = await fetchCompletedJobs();
       setJobs(data);
       setError("");
@@ -101,6 +96,15 @@ export default function Income() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    // Started inside the effect rather than called directly, so its
+    // state updates land after the await instead of synchronously
+    // during the effect (react-hooks/set-state-in-effect).
+    void (async () => {
+      await load();
+    })();
+  }, []);
 
   if (loading) return <div className="income__state">Loading…</div>;
 
