@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   fetchJob,
   updateJob,
@@ -17,6 +17,15 @@ import "./JobDetail.css";
 export default function JobDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  // Where to return to. Set by whoever linked here; the Jobs board is the
+  // default because that's where most job links come from.
+  const { state } = useLocation();
+  const returnTo = state?.from || "/jobs";
+  const returnLabel = returnTo.startsWith("/customers")
+    ? "← Back to customer"
+    : returnTo.startsWith("/schedule")
+      ? "← Back to schedule"
+      : "← Back to jobs";
 
   const [job, setJob] = useState(null);
   const [techs, setTechs] = useState([]);
@@ -112,7 +121,7 @@ export default function JobDetail() {
         }
       }
 
-      navigate("/jobs");
+      navigate(returnTo);
     } catch (e) {
       console.error(e);
       setError("Couldn't save. Try again.");
@@ -125,7 +134,7 @@ export default function JobDetail() {
     setError("");
     try {
       await deleteJob(id);
-      navigate("/jobs");
+      navigate(returnTo);
     } catch (e) {
       console.error(e);
       setError("Couldn't delete this job. Try again.");
@@ -139,8 +148,8 @@ export default function JobDetail() {
 
   return (
     <div className="jobDetail">
-      <button className="jobDetail__back" onClick={() => navigate("/jobs")}>
-        ← Back to jobs
+      <button className="jobDetail__back" onClick={() => navigate(returnTo)}>
+        {returnLabel}
       </button>
 
       <h1 className="jobDetail__title">
@@ -215,7 +224,7 @@ export default function JobDetail() {
           <button className="jobDetail__save" onClick={handleSave} disabled={saving}>
             {saving ? "Saving…" : "Save changes"}
           </button>
-          <button className="jobDetail__cancel" onClick={() => navigate("/jobs")}>
+          <button className="jobDetail__cancel" onClick={() => navigate(returnTo)}>
             Cancel
           </button>
         </div>

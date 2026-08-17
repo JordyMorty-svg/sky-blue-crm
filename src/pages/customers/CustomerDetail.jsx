@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fetchCustomer, updateCustomer } from "../../services/customerService";
+import {
+  fetchCustomer,
+  updateCustomer,
+  deleteCustomer,
+} from "../../services/customerService";
 import { fetchNextVisit, RECURRING_LEAD_TIME_DAYS } from "../../services/jobService";
 import {
   PROPERTY_TYPES,
   SERVICE_PLANS,
   planFor,
+  nextVisitDate,
+  priceForVisit,
 } from "../../services/leadService";
 import AddressPicker from "../../components/AddressPicker";
 import "./Customers.css";
@@ -47,6 +53,10 @@ export default function CustomerDetail() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [nextVisit, setNextVisit] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [forceDelete, setForceDelete] = useState(false);
+  const [forceText, setForceText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   async function load() {
     try {
@@ -114,12 +124,65 @@ export default function CustomerDetail() {
     setError("");
   }
 
+  async function handleDelete() {
+    setDeleting(true);
+    setError("");
+    try {
+      const { deleted, jobCount } = await deleteCustomer(id, {
+        force: forceUnlocked,
+      });
+      if (!deleted) {
+        setError(
+          `This customer has ${jobCount} job${jobCount === 1 ? "" : "s"} on record. ` +
+            "Tick the box below to delete those too."
+        );
+        setDeleting(false);
+        return;
+      }
+      navigate("/customers");
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't delete this customer. Try again.");
+      setDeleting(false);
+    }
+  }
+
   if (loading) return <div className="customers__state">Loading…</div>;
   if (!customer) return <div className="customers__state">{error || "Not found."}</div>;
+
+  // Force is armed only when the box is ticked AND the word is typed.
+  const forceUnlocked = forceDelete && forceText.trim() === "DELETE";
+  const jobCount = jobs.length;
 
   const plan = planFor(customer.service_plan);
   const isRecurring = (customer.service_plan || "one_time") !== "one_time";
   const propertyType = customer.property_type || "residential";
+
+  // Until the current job is finished there's no real due date — the clock
+  // starts when the work actually happens. Project from the booked job so a
+  // plan isn't invisible for three months. Display only: nothing is
+  // written, and the real due date replaces it on completion.
+  const lastScheduled = jobs.find((j) => j.status === "scheduled");
+  // Same precedence createNextVisit uses, so what's shown matches what will
+  // actually be created: the customer's plan is current truth, the job's
+  // plan is the fallback for records booked before it was set.
+  const effectivePlan =
+    customer.service_plan && customer.service_plan !== "one_time"
+      ? customer.service_plan
+      : lastScheduled?.service_plan || customer.service_plan || "one_time";
+  const projectedVisit =
+    !nextVisit && effectivePlan !== "one_time" && lastScheduled?.starts_at
+      ? {
+          startsAt: nextVisitDate(lastScheduled.starts_at, effectivePlan),
+          price: priceForVisit(
+            lastScheduled.final_price ?? lastScheduled.price,
+            effectivePlan,
+            (lastScheduled.visit_number || 1) + 1,
+            propertyType
+          ),
+          after: lastScheduled.starts_at,
+        }
+      : null;
 
   const totalPaid = jobs
     .filter((j) => j.status === "completed")
@@ -274,6 +337,23 @@ export default function CustomerDetail() {
         </div>
       </div>
 
+      {projectedVisit?.startsAt && (
+        <div className="custdetail__nextvisit custdetail__nextvisit--estimate">
+          <span className="custdetail__nextvisit-label">
+            Next visit expected
+          </span>
+          <strong className="custdetail__nextvisit-date">
+            around {formatDue(projectedVisit.startsAt)}
+          </strong>
+          <span className="custdetail__nextvisit-note">
+            Estimated at ${projectedVisit.price}, counting{" "}
+            {planFor(effectivePlan).months} months from the job booked for{" "}
+            {formatDue(projectedVisit.after)}. The real due date is set when
+            that job is marked complete.
+          </span>
+        </div>
+      )}
+
       {nextVisit && (
         <div className="custdetail__nextvisit">
           <span className="custdetail__nextvisit-label">Next visit due</span>
@@ -302,7 +382,13 @@ export default function CustomerDetail() {
                   <div
                     className="custjob custjob--upcoming custjob--clickable"
                     key={job.id}
-                    onClick={() => navigate(`/jobs/${job.id}`)}
+                    onClick={() =>
+                      // Hand the editor a return path so Save/Cancel come
+                      // back here rather than dumping you on the Jobs board.
+                      navigate(`/jobs/${job.id}`, {
+                        state: { from: `/customers/${id}` },
+                      })
+                    }
                     role="button"
                     tabIndex={0}
                   >
@@ -355,6 +441,92 @@ export default function CustomerDetail() {
           </div>
         </>
       )}
+
+      <div className="custdetail__danger">
+        {confirmDelete ? (
+          <>
+            <p className="custdetail__dangertext">
+              Delete <strong>{customer.name}</strong> permanently?
+              {jobCount > 0
+                ? ` They have ${jobCount} job${jobCount === 1 ? "" : "s"} on record — deleting removes that revenue history from your Income totals.`
+                : " They have no jobs on record."}
+            </p>
+
+            {jobCount > 0 && (
+              <label className="custdetail__forcecheck">
+                <input
+                  type="checkbox"
+                  checked={forceDelete}
+                  onChange={(e) => {
+                    setForceDelete(e.target.checked);
+                    if (!e.target.checked) setForceText("");
+                  }}
+                  disabled={deleting}
+                />
+                <span>
+                  Delete their {jobCount} job{jobCount === 1 ? "" : "s"} too
+                  <em className="custdetail__forcehint">
+                    For clearing test data. Payments already taken stay in
+                    Square — this only removes the CRM's record.
+                  </em>
+                </span>
+              </label>
+            )}
+
+            {jobCount > 0 && forceDelete && (
+              <>
+                <label className="custdetail__forcelabel">
+                  Type <strong>DELETE</strong> to confirm
+                </label>
+                <input
+                  className="custdetail__forceinput"
+                  type="text"
+                  value={forceText}
+                  onChange={(e) => setForceText(e.target.value)}
+                  placeholder="DELETE"
+                  autoComplete="off"
+                  disabled={deleting}
+                />
+              </>
+            )}
+
+            <div className="custdetail__dangeractions">
+              <button
+                className="custdetail__deleteyes"
+                onClick={handleDelete}
+                disabled={
+                  deleting || (jobCount > 0 && (!forceDelete || !forceUnlocked))
+                }
+              >
+                {deleting
+                  ? "Deleting…"
+                  : jobCount > 0 && forceDelete && !forceUnlocked
+                    ? "Type DELETE to confirm"
+                    : "Yes, delete"}
+              </button>
+              <button
+                className="custedit__cancel"
+                onClick={() => {
+                  setConfirmDelete(false);
+                  setForceDelete(false);
+                  setForceText("");
+                  setError("");
+                }}
+                disabled={deleting}
+              >
+                Keep it
+              </button>
+            </div>
+          </>
+        ) : (
+          <button
+            className="custdetail__delete"
+            onClick={() => setConfirmDelete(true)}
+          >
+            Delete customer
+          </button>
+        )}
+      </div>
     </div>
   );
 }

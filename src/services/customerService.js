@@ -112,6 +112,49 @@ export async function updateCustomer(id, changes) {
   if (error) throw error;
 }
 
+// Delete a customer.
+//
+// Refuses by default when they have jobs, because those carry final_price
+// and square_payment_id that the Income page reports from — the same guard
+// the leads page uses. `force` removes the jobs too, which is what clearing
+// test data actually needs.
+//
+// Order follows the foreign keys: job_assignments -> jobs -> customer.
+// Returns { deleted, jobCount } so the caller can explain what happened.
+export async function deleteCustomer(id, { force = false } = {}) {
+  const { data: jobs, error: jobErr } = await supabase
+    .from("jobs")
+    .select("id")
+    .eq("customer_id", id);
+  if (jobErr) throw jobErr;
+
+  const jobCount = jobs?.length || 0;
+  if (jobCount > 0 && !force) {
+    return { deleted: false, jobCount };
+  }
+
+  if (jobCount > 0) {
+    const jobIds = jobs.map((j) => j.id);
+
+    const { error: assignErr } = await supabase
+      .from("job_assignments")
+      .delete()
+      .in("job_id", jobIds);
+    if (assignErr) throw assignErr;
+
+    const { error: delJobsErr } = await supabase
+      .from("jobs")
+      .delete()
+      .in("id", jobIds);
+    if (delJobsErr) throw delJobsErr;
+  }
+
+  const { error } = await supabase.from("customers").delete().eq("id", id);
+  if (error) throw error;
+
+  return { deleted: true, jobCount };
+}
+
 // Completed jobs with payment info, for income reporting.
 export async function fetchCompletedJobs() {
   const { data, error } = await supabase

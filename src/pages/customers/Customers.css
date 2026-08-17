@@ -519,3 +519,167 @@
 .custjob--clickable:hover {
   border-color: #2563eb;
 }
+
+/* --- delete a customer, kept well away from the edit controls --- */
+
+.custdetail__danger {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.custdetail__delete {
+  background: none;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.custdetail__delete:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+}
+
+.custdetail__dangertext {
+  font-size: 0.9rem;
+  color: #0f172a;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+
+.custdetail__forcecheck {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.9rem;
+  color: #0f172a;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.custdetail__forcecheck input {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  accent-color: #dc2626;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.custdetail__forcehint {
+  display: block;
+  font-style: normal;
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.45;
+  margin-top: 3px;
+}
+
+.custdetail__forcelabel {
+  display: block;
+  font-size: 0.82rem;
+  color: #991b1b;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.custdetail__forceinput {
+  width: 100%;
+  max-width: 260px;
+  padding: 9px 12px;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  letter-spacing: 0.08em;
+  margin-bottom: 14px;
+}
+
+.custdetail__forceinput:focus {
+  outline: none;
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.custdetail__dangeractions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.custdetail__deleteyes {
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.custdetail__deleteyes:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.custdetail__deleteyes:disabled {
+  background: #fca5a5;
+  cursor: default;
+}
+
+/* --- list row tags: property type, and plan when recurring --- */
+
+.custrow__tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+
+.custrow__tag--residential {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.custrow__tag--commercial {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.custrow__tag--recurring {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+@media (max-width: 520px) {
+  .custrow__tag {
+    margin-left: 6px;
+    font-size: 0.62rem;
+    padding: 2px 6px;
+  }
+}
+
+/* Projection shown before the current job completes — dashed to signal
+   that it's an estimate rather than a booked date. */
+.custdetail__nextvisit--estimate {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+}
+
+.custdetail__nextvisit--estimate .custdetail__nextvisit-label,
+.custdetail__nextvisit--estimate .custdetail__nextvisit-note {
+  color: #64748b;
+}

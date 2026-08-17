@@ -35,13 +35,37 @@ async function findOrCreateCustomer(lead) {
     // since the DB stores them in whatever format they were entered.
     const { data: candidates, error: findErr } = await supabase
       .from("customers")
-      .select("id, phone");
+      .select("id, phone, service_plan, property_type");
 
     if (findErr) throw findErr;
     const match = (candidates || []).find(
       (c) => normalizePhone(c.phone) === norm
     );
-    if (match) return match.id; // reuse — don't overwrite existing data
+
+    if (match) {
+      // Reuse the record, but don't ignore what was just agreed. Booking a
+      // repeat customer onto a plan has to actually put them on it —
+      // otherwise the customer stays "one_time", no next visit is ever
+      // generated, and nothing on screen explains why.
+      //
+      // Only ever upgrades away from the defaults: a one-off booking must
+      // not silently drop someone off the plan they're already on.
+      const changes = {};
+      if (lead.service_plan && lead.service_plan !== "one_time") {
+        changes.service_plan = lead.service_plan;
+      }
+      if (lead.property_type && lead.property_type !== "residential") {
+        changes.property_type = lead.property_type;
+      }
+      if (Object.keys(changes).length > 0) {
+        const { error: syncErr } = await supabase
+          .from("customers")
+          .update(changes)
+          .eq("id", match.id);
+        if (syncErr) throw syncErr;
+      }
+      return match.id;
+    }
   }
 
   // No phone, or no match — create a new customer record.

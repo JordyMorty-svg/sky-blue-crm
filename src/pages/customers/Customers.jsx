@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchCustomers } from "../../services/customerService";
+import { planFor } from "../../services/leadService";
 import "./Customers.css";
 
 
@@ -83,7 +84,25 @@ export default function Customers() {
               tabIndex={0}
             >
               <div className="custrow__main">
-                <span className="custrow__name">{c.name}</span>
+                <span className="custrow__name">
+                  {c.name}
+                  {/* Property type at a glance — storefronts and homes get
+                      priced and scheduled differently. */}
+                  <span
+                    className={`custrow__tag custrow__tag--${
+                      c.property_type || "residential"
+                    }`}
+                  >
+                    {c.property_type === "commercial"
+                      ? "Commercial"
+                      : "Residential"}
+                  </span>
+                  {(c.service_plan || "one_time") !== "one_time" && (
+                    <span className="custrow__tag custrow__tag--recurring">
+                      {planFor(c.service_plan).label}
+                    </span>
+                  )}
+                </span>
                 <span className="custrow__meta">
                   {c.phone || "No phone"}
                   {c.address ? ` · ${c.address}` : ""}

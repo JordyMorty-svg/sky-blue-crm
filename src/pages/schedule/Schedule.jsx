@@ -211,7 +211,13 @@ export default function Schedule() {
                     </button>
                     <button
                       className="schedjob__edit"
-                      onClick={() => navigate(`/jobs/${job.id}`)}
+                      onClick={() =>
+                        // pathname, not a literal, so it returns to
+                        // whichever schedule view you were looking at.
+                        navigate(`/jobs/${job.id}`, {
+                          state: { from: pathname },
+                        })
+                      }
                     >
                       Edit
                     </button>
