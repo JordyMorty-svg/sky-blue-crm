@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { fetchCustomers } from "../../services/customerService";
 import "./Customers.css";
 
+
 export default function Customers() {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);

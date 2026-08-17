@@ -1,0 +1,69 @@
+/* Centred rather than inline so it holds the same position across pages.
+   The Leads page is full-width while All Leads is capped at 1100px, so an
+   inline-flex switcher hugs a different left edge on each and appears to
+   jump when you switch. `width: fit-content` keeps the pill tight to its
+   content; `margin: 0 auto` centres it in whatever container it lands in. */
+.viewswitch {
+  display: flex;
+  width: fit-content;
+  gap: 4px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 4px;
+  margin: 0 auto 12px;
+}
+
+.viewswitch__tab {
+  padding: 7px 18px;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #475569;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.viewswitch__count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.viewswitch__tab--active .viewswitch__count {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.viewswitch__tab:hover {
+  color: #2563eb;
+}
+
+.viewswitch__tab--active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.viewswitch__tab--active:hover {
+  color: #0f172a;
+}
+
+@media (max-width: 640px) {
+  /* Full width on phones — the two halves become equal tap targets. */
+  .viewswitch {
+    width: 100%;
+  }
+
+  .viewswitch__tab {
+    flex: 1;
+    text-align: center;
+    padding: 8px 10px;
+  }
+}

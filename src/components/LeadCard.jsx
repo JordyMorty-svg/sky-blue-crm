@@ -14,9 +14,10 @@ export default function LeadCard({ lead, onMove }) {
   const storyLabel = lead.stories === "two" ? "2-story" : "1-story";
   const temp = TEMPERATURES.find((t) => t.key === lead.temperature);
 
-  // Stages you can move to from the board: forward pipeline moves only.
-  // Archived is intentionally excluded here — it's a deliberate action
-  // available on the lead's detail page, not a quick tap from the board.
+  // Stages you can move to from the board: forward pipeline moves, plus
+  // Lost — marking a no at the door is the single most common action after
+  // a knock, so it shouldn't need a trip to the detail page. Archived stays
+  // excluded; it's a deliberate cleanup action, not a field decision.
   const otherStages = LEADS_SETTABLE_STATUSES.filter(
     (s) => s.key !== lead.status && s.key !== "archived"
   );
@@ -60,7 +61,17 @@ export default function LeadCard({ lead, onMove }) {
 
         {lead.notes && <p className="card__notes">{lead.notes}</p>}
 
-        <div className="card__foot">{formatDate(lead.created_at)}</div>
+        <div className="card__foot">
+          <span>{formatDate(lead.created_at)}</span>
+          {lead.stale && (
+            <span
+              className="card__stale"
+              title={`No status change in ${lead.daysSinceChange} days`}
+            >
+              Stale · {lead.daysSinceChange}d
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="card__actions">

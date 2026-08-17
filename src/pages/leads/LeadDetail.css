@@ -205,3 +205,77 @@
     width: 100%;
   }
 }
+/* --- status history timeline --- */
+
+.detail__history {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin: 24px 0 0;
+}
+
+.detail__historytitle {
+  font-size: 0.95rem;
+  color: #0f172a;
+  margin: 0 0 14px;
+}
+
+.detail__timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+/* The connecting line, drawn behind the dots. */
+.detail__timeline::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: #e2e8f0;
+}
+
+.detail__event {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 0 6px 20px;
+  position: relative;
+  font-size: 0.88rem;
+  color: #475569;
+}
+
+.detail__eventdot {
+  position: absolute;
+  left: 0;
+  top: 11px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 2px solid #ffffff;
+}
+
+.detail__eventtext {
+  flex: 1;
+}
+
+.detail__eventtext strong {
+  color: #0f172a;
+}
+
+.detail__eventdate {
+  color: #94a3b8;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.detail__eventactor {
+  color: #475569;
+  font-weight: 600;
+  margin-right: 8px;
+}

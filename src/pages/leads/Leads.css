@@ -4,27 +4,75 @@
   color: #64748b;
 }
 
-.leads__head {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.leads__title {
-  font-size: 1.5rem;
-  color: #0f172a;
-}
-
+/* The switcher above acts as the page heading, so this is just the
+   supporting count — centred under it rather than sitting in a header row. */
 .leads__count {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: #64748b;
+  text-align: center;
+  margin: 0 0 20px;
 }
 
 .leads__error {
   color: #dc2626;
   font-size: 0.9rem;
   margin-bottom: 16px;
+}
+
+.leads__stalebar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+
+.leads__staletext {
+  font-size: 0.88rem;
+  color: #92400e;
+  font-weight: 600;
+  margin-right: auto;
+}
+
+.leads__stalebtn,
+.leads__archivebtn {
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.leads__stalebtn {
+  background: #ffffff;
+  border: 1px solid #fcd34d;
+  color: #b45309;
+}
+
+.leads__stalebtn--on {
+  background: #b45309;
+  border-color: #b45309;
+  color: #ffffff;
+}
+
+.leads__archivebtn {
+  background: #b45309;
+  border: 1px solid #b45309;
+  color: #ffffff;
+}
+
+.leads__archivebtn:hover:not(:disabled) {
+  background: #92400e;
+}
+
+.leads__archivebtn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 /* Board: horizontal columns */
@@ -201,6 +249,23 @@
 .card__foot {
   font-size: 0.75rem;
   color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Shown when a lead hasn't changed status past STALE_AFTER_DAYS. Derived
+   at read time from lead_events — nothing is written to the lead itself. */
+.card__stale {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 /* Move control */

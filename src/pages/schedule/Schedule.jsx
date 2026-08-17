@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -10,6 +10,8 @@ import { useAuth } from "../../context/AuthContext";
 import { fetchMyJobs } from "../../services/jobService";
 import { fetchCalendarJobs } from "../../services/calendarService";
 import EventEditor from "./EventEditor";
+import ViewSwitcher from "../../components/ViewSwitcher";
+import { SCHEDULE_VIEWS } from "../../components/navViews";
 import "./Schedule.css";
 
 const locales = { "en-US": enUS };
@@ -63,7 +65,10 @@ function CalendarToolbar({ label, onNavigate, onView, view }) {
 export default function Schedule() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState("schedule");
+  // Mode comes from the route rather than local state, so the view is
+  // linkable, survives a refresh, and can be remembered between visits.
+  const { pathname } = useLocation();
+  const mode = pathname.startsWith("/schedule/calendar") ? "calendar" : "schedule";
   const [selectedDay, setSelectedDay] = useState(new Date());
   const [jobs, setJobs] = useState([]);
   const [calJobs, setCalJobs] = useState([]);
@@ -139,17 +144,10 @@ export default function Schedule() {
 
   return (
     <div className="schedule">
-      <div className="schedule__head">
-        <h1 className="schedule__title">My schedule</h1>
-        <select
-          className="schedule__mode"
-          value={mode}
-          onChange={(e) => setMode(e.target.value)}
-        >
-          <option value="schedule">Schedule (daily)</option>
-          <option value="calendar">Calendar</option>
-        </select>
-      </div>
+      {/* The switcher is the visible heading; the h1 is kept for screen
+          readers and the document outline. Same pattern as the leads pages. */}
+      <h1 className="visually-hidden">My schedule</h1>
+      <ViewSwitcher views={SCHEDULE_VIEWS} section="schedule" />
 
       {error && <p className="schedule__error">{error}</p>}
 

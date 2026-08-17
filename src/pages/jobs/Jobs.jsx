@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import {
@@ -8,6 +8,8 @@ import {
   fetchTechs,
 } from "../../services/jobService";
 import TechPicker from "../../components/TechPicker";
+import ViewSwitcher from "../../components/ViewSwitcher";
+import { JOB_VIEWS } from "../../components/navViews";
 import "./Jobs.css";
 
 function formatWhen(iso) {
@@ -67,16 +69,11 @@ function inRange(iso, range, customStart, customEnd) {
   return true;
 }
 
-function loadCollapsed() {
-  try {
-    return JSON.parse(localStorage.getItem("jobsCollapsed")) || {};
-  } catch {
-    return {};
-  }
-}
-
 export default function Jobs() {
   const navigate = useNavigate();
+  // The view comes from the route, so it's linkable and can be remembered.
+  const { pathname } = useLocation();
+  const view = pathname.startsWith("/jobs/scheduled") ? "scheduled" : "toSchedule";
   const [booked, setBooked] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [techs, setTechs] = useState([]);
@@ -87,15 +84,10 @@ export default function Jobs() {
   const [customStart, setCustomStart] = useState(null);
   const [customEnd, setCustomEnd] = useState(null);
   const [techFilter, setTechFilter] = useState([]); // tech ids; empty = all
-  const [collapsed, setCollapsed] = useState(loadCollapsed);
 
   useEffect(() => {
     load();
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem("jobsCollapsed", JSON.stringify(collapsed));
-  }, [collapsed]);
 
   async function load() {
     try {
@@ -117,10 +109,6 @@ export default function Jobs() {
     }
   }
 
-  function toggle(section) {
-    setCollapsed((cur) => ({ ...cur, [section]: !cur[section] }));
-  }
-
   if (loading) return <div className="jobs__state">Loading…</div>;
 
   const visibleJobs = jobs.filter((job) => {
@@ -134,17 +122,21 @@ export default function Jobs() {
 
   return (
     <div className="jobs">
+      {/* The switcher is the visible heading; the h1 stays for screen
+          readers. Counts ride along so the volume of the view you're not
+          looking at is still visible. */}
+      <h1 className="visually-hidden">Jobs</h1>
+      <ViewSwitcher
+        views={JOB_VIEWS}
+        section="jobs"
+        counts={{ "/jobs": booked.length, "/jobs/scheduled": jobs.length }}
+      />
+
       {error && <p className="jobs__error">{error}</p>}
 
-      {/* To schedule */}
-      <section className="jobs__section">
-        <button className="jobs__head jobs__head--toggle" onClick={() => toggle("toSchedule")}>
-          <span className="jobs__arrow">{collapsed.toSchedule ? "▸" : "▾"}</span>
-          <h2 className="jobs__title">To schedule</h2>
-          <span className="jobs__count">{booked.length}</span>
-        </button>
-        {!collapsed.toSchedule && (
-          booked.length === 0 ? (
+      {view === "toSchedule" ? (
+        <section className="jobs__section">
+          {booked.length === 0 ? (
             <p className="jobs__empty">No booked leads waiting. Nice.</p>
           ) : (
             <div className="jobs__list">
@@ -166,92 +158,81 @@ export default function Jobs() {
                 </div>
               ))}
             </div>
-          )
-        )}
-      </section>
-
-      {/* Scheduled jobs */}
-      <section className="jobs__section">
-        <button className="jobs__head jobs__head--toggle" onClick={() => toggle("scheduled")}>
-          <span className="jobs__arrow">{collapsed.scheduled ? "▸" : "▾"}</span>
-          <h2 className="jobs__title">Scheduled jobs</h2>
-          <span className="jobs__count">{visibleJobs.length}</span>
-        </button>
-
-        {!collapsed.scheduled && (
-          <>
-            <div className="jobs__filters">
-              <div className="jobs__ranges">
-                {RANGES.map((r) => (
-                  <button
-                    key={r.key}
-                    className={`jobs__range ${range === r.key ? "jobs__range--active" : ""}`}
-                    onClick={() => setRange(r.key)}
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-
-              {range === "custom" && (
-                <div className="jobs__customrange">
-                  <DatePicker
-                    selectsRange
-                    startDate={customStart}
-                    endDate={customEnd}
-                    onChange={([start, end]) => {
-                      setCustomStart(start);
-                      setCustomEnd(end);
-                    }}
-                    dateFormat="MMM d, yyyy"
-                    placeholderText="Pick a start and end date"
-                    className="jobs__rangeinput"
-                    isClearable
-                    withPortal
-                    shouldCloseOnSelect={false}
-                  />
-                </div>
-              )}
-
-              <div className="jobs__techfilter">
-                <label className="jobs__filterlabel">Filter by team member</label>
-                <TechPicker
-                  techs={techs}
-                  selectedIds={techFilter}
-                  onChange={setTechFilter}
-                />
-              </div>
+          )}
+        </section>
+      ) : (
+        <section className="jobs__section">
+          <div className="jobs__filters">
+            <div className="jobs__ranges">
+              {RANGES.map((r) => (
+                <button
+                  key={r.key}
+                  className={`jobs__range ${range === r.key ? "jobs__range--active" : ""}`}
+                  onClick={() => setRange(r.key)}
+                >
+                  {r.label}
+                </button>
+              ))}
             </div>
 
-            {visibleJobs.length === 0 ? (
-              <p className="jobs__empty">No jobs match these filters.</p>
-            ) : (
-              <div className="jobs__list">
-                {visibleJobs.map((job) => (
-                  <div
-                    className="jobrow jobrow--clickable"
-                    key={job.id}
-                    onClick={() => navigate(`/jobs/${job.id}`)}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div className="jobrow__main">
-                      <span className="jobrow__name">{job.lead?.name || "Job"}</span>
-                      <span className="jobrow__meta">
-                        {job.lead?.address || "No address"} · ${job.price} · {job.duration_hours}h
-                      </span>
-                      <span className="jobrow__when">{formatWhen(job.starts_at)}</span>
-                      <span className="jobrow__techs">
-                        {job.assignments?.map((a) => a.tech?.full_name).filter(Boolean).join(", ") || "Unassigned"}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+            {range === "custom" && (
+              <div className="jobs__customrange">
+                <DatePicker
+                  selectsRange
+                  startDate={customStart}
+                  endDate={customEnd}
+                  onChange={([start, end]) => {
+                    setCustomStart(start);
+                    setCustomEnd(end);
+                  }}
+                  dateFormat="MMM d, yyyy"
+                  placeholderText="Pick a start and end date"
+                  className="jobs__rangeinput"
+                  isClearable
+                  withPortal
+                  shouldCloseOnSelect={false}
+                />
               </div>
             )}
-          </>
-        )}
-      </section>
+
+            <div className="jobs__techfilter">
+              <label className="jobs__filterlabel">Filter by team member</label>
+              <TechPicker
+                techs={techs}
+                selectedIds={techFilter}
+                onChange={setTechFilter}
+              />
+            </div>
+          </div>
+
+          {visibleJobs.length === 0 ? (
+            <p className="jobs__empty">No jobs match these filters.</p>
+          ) : (
+            <div className="jobs__list">
+              {visibleJobs.map((job) => (
+                <div
+                  className="jobrow jobrow--clickable"
+                  key={job.id}
+                  onClick={() => navigate(`/jobs/${job.id}`)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className="jobrow__main">
+                    <span className="jobrow__name">{job.lead?.name || "Job"}</span>
+                    <span className="jobrow__meta">
+                      {job.lead?.address || "No address"} · ${job.price} · {job.duration_hours}h
+                    </span>
+                    <span className="jobrow__when">{formatWhen(job.starts_at)}</span>
+                    <span className="jobrow__techs">
+                      {job.assignments?.map((a) => a.tech?.full_name).filter(Boolean).join(", ") || "Unassigned"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }

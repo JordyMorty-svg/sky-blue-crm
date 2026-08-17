@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
 import {
   PIPELINE_STAGES,
+  STALE_AFTER_DAYS,
   fetchActiveLeads,
   updateLead,
+  bulkUpdateLeadStatus,
   missingFieldFor,
 } from "../../services/leadService";
 import LeadColumn from "../../components/LeadColumn";
+import ViewSwitcher from "../../components/ViewSwitcher";
+import { LEAD_VIEWS } from "../../components/navViews";
 import AddLeadModal from "../../components/AddLeadModal";
 import DragPromptModal from "../../components/DragPromptModal";
 import "./Leads.css";
@@ -27,6 +31,9 @@ export default function Leads() {
   const [pendingMove, setPendingMove] = useState(null);
   // { new: true, contacted: false, ... } — which columns are collapsed.
   const [collapsed, setCollapsed] = useState(loadCollapsed);
+  // Show only leads that have sat untouched past the threshold.
+  const [staleOnly, setStaleOnly] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
   useEffect(() => {
     loadLeads();
@@ -92,6 +99,26 @@ export default function Leads() {
     setPendingMove(null);
   }
 
+  // Sweep every stale lead into archived in one go. Deliberately a manual
+  // action rather than a timed job — you stay the one deciding, and the
+  // threshold can move without rewriting any data.
+  async function handleArchiveStale() {
+    const ids = staleLeads.map((l) => l.id);
+    if (ids.length === 0) return;
+    setArchiving(true);
+    try {
+      await bulkUpdateLeadStatus(ids, "archived");
+      const gone = new Set(ids);
+      setLeads((cur) => cur.filter((l) => !gone.has(l.id)));
+      setStaleOnly(false);
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't archive those leads. Try again.");
+    } finally {
+      setArchiving(false);
+    }
+  }
+
   function handleCreated(newLead) {
     setLeads((cur) => [newLead, ...cur]);
     setAddStage(null);
@@ -104,21 +131,49 @@ export default function Leads() {
   const stageLabel = (key) =>
     PIPELINE_STAGES.find((s) => s.key === key)?.label ?? key;
 
+  const staleLeads = leads.filter((l) => l.stale);
+  const shown = staleOnly ? staleLeads : leads;
+
   return (
     <div className="leads">
-      <div className="leads__head">
-        <h1 className="leads__title">Pipeline</h1>
-        <span className="leads__count">{leads.length} active</span>
-      </div>
+      <ViewSwitcher views={LEAD_VIEWS} section="leads" />
+
+      {/* The switcher is the visible heading — a repeated "Pipeline" title
+          directly under it was pure duplication. The h1 stays for screen
+          readers and document structure, just hidden visually. */}
+      <h1 className="visually-hidden">Pipeline</h1>
+      <p className="leads__count">{leads.length} active</p>
 
       {error && <p className="leads__error">{error}</p>}
+
+      {staleLeads.length > 0 && (
+        <div className="leads__stalebar">
+          <span className="leads__staletext">
+            {staleLeads.length} lead{staleLeads.length === 1 ? "" : "s"} with no
+            change in {STALE_AFTER_DAYS}+ days
+          </span>
+          <button
+            className={`leads__stalebtn ${staleOnly ? "leads__stalebtn--on" : ""}`}
+            onClick={() => setStaleOnly((v) => !v)}
+          >
+            {staleOnly ? "Show all" : "Show only these"}
+          </button>
+          <button
+            className="leads__archivebtn"
+            onClick={handleArchiveStale}
+            disabled={archiving}
+          >
+            {archiving ? "Archiving…" : `Archive all ${staleLeads.length}`}
+          </button>
+        </div>
+      )}
 
       <div className="leads__board">
         {PIPELINE_STAGES.map((stage) => (
           <LeadColumn
             key={stage.key}
             stage={stage}
-            leads={leads.filter((l) => l.status === stage.key)}
+            leads={shown.filter((l) => l.status === stage.key)}
             collapsed={!!collapsed[stage.key]}
             onToggle={() => toggleCollapse(stage.key)}
             onAdd={setAddStage}

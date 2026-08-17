@@ -1,8 +1,9 @@
-import { Routes, Route, Navigate, NavLink } from "react-router-dom";
+import { Routes, Route, Navigate, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/login/Login";
 import Leads from "./pages/leads/Leads";
+import AllLeads from "./pages/leads/AllLeads";
 import LeadDetail from "./pages/leads/LeadDetail";
 import Jobs from "./pages/jobs/Jobs";
 import ScheduleJob from "./pages/jobs/ScheduleJob";
@@ -14,20 +15,47 @@ import Customers from "./pages/customers/Customers";
 import CustomerDetail from "./pages/customers/CustomerDetail";
 import AddPastJobs from "./pages/customers/AddPastJobs";
 import MapView from "./pages/map/MapView";
+import { REMEMBERED_SECTIONS } from "./components/navViews";
+import { lastViewFor } from "./components/viewMemory";
 import "./App.css";
 
 // Top navigation shell shown on every logged-in page.
 function Shell({ children }) {
   const { user, profile, role, signOut } = useAuth();
+  // Re-read on every navigation so the remembered destinations stay current.
+  const { pathname } = useLocation();
+
+  // Five sections. Views within a section (Pipeline/Map, Customers/All
+  // leads) live on a switcher inside the page rather than up here.
+  // Sections with multiple views return you to the one you last used.
+  // `root` is what decides highlighting, since `to` may point at a
+  // sub-view like /leads/all.
+  function sectionTab(key, label) {
+    const { root, views } = REMEMBERED_SECTIONS[key];
+    return {
+      root,
+      label,
+      to: lastViewFor(
+        key,
+        root,
+        views.map((v) => v.to)
+      ),
+    };
+  }
 
   const tabs = [
-    { to: "/leads", label: "Leads" },
-    { to: "/jobs", label: "Jobs" },
-    { to: "/schedule", label: "Schedule" },
-    { to: "/income", label: "Income" },
-    { to: "/customers", label: "Customers" },
-    { to: "/map", label: "Map" },
+    sectionTab("leads", "Leads"),
+    sectionTab("jobs", "Jobs"),
+    sectionTab("schedule", "Schedule"),
+    { to: "/income", root: "/income", label: "Income" },
+    { to: "/customers", root: "/customers", label: "Customers" },
+    { to: "/map", root: "/map", label: "Map" },
   ];
+
+  // NavLink's own isActive compares against `to`, which breaks once `to`
+  // is a remembered sub-view. Highlight on the section root instead.
+  const inSection = (root) =>
+    pathname === root || pathname.startsWith(root + "/");
 
   return (
     <div className="shell">
@@ -39,11 +67,11 @@ function Shell({ children }) {
         <nav className="shell__nav">
           {tabs.map((tab) => (
             <NavLink
-              key={tab.to}
+              key={tab.root}
               to={tab.to}
-              className={({ isActive }) =>
-                `shell__tab ${isActive ? "shell__tab--active" : ""}`
-              }
+              className={`shell__tab ${
+                inSection(tab.root) ? "shell__tab--active" : ""
+              }`}
             >
               {tab.label}
             </NavLink>
@@ -90,11 +118,16 @@ export default function App() {
       <Route path="/login" element={<Login />} />
 
       <Route path="/leads" element={<Page><Leads /></Page>} />
+      {/* Static segment outranks /leads/:id in React Router's matcher, so
+          "all" is never mistaken for a lead id. */}
+      <Route path="/leads/all" element={<Page><AllLeads /></Page>} />
       <Route path="/leads/:id" element={<Page><LeadDetail /></Page>} />
       <Route path="/jobs" element={<Page><Jobs /></Page>} />
+      <Route path="/jobs/scheduled" element={<Page><Jobs /></Page>} />
       <Route path="/jobs/schedule/:leadId" element={<Page><ScheduleJob /></Page>} />
       <Route path="/jobs/:id" element={<Page><JobDetail /></Page>} />
       <Route path="/schedule" element={<Page><Schedule /></Page>} />
+      <Route path="/schedule/calendar" element={<Page><Schedule /></Page>} />
       <Route path="/schedule/complete/:jobId" element={<Page><CompleteJob /></Page>} />
       <Route path="/income" element={<Page><Income /></Page>} />
       <Route path="/customers" element={<Page><Customers /></Page>} />

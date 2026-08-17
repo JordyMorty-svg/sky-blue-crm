@@ -9,31 +9,6 @@
   color: #64748b;
 }
 
-.schedule__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.schedule__title {
-  font-size: 1.5rem;
-  color: #0f172a;
-}
-
-.schedule__mode {
-  padding: 9px 13px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #0f172a;
-  font-family: inherit;
-  background: #ffffff;
-  cursor: pointer;
-}
-
 .schedule__error {
   color: #dc2626;
   font-size: 0.9rem;

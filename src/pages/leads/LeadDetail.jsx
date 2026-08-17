@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   fetchLead,
+  fetchLeadEvents,
   updateLead,
   deleteLead,
+  ALL_STATUSES,
   LEADS_SETTABLE_STATUSES,
   TEMPERATURES,
 } from "../../services/leadService";
@@ -24,6 +26,7 @@ export default function LeadDetail() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [events, setEvents] = useState([]);
 
   useEffect(() => {
     load();
@@ -35,6 +38,14 @@ export default function LeadDetail() {
       setLoading(true);
       const lead = await fetchLead(id);
       setForm(lead);
+      // History is nice-to-have — a failure here shouldn't stop the page
+      // rendering the lead itself.
+      try {
+        setEvents(await fetchLeadEvents(id));
+      } catch (histErr) {
+        console.error("Couldn't load status history:", histErr);
+        setEvents([]);
+      }
       const { date, time } = splitFromISO(lead.appointment_at);
       setApptDate(date);
       setApptTime(time);
@@ -201,6 +212,39 @@ export default function LeadDetail() {
         </Field>
       </div>
 
+      {events.length > 0 && (
+        <div className="detail__history">
+          <h2 className="detail__historytitle">Status history</h2>
+          <ol className="detail__timeline">
+            {events.map((ev) => (
+              <li key={ev.id} className="detail__event">
+                <span className="detail__eventdot" />
+                <span className="detail__eventtext">
+                  {ev.from_status ? (
+                    <>
+                      {statusLabel(ev.from_status)} →{" "}
+                      <strong>{statusLabel(ev.to_status)}</strong>
+                    </>
+                  ) : (
+                    <>
+                      Created as <strong>{statusLabel(ev.to_status)}</strong>
+                    </>
+                  )}
+                </span>
+                <span className="detail__eventdate">
+                  {ev.actor?.full_name && (
+                    <span className="detail__eventactor">
+                      {ev.actor.full_name}
+                    </span>
+                  )}
+                  {formatEventDate(ev.created_at)}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
       <div className="detail__actions">
         <button className="detail__save" onClick={handleSave} disabled={saving}>
           {saving ? "Saving…" : "Save changes"}
@@ -229,6 +273,18 @@ export default function LeadDetail() {
       </div>
     </div>
   );
+}
+
+function statusLabel(key) {
+  return ALL_STATUSES.find((s) => s.key === key)?.label ?? key;
+}
+
+function formatEventDate(iso) {
+  return new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function Field({ label, children, full }) {
