@@ -1,0 +1,211 @@
+.newlead {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.newlead__state {
+  padding: 60px 24px;
+  text-align: center;
+  color: #64748b;
+}
+
+.newlead__back {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 16px;
+}
+
+.newlead__back:hover {
+  text-decoration: underline;
+}
+
+.newlead__head {
+  margin-bottom: 20px;
+}
+
+.newlead__title {
+  font-size: 1.5rem;
+  color: #0f172a;
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.newlead__stage {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+.newlead__blurb {
+  font-size: 0.88rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.newlead__error {
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+/* --- sections --- */
+
+.newlead__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.newlead__section {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px 22px;
+}
+
+.newlead__sectiontitle {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  font-weight: 700;
+  margin: 0 0 14px;
+}
+
+/* Two columns on desktop — the whole point of moving off the modal. */
+.newlead__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+}
+
+.newlead__field {
+  display: flex;
+  flex-direction: column;
+}
+
+.newlead__field--full {
+  grid-column: 1 / -1;
+}
+
+.newlead__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.newlead__hint {
+  font-weight: 400;
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.newlead__input {
+  width: 100%;
+  padding: 10px 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.newlead__input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.newlead__textarea {
+  resize: vertical;
+  font-size: 0.92rem;
+}
+
+.newlead__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  font-size: 0.92rem;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.newlead__check input {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+/* --- actions --- */
+
+.newlead__actions {
+  display: flex;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+
+.newlead__submit {
+  flex: 1;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.newlead__submit:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.newlead__submit:disabled {
+  background: #93c5fd;
+  cursor: default;
+}
+
+.newlead__cancel {
+  background: none;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 13px 24px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.newlead__cancel:hover {
+  border-color: #94a3b8;
+}
+
+@media (max-width: 640px) {
+  .newlead__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .newlead__section {
+    padding: 16px;
+  }
+}

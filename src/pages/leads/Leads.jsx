@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   PIPELINE_STAGES,
   STALE_AFTER_DAYS,
@@ -10,7 +11,6 @@ import {
 import LeadColumn from "../../components/LeadColumn";
 import ViewSwitcher from "../../components/ViewSwitcher";
 import { LEAD_VIEWS } from "../../components/navViews";
-import AddLeadModal from "../../components/AddLeadModal";
 import DragPromptModal from "../../components/DragPromptModal";
 import "./Leads.css";
 
@@ -24,10 +24,10 @@ function loadCollapsed() {
 }
 
 export default function Leads() {
+  const navigate = useNavigate();
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [addStage, setAddStage] = useState(null);
   const [pendingMove, setPendingMove] = useState(null);
   // { new: true, contacted: false, ... } — which columns are collapsed.
   const [collapsed, setCollapsed] = useState(loadCollapsed);
@@ -90,9 +90,9 @@ export default function Leads() {
     }
   }
 
-  function handlePromptConfirm(value) {
+  function handlePromptConfirm(value, extras) {
     const { lead, newStatus, missing, previousLeads } = pendingMove;
-    const changes = { status: newStatus };
+    const changes = { status: newStatus, ...(extras || {}) };
     if (missing === "price") changes.estimate = Number(value);
     if (missing === "appointment") changes.appointment_at = value;
     commitMove(lead.id, changes, previousLeads);
@@ -121,11 +121,6 @@ export default function Leads() {
     } finally {
       setArchiving(false);
     }
-  }
-
-  function handleCreated(newLead) {
-    setLeads((cur) => [newLead, ...cur]);
-    setAddStage(null);
   }
 
   if (loading) {
@@ -180,24 +175,18 @@ export default function Leads() {
             leads={shown.filter((l) => l.status === stage.key)}
             collapsed={!!collapsed[stage.key]}
             onToggle={() => toggleCollapse(stage.key)}
-            onAdd={setAddStage}
+            onAdd={(s) => navigate(`/leads/new/${s}`)}
             onMove={handleMove}
           />
         ))}
       </div>
 
-      {addStage && (
-        <AddLeadModal
-          stage={addStage}
-          onClose={() => setAddStage(null)}
-          onCreated={handleCreated}
-        />
-      )}
-
       {pendingMove && (
         <DragPromptModal
           field={pendingMove.missing}
           stageLabel={stageLabel(pendingMove.newStatus)}
+          lead={pendingMove.lead}
+          askPlan={pendingMove.newStatus === "booked"}
           onConfirm={handlePromptConfirm}
           onCancel={handlePromptCancel}
         />

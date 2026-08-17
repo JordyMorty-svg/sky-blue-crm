@@ -9,6 +9,7 @@ import {
   LEADS_SETTABLE_STATUSES,
   TEMPERATURES,
 } from "../../services/leadService";
+import PlanPicker from "../../components/PlanPicker";
 import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import "./LeadDetail.css";
@@ -79,6 +80,8 @@ export default function LeadDetail() {
         estimate: Number(form.estimate) || 0,
         status: form.status,
         temperature: form.temperature || null,
+        property_type: form.property_type || "residential",
+        service_plan: form.service_plan || "one_time",
         appointment_at: combineToISO(apptDate, apptTime),
         notes: form.notes || null,
         crm_notes: form.crm_notes || null,
@@ -190,6 +193,16 @@ export default function LeadDetail() {
             <span>Included</span>
           </label>
         </Field>
+
+        <div className="detail__field detail__field--full">
+          <PlanPicker
+            propertyType={form.property_type || "residential"}
+            plan={form.service_plan || "one_time"}
+            onPropertyTypeChange={(v) => set("property_type", v)}
+            onPlanChange={(v) => set("service_plan", v)}
+            basePrice={form.estimate}
+          />
+        </div>
 
         <div className="detail__field detail__field--full">
           <AppointmentPicker

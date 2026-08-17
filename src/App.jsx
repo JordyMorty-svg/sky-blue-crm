@@ -4,9 +4,12 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/login/Login";
 import Leads from "./pages/leads/Leads";
 import AllLeads from "./pages/leads/AllLeads";
+import NewLead from "./pages/leads/NewLead";
 import LeadDetail from "./pages/leads/LeadDetail";
 import Jobs from "./pages/jobs/Jobs";
 import ScheduleJob from "./pages/jobs/ScheduleJob";
+import ConfirmVisit from "./pages/jobs/ConfirmVisit";
+import ScheduleForCustomer from "./pages/customers/ScheduleForCustomer";
 import JobDetail from "./pages/jobs/JobDetail";
 import Schedule from "./pages/schedule/Schedule";
 import CompleteJob from "./pages/schedule/CompleteJob";
@@ -112,10 +115,12 @@ export default function App() {
       {/* Static segment outranks /leads/:id in React Router's matcher, so
           "all" is never mistaken for a lead id. */}
       <Route path="/leads/all" element={<Page><AllLeads /></Page>} />
+      <Route path="/leads/new/:stage" element={<Page><NewLead /></Page>} />
       <Route path="/leads/:id" element={<Page><LeadDetail /></Page>} />
       <Route path="/jobs" element={<Page><Jobs /></Page>} />
       <Route path="/jobs/scheduled" element={<Page><Jobs /></Page>} />
       <Route path="/jobs/schedule/:leadId" element={<Page><ScheduleJob /></Page>} />
+      <Route path="/jobs/visit/:jobId" element={<Page><ConfirmVisit /></Page>} />
       <Route path="/jobs/:id" element={<Page><JobDetail /></Page>} />
       <Route path="/schedule" element={<Page><Schedule /></Page>} />
       <Route path="/schedule/calendar" element={<Page><Schedule /></Page>} />
@@ -123,6 +128,7 @@ export default function App() {
       <Route path="/income" element={<Page><Income /></Page>} />
       <Route path="/customers" element={<Page><Customers /></Page>} />
       <Route path="/customers/add-past" element={<Page><AddPastJobs /></Page>} />
+      <Route path="/customers/:id/schedule" element={<Page><ScheduleForCustomer /></Page>} />
       <Route path="/customers/:id" element={<Page><CustomerDetail /></Page>} />
       <Route path="/map" element={<Page><MapView /></Page>} />
 

@@ -13,6 +13,7 @@ import {
 } from "../../services/paymentService";
 import { updateCustomer } from "../../services/customerService";
 import CardPaymentForm from "../../components/CardPaymentForm";
+import PlanPicker from "../../components/PlanPicker";
 import "./CompleteJob.css";
 
 const PAYMENT_METHODS = [
@@ -42,6 +43,11 @@ export default function CompleteJob() {
   const [error, setError] = useState("");
   // Set when the customer has a card on file but we want a different one.
   const [useNewCard, setUseNewCard] = useState(false);
+  // Plan can be set right here — "yes, put me on quarterly" usually gets
+  // said while you're packing up, and this is the last chance before the
+  // next visit is generated.
+  const [propertyType, setPropertyType] = useState("residential");
+  const [servicePlan, setServicePlan] = useState("one_time");
 
   async function load() {
     try {
@@ -51,6 +57,12 @@ export default function CompleteJob() {
       setFinalPrice(data.price ?? "");
       // Prefill email if we have one on file.
       setEmail(data.customer?.email || data.lead?.email || "");
+      setPropertyType(
+        data.customer?.property_type || data.property_type || "residential"
+      );
+      setServicePlan(
+        data.customer?.service_plan || data.service_plan || "one_time"
+      );
       setError("");
     } catch (e) {
       console.error(e);
@@ -87,7 +99,25 @@ export default function CompleteJob() {
   // payment methods so the job, the receipt, and the redirect stay in one
   // place.
   async function finalize({ invoice = null, payment = null } = {}) {
-    await completeJob(job, {
+    // Save the plan first: completeJob generates the next visit from the
+    // customer's plan, so writing it afterwards would be a cycle too late.
+    if (job.customer_id) {
+      const planChanged =
+        servicePlan !== (job.customer?.service_plan || "one_time") ||
+        propertyType !== (job.customer?.property_type || "residential");
+      if (planChanged) {
+        try {
+          await updateCustomer(job.customer_id, {
+            service_plan: servicePlan,
+            property_type: propertyType,
+          });
+        } catch (planErr) {
+          console.error("Couldn't save the service plan:", planErr);
+        }
+      }
+    }
+
+    const { nextVisit } = await completeJob(job, {
       finalPrice: Number(finalPrice),
       paymentMethod: method,
       paymentNotes: notes.trim() || null,
@@ -143,7 +173,19 @@ export default function CompleteJob() {
       }
     }
 
-    navigate("/schedule");
+    // Tell the schedule page what was booked, rather than the next visit
+    // appearing out of nowhere on the Jobs board.
+    navigate("/schedule", {
+      state: nextVisit
+        ? {
+            nextVisit: {
+              startsAt: nextVisit.starts_at,
+              price: nextVisit.price,
+              name: customerName,
+            },
+          }
+        : undefined,
+    });
   }
 
   // Cash / check / square / invoice. Card has its own path below, because
@@ -381,6 +423,24 @@ export default function CompleteJob() {
               customerEmail={email.trim()}
               onToken={handleCardToken}
               disabled={saving || !amountValid}
+            />
+          </>
+        )}
+
+        {job.customer_id && (
+          <>
+            <label className="complete__label">
+              Service plan{" "}
+              <span className="complete__optional">
+                (sets up their recurring visits)
+              </span>
+            </label>
+            <PlanPicker
+              propertyType={propertyType}
+              plan={servicePlan}
+              onPropertyTypeChange={setPropertyType}
+              onPlanChange={setServicePlan}
+              basePrice={finalPrice}
             />
           </>
         )}

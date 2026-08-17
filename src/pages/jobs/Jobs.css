@@ -177,3 +177,27 @@
     width: 100%;
   }
 }
+/* --- recurring visits due for scheduling --- */
+
+.jobs__list--due {
+  margin-bottom: 14px;
+}
+
+.jobrow--recurring {
+  border-left: 3px solid #b45309;
+  background: #fffdf7;
+}
+
+.jobrow__tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}

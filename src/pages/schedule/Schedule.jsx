@@ -67,7 +67,8 @@ export default function Schedule() {
   const navigate = useNavigate();
   // Mode comes from the route rather than local state, so the view is
   // linkable, survives a refresh, and can be remembered between visits.
-  const { pathname } = useLocation();
+  const { pathname, state } = useLocation();
+  const nextVisit = state?.nextVisit || null;
   const mode = pathname.startsWith("/schedule/calendar") ? "calendar" : "schedule";
   const [selectedDay, setSelectedDay] = useState(new Date());
   const [jobs, setJobs] = useState([]);
@@ -151,6 +152,19 @@ export default function Schedule() {
 
       {error && <p className="schedule__error">{error}</p>}
 
+      {nextVisit && (
+        <p className="schedule__nextvisit">
+          Next visit booked for {nextVisit.name} —{" "}
+          {new Date(nextVisit.startsAt).toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          })}{" "}
+          at ${nextVisit.price}. It's on the Jobs board if you need to move it.
+        </p>
+      )}
+
       {mode === "schedule" ? (
         <div className="schedule__day">
           <div className="schedule__daypick">
@@ -173,22 +187,35 @@ export default function Schedule() {
                 <div className="schedjob" key={job.id}>
                   <div className="schedjob__time">{formatTime(job.starts_at)}</div>
                   <div className="schedjob__body">
-                    <div className="schedjob__name">{job.lead?.name || "Job"}</div>
-                    <div className="schedjob__addr">{job.lead?.address}</div>
+                    <div className="schedjob__name">
+                      {job.lead?.name || job.customer?.name || "Job"}
+                    </div>
+                    <div className="schedjob__addr">
+                      {job.lead?.address || job.customer?.address}
+                    </div>
                     <div className="schedjob__meta">
-                      {job.lead?.phone} · ${job.price} · {job.duration_hours}h
+                      {job.lead?.phone || job.customer?.phone} · ${job.price} ·{" "}
+                      {job.duration_hours}h
                     </div>
                     {job.notes && <div className="schedjob__notes">{job.notes}</div>}
                     <div className="schedjob__crew">
                       {job.assignments?.map((a) => a.tech?.full_name).filter(Boolean).join(", ")}
                     </div>
                   </div>
-                  <button
-                    className="schedjob__complete"
-                    onClick={() => handleComplete(job)}
-                  >
-                    Mark completed
-                  </button>
+                  <div className="schedjob__actions">
+                    <button
+                      className="schedjob__complete"
+                      onClick={() => handleComplete(job)}
+                    >
+                      Mark completed
+                    </button>
+                    <button
+                      className="schedjob__edit"
+                      onClick={() => navigate(`/jobs/${job.id}`)}
+                    >
+                      Edit
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

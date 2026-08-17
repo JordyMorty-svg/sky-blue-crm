@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createLead, TEMPERATURES } from "../services/leadService";
+import PlanPicker from "./PlanPicker";
 import { useAuth } from "../context/useAuth";
 import AppointmentPicker from "./AppointmentPicker";
 import { combineToISO } from "./appointmentUtils";
@@ -26,6 +27,8 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
   const [appointmentDate, setAppointmentDate] = useState(null);
   const [appointmentTime, setAppointmentTime] = useState("");
   const [temperature, setTemperature] = useState("");
+  const [propertyType, setPropertyType] = useState("residential");
+  const [servicePlan, setServicePlan] = useState("one_time");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -69,6 +72,8 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
           estimate: estimate ? Number(estimate) : 0,
           appointment_at: combineToISO(appointmentDate, appointmentTime),
           temperature: temperature || null,
+          property_type: propertyType,
+          service_plan: servicePlan,
           notes: notes.trim() || null,
         },
         user?.id ?? null
@@ -163,6 +168,16 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
                 min="0"
               />
             </>
+          )}
+
+          {needsAppointment && (
+            <PlanPicker
+              propertyType={propertyType}
+              plan={servicePlan}
+              onPropertyTypeChange={setPropertyType}
+              onPlanChange={setServicePlan}
+              basePrice={estimate}
+            />
           )}
 
           {needsAppointment && (

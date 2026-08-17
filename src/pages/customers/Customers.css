@@ -424,3 +424,98 @@
   color: #dc2626;
   background: #fef2f2;
 }
+/* --- recurring / property badges --- */
+
+.custdetail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.custbadge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.custbadge--recurring {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.custbadge--residential {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.custbadge--commercial {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.custdetail__schedule {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.custdetail__schedule:hover {
+  background: #1d4ed8;
+}
+
+/* --- next recurring visit, due but not scheduled --- */
+
+.custdetail__nextvisit {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.custdetail__nextvisit-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.custdetail__nextvisit-date {
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.custdetail__nextvisit-note {
+  font-size: 0.82rem;
+  color: #92400e;
+  line-height: 1.45;
+}
+
+.custjob__status--upcoming {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+/* Scheduled jobs link through to the job editor. */
+.custjob--clickable {
+  cursor: pointer;
+}
+
+.custjob--clickable:hover {
+  border-color: #2563eb;
+}

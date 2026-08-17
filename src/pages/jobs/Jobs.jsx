@@ -6,6 +6,8 @@ import {
   fetchBookedLeads,
   fetchScheduledJobs,
   fetchTechs,
+  fetchDueVisits,
+  RECURRING_LEAD_TIME_DAYS,
 } from "../../services/jobService";
 import TechPicker from "../../components/TechPicker";
 import ViewSwitcher from "../../components/ViewSwitcher";
@@ -75,6 +77,7 @@ export default function Jobs() {
   const { pathname } = useLocation();
   const view = pathname.startsWith("/jobs/scheduled") ? "scheduled" : "toSchedule";
   const [booked, setBooked] = useState([]);
+  const [dueVisits, setDueVisits] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [techs, setTechs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -87,12 +90,14 @@ export default function Jobs() {
 
   async function load() {
     try {
-      const [b, j, t] = await Promise.all([
+      const [b, j, t, due] = await Promise.all([
         fetchBookedLeads(),
         fetchScheduledJobs(),
         fetchTechs(),
+        fetchDueVisits(),
       ]);
       setBooked(b);
+      setDueVisits(due);
       setJobs(j);
       setTechs(t);
       setError("");
@@ -133,16 +138,52 @@ export default function Jobs() {
       <ViewSwitcher
         views={JOB_VIEWS}
         section="jobs"
-        counts={{ "/jobs": booked.length, "/jobs/scheduled": jobs.length }}
+        counts={{
+          "/jobs": booked.length + dueVisits.length,
+          "/jobs/scheduled": jobs.length,
+        }}
       />
 
       {error && <p className="jobs__error">{error}</p>}
 
       {view === "toSchedule" ? (
         <section className="jobs__section">
-          {booked.length === 0 ? (
-            <p className="jobs__empty">No booked leads waiting. Nice.</p>
-          ) : (
+          {/* Recurring visits that have come within their lead time. They
+              sit above new leads because they have a fixed due date. */}
+          {dueVisits.length > 0 && (
+            <div className="jobs__list jobs__list--due">
+              {dueVisits.map((visit) => (
+                <div className="jobrow jobrow--recurring" key={visit.id}>
+                  <div className="jobrow__main">
+                    <span className="jobrow__name">
+                      {visit.customer?.name || visit.lead?.name || "Customer"}
+                      <span className="jobrow__tag">Recurring</span>
+                    </span>
+                    <span className="jobrow__meta">
+                      {visit.customer?.address || "No address"} · $
+                      {visit.price} · visit {visit.visit_number}
+                    </span>
+                    <span className="jobrow__when">
+                      Due {formatWhen(visit.starts_at)}
+                    </span>
+                  </div>
+                  <button
+                    className="jobrow__btn"
+                    onClick={() => navigate(`/jobs/visit/${visit.id}`)}
+                  >
+                    Schedule
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {booked.length === 0 && dueVisits.length === 0 ? (
+            <p className="jobs__empty">
+              Nothing waiting. Recurring visits appear here{" "}
+              {RECURRING_LEAD_TIME_DAYS} days before they're due.
+            </p>
+          ) : booked.length === 0 ? null : (
             <div className="jobs__list">
               {booked.map((lead) => (
                 <div className="jobrow" key={lead.id}>
@@ -222,9 +263,12 @@ export default function Jobs() {
                   tabIndex={0}
                 >
                   <div className="jobrow__main">
-                    <span className="jobrow__name">{job.lead?.name || "Job"}</span>
+                    <span className="jobrow__name">
+                      {job.lead?.name || job.customer?.name || "Job"}
+                    </span>
                     <span className="jobrow__meta">
-                      {job.lead?.address || "No address"} · ${job.price} · {job.duration_hours}h
+                      {job.lead?.address || job.customer?.address || "No address"} · $
+                      {job.price} · {job.duration_hours}h
                     </span>
                     <span className="jobrow__when">{formatWhen(job.starts_at)}</span>
                     <span className="jobrow__techs">

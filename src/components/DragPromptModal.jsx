@@ -1,11 +1,25 @@
 import { useState } from "react";
+import PlanPicker from "./PlanPicker";
 import "./AddLeadModal.css"; // reuse the same modal styling
 
 // Shown when a lead is dragged to a stage that needs info it doesn't have.
 // `field` is 'price' or 'appointment'. Calls onConfirm(value) or onCancel().
-export default function DragPromptModal({ field, stageLabel, onConfirm, onCancel }) {
+export default function DragPromptModal({
+  field,
+  stageLabel,
+  lead,
+  askPlan = false,
+  onConfirm,
+  onCancel,
+}) {
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
+  const [propertyType, setPropertyType] = useState(
+    lead?.property_type || "residential"
+  );
+  const [servicePlan, setServicePlan] = useState(
+    lead?.service_plan || "one_time"
+  );
 
   const isPrice = field === "price";
 
@@ -14,7 +28,12 @@ export default function DragPromptModal({ field, stageLabel, onConfirm, onCancel
       setError(isPrice ? "Enter a price to continue." : "Pick a time to continue.");
       return;
     }
-    onConfirm(value);
+    onConfirm(
+      value,
+      askPlan
+        ? { property_type: propertyType, service_plan: servicePlan }
+        : undefined
+    );
   }
 
   return (
@@ -54,6 +73,16 @@ export default function DragPromptModal({ field, stageLabel, onConfirm, onCancel
                 autoFocus
               />
             </>
+          )}
+
+          {askPlan && (
+            <PlanPicker
+              propertyType={propertyType}
+              plan={servicePlan}
+              onPropertyTypeChange={setPropertyType}
+              onPlanChange={setServicePlan}
+              basePrice={isPrice ? value : lead?.estimate}
+            />
           )}
 
           {error && <p className="modal__error">{error}</p>}

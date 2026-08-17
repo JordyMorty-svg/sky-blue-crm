@@ -163,3 +163,58 @@
 .jobDetail__cancel:hover {
   border-color: #94a3b8;
 }
+/* --- delete, kept visually apart from the save/cancel row --- */
+
+.jobDetail__danger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.jobDetail__dangertext {
+  font-size: 0.85rem;
+  color: #92400e;
+  flex: 1;
+  min-width: 200px;
+  line-height: 1.45;
+}
+
+.jobDetail__delete {
+  background: none;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.jobDetail__delete:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+}
+
+.jobDetail__deleteyes {
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.jobDetail__deleteyes:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.jobDetail__deleteyes:disabled {
+  background: #fca5a5;
+  cursor: default;
+}

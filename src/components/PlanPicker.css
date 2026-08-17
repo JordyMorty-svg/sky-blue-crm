@@ -1,0 +1,157 @@
+.planpick {
+  margin-bottom: 4px;
+}
+
+.planpick__label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+/* --- residential / commercial --- */
+
+.planpick__types {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.planpick__type {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.planpick__type:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.planpick__type--active {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+
+.planpick__typehint {
+  font-style: normal;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.planpick__type--active .planpick__typehint {
+  color: #60a5fa;
+}
+
+/* --- the three plans --- */
+
+.planpick__plans {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.planpick__plan {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.planpick__plan:hover {
+  border-color: #2563eb;
+}
+
+.planpick__plan--active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.planpick__planname {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #0f172a;
+}
+
+.planpick__planwhen {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  line-height: 1.3;
+}
+
+.planpick__planoff {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.planpick__planoff--on {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.planpick__plan--active .planpick__planoff--on {
+  color: #92400e;
+  background: #fde68a;
+}
+
+/* --- the money, spelled out --- */
+
+.planpick__preview {
+  font-size: 0.85rem;
+  color: #0f172a;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 9px 12px;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.planpick__preview strong {
+  color: #15803d;
+}
+
+@media (max-width: 520px) {
+  .planpick__plans {
+    flex-direction: column;
+  }
+
+  .planpick__plan {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .planpick__planoff {
+    margin-top: 0;
+    margin-left: auto;
+  }
+}

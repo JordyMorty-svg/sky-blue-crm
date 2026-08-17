@@ -5,7 +5,10 @@ import {
   updateJob,
   updateJobTechs,
   fetchTechs,
+  deleteJob,
 } from "../../services/jobService";
+import { updateCustomer } from "../../services/customerService";
+import PlanPicker from "../../components/PlanPicker";
 import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import TechPicker from "../../components/TechPicker";
@@ -27,6 +30,10 @@ export default function JobDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [propertyType, setPropertyType] = useState("residential");
+  const [servicePlan, setServicePlan] = useState("one_time");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function load() {
     try {
@@ -44,6 +51,13 @@ export default function JobDetail() {
       setDuration(jobData.duration_hours ?? 3);
       setPrice(jobData.price ?? "");
       setNotes(jobData.notes ?? "");
+      // Plan comes from the customer, which is what drives recurrence.
+      setPropertyType(
+        jobData.customer?.property_type || jobData.property_type || "residential"
+      );
+      setServicePlan(
+        jobData.customer?.service_plan || jobData.service_plan || "one_time"
+      );
       setError("");
     } catch (e) {
       console.error(e);
@@ -83,11 +97,40 @@ export default function JobDetail() {
         notes: notes || null,
       });
       await updateJobTechs(id, originalTechs, selectedTechs);
+
+      // Putting someone onto a plan mid-job is the common case. Write it to
+      // the customer, since that's what createNextVisit reads on completion.
+      if (job.customer_id) {
+        const planChanged =
+          servicePlan !== (job.customer?.service_plan || "one_time") ||
+          propertyType !== (job.customer?.property_type || "residential");
+        if (planChanged) {
+          await updateCustomer(job.customer_id, {
+            service_plan: servicePlan,
+            property_type: propertyType,
+          });
+        }
+      }
+
       navigate("/jobs");
     } catch (e) {
       console.error(e);
       setError("Couldn't save. Try again.");
       setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    setError("");
+    try {
+      await deleteJob(id);
+      navigate("/jobs");
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't delete this job. Try again.");
+      setDeleting(false);
+      setConfirmDelete(false);
     }
   }
 
@@ -100,11 +143,13 @@ export default function JobDetail() {
         ← Back to jobs
       </button>
 
-      <h1 className="jobDetail__title">{job.lead?.name || "Job"}</h1>
+      <h1 className="jobDetail__title">
+        {job.lead?.name || job.customer?.name || "Job"}
+      </h1>
 
       <div className="jobDetail__lead">
-        <span>{job.lead?.address || "No address"}</span>
-        <span>{job.lead?.phone}</span>
+        <span>{job.lead?.address || job.customer?.address || "No address"}</span>
+        <span>{job.lead?.phone || job.customer?.phone}</span>
         <span>{job.services}</span>
       </div>
 
@@ -144,6 +189,19 @@ export default function JobDetail() {
           onChange={setSelectedTechs}
         />
 
+        {job.customer_id && (
+          <>
+            <label className="jobDetail__label">Service plan</label>
+            <PlanPicker
+              propertyType={propertyType}
+              plan={servicePlan}
+              onPropertyTypeChange={setPropertyType}
+              onPlanChange={setServicePlan}
+              basePrice={price}
+            />
+          </>
+        )}
+
         <label className="jobDetail__label">Notes</label>
         <textarea
           className="jobDetail__input jobDetail__textarea"
@@ -160,6 +218,38 @@ export default function JobDetail() {
           <button className="jobDetail__cancel" onClick={() => navigate("/jobs")}>
             Cancel
           </button>
+        </div>
+
+        <div className="jobDetail__danger">
+          {confirmDelete ? (
+            <>
+              <span className="jobDetail__dangertext">
+                Delete this job permanently? Any payment recorded against it
+                goes too.
+              </span>
+              <button
+                className="jobDetail__deleteyes"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting…" : "Yes, delete"}
+              </button>
+              <button
+                className="jobDetail__cancel"
+                onClick={() => setConfirmDelete(false)}
+                disabled={deleting}
+              >
+                Keep it
+              </button>
+            </>
+          ) : (
+            <button
+              className="jobDetail__delete"
+              onClick={() => setConfirmDelete(true)}
+            >
+              Delete job
+            </button>
+          )}
         </div>
       </div>
     </div>

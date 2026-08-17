@@ -460,3 +460,27 @@
 .schedule__calendar .rbc-off-range-bg {
   background: #f8fafc;
 }
+/* Complete + edit sit together on a scheduled job row. */
+.schedjob__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.schedjob__edit {
+  background: none;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.schedjob__edit:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}

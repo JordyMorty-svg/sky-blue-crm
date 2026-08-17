@@ -1,3 +1,4 @@
+import { addMonths } from "date-fns";
 import { supabase } from "../supabaseClient";
 
 // Active pipeline stages shown on the Kanban board, in order.
@@ -51,6 +52,74 @@ export const STALE_AFTER_DAYS = 21;
 // Which stages allow manually adding a lead (door-knocking).
 // 'new' is excluded — those only come from the website quote form.
 export const MANUAL_ADD_STAGES = ["contacted", "quoted", "booked"];
+
+// Residential vs commercial. The two flyers carry different discounts for
+// the same plans, so the discount is a function of both.
+export const PROPERTY_TYPES = [
+  { key: "residential", label: "Residential", hint: "Homes" },
+  { key: "commercial", label: "Commercial", hint: "Storefronts" },
+];
+
+// Recurring service plans.
+//
+// The first cleaning is always full price — the discount is a property of
+// "which visit is this", not of the customer — so it applies from visit 2
+// onward. `months` drives when the next visit is auto-scheduled.
+export const SERVICE_PLANS = [
+  {
+    key: "one_time",
+    label: "One-time",
+    months: null,
+    discounts: { residential: 0, commercial: 0 },
+    blurb: "Single cleaning. No discount.",
+  },
+  {
+    key: "biannual",
+    label: "BiAnnual",
+    months: 6,
+    discounts: { residential: 50, commercial: 25 },
+    blurb: "Every 6 months. Discount off every cleaning after the first.",
+  },
+  {
+    key: "quarterly",
+    label: "Quarterly",
+    months: 3,
+    discounts: { residential: 100, commercial: 50 },
+    blurb: "Every 3 months. Biggest discount, plus the bonuses.",
+  },
+];
+
+export function planFor(key) {
+  return SERVICE_PLANS.find((p) => p.key === key) || SERVICE_PLANS[0];
+}
+
+// What comes off each repeat visit for this plan on this kind of property.
+export function discountFor(planKey, propertyType = "residential") {
+  const { discounts } = planFor(planKey);
+  return discounts[propertyType] ?? discounts.residential;
+}
+
+// What a given visit costs. Visit 1 is the full quote; every visit after it
+// takes the plan discount. Never goes below zero — a $60 job on the
+// residential quarterly plan is free, not minus forty.
+export function priceForVisit(basePrice, planKey, visitNumber, propertyType) {
+  const base = Number(basePrice) || 0;
+  if (!visitNumber || visitNumber <= 1) return base;
+  return Math.max(0, base - discountFor(planKey, propertyType));
+}
+
+// When the next visit is due, given when this one happened.
+// Null for one-time plans — there is no next visit.
+//
+// date-fns rather than setMonth: the native version overflows, so a job on
+// 31 August plus three months lands on 1 December instead of 30 November,
+// and a quarterly customer drifts a day later every year. addMonths clamps
+// to the last valid day of the target month.
+export function nextVisitDate(fromISO, planKey) {
+  const { months } = planFor(planKey);
+  if (!months) return null;
+  return addMonths(fromISO ? new Date(fromISO) : new Date(), months).toISOString();
+}
 
 // Lead temperature (how interested they seemed), with dot colors.
 export const TEMPERATURES = [
