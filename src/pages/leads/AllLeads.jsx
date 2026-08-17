@@ -316,7 +316,8 @@ export default function AllLeads() {
             {selectedWithJobs.length > 0 && (
               <em className="allleads__bulkwarn">
                 {" "}
-                · {selectedWithJobs.length} with job history
+                · {selectedWithJobs.length} with job history (deletable via
+                Delete)
               </em>
             )}
           </span>
@@ -456,7 +457,7 @@ export default function AllLeads() {
             <p className="allleads__modaltext">
               {deletableCount > 0
                 ? "This permanently removes them from the database. It can't be undone."
-                : "Every lead you selected has job history. Tick the box below if you're clearing test data."}
+                : "Scheduled and completed leads have jobs attached, and jobs carry payment history — so they're protected by default. To clear test data, use the option below."}
             </p>
 
             {selectedWithJobs.length > 0 && !forceDelete && (

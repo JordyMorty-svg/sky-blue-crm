@@ -369,7 +369,21 @@ export async function bulkDeleteLeads(
     }
   }
 
-  // 3. The leads themselves.
+  // 3. Unlink any customer still pointing at these leads.
+  //
+  //    Scheduling a lead creates a customer row with lead_id set, so that
+  //    reference outlives the jobs. Without clearing it the delete below
+  //    fails on the foreign key — and the failure looks identical to any
+  //    other error, which is a miserable thing to debug. Customers we were
+  //    asked to delete are already gone by now; this catches the ones we
+  //    deliberately kept.
+  const { error: unlinkErr } = await supabase
+    .from("customers")
+    .update({ lead_id: null })
+    .in("lead_id", leadIds);
+  if (unlinkErr) throw unlinkErr;
+
+  // 4. The leads themselves.
   const { error } = await supabase.from("leads").delete().in("id", leadIds);
   if (error) throw error;
 
