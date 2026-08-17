@@ -1,0 +1,52 @@
+# Netlify configuration for Sky Blue CRM.
+#
+# Netlify can infer most of this from the Vite project, but pinning it here
+# means local `netlify dev` and the deployed build resolve identically —
+# and it documents the setup for anyone reading the repo.
+
+[build]
+  command  = "npm run build"
+  publish  = "dist"
+  # Netlify Functions v2. Each function declares its own route via
+  # `export const config = { path: "/api/..." }`, so no redirect rules are
+  # needed to reach them.
+  functions = "netlify/functions"
+
+[functions]
+  # v2 functions are ESM and bundled with esbuild.
+  node_bundler = "esbuild"
+
+[dev]
+  # `npx netlify-cli dev` runs Vite behind Netlify's proxy so the frontend
+  # and the /api/* functions share one origin. Use the port below, NOT
+  # Vite's 5173 — functions don't exist on that one.
+  framework   = "vite"
+  command     = "npm run dev"
+  targetPort  = 5173
+  port        = 8888
+  autoLaunch  = false
+
+# SPA fallback lives in public/_redirects (`/*  /index.html  200`) and is
+# deliberately not duplicated here — two sources for the same rule is how
+# routing bugs start. Function routes are matched before it either way.
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options        = "DENY"
+    Referrer-Policy        = "strict-origin-when-cross-origin"
+    Permissions-Policy     = "geolocation=(self), camera=(), microphone=()"
+
+# Note: no Content-Security-Policy here on purpose. This app loads Square's
+# Web Payments SDK from squarecdn.com into an iframe and Google Maps from
+# gstatic/googleapis; a CSP has to allowlist all of those precisely or it
+# breaks card entry and the map view. Worth adding deliberately later, not
+# as a copy-paste default.
+
+# Hashed build assets are immutable — cache them hard. index.html is left
+# alone so deploys take effect immediately.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

@@ -1,0 +1,133 @@
+.cardpay {
+  margin-bottom: 20px;
+}
+
+.cardpay__label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+/* Square injects its own iframe in here. Give it room and a border that
+   matches our other inputs so it doesn't look bolted on. */
+.cardpay__fields {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 6px 10px;
+  min-height: 56px;
+  background: #ffffff;
+}
+
+.cardpay__fields:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.cardpay__hint {
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.45;
+  margin: 8px 0 0;
+}
+
+.cardpay__error {
+  font-size: 0.85rem;
+  color: #dc2626;
+  line-height: 1.45;
+  margin: 8px 0 0;
+}
+
+.cardpay__save {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 14px 0 16px;
+  font-size: 0.9rem;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.cardpay__save input {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.cardpay__savehint {
+  display: block;
+  font-style: normal;
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.cardpay__charge {
+  width: 100%;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.cardpay__charge:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.cardpay__charge:disabled {
+  background: #93c5fd;
+  cursor: default;
+}
+
+/* --- saved card on file --- */
+
+.cardpay__saved {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  margin-bottom: 12px;
+}
+
+.cardpay__savedcard {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.92rem;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.cardpay__savedexp {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.cardpay__swap {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.cardpay__swap:hover {
+  text-decoration: underline;
+}

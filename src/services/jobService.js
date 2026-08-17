@@ -136,13 +136,20 @@ export async function fetchScheduledJobs() {
   return data;
 }
 
-// A single job with lead + assigned tech ids, for the edit page.
+// A single job with lead + customer + assigned tech ids, for the edit page.
+// The customer join carries the Square ids, so the complete-job screen can
+// offer a repeat customer's card on file without another round trip.
 export async function fetchJob(id) {
   const { data, error } = await supabase
     .from("jobs")
     .select(`
       *,
       lead:lead_id ( name, address, phone, email, interior ),
+      customer:customer_id (
+        id, name, address, phone, email,
+        square_customer_id, square_card_id,
+        card_brand, card_last4, card_exp_month, card_exp_year
+      ),
       assignments:job_assignments ( tech_id )
     `)
     .eq("id", id)

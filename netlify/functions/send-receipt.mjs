@@ -28,6 +28,7 @@ function money(n) {
 const METHOD_LABEL = {
   cash: "Cash",
   check: "Check",
+  card: "Card",
   square: "Card (Square)",
 };
 
