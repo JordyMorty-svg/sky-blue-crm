@@ -182,3 +182,31 @@
   display: block;
   margin-top: 6px;
 }
+
+/* --- recurring visits that have come due ---
+   These sit above the manually-booked leads in the same section, so they
+   need to read as a distinct tray rather than more of the same list. */
+
+.jobs__list--due {
+  margin-bottom: 10px;
+}
+
+.jobrow--recurring {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+/* Inline "Recurring" pill next to the customer name. */
+.jobrow__tag {
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: middle;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #92400e;
+  background: #fde68a;
+  border-radius: 999px;
+  padding: 2px 8px;
+}

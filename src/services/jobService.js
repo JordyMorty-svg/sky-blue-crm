@@ -368,6 +368,82 @@ export async function createNextVisit(job) {
   return next;
 }
 
+// Make sure a recurring customer actually has their next visit on record.
+//
+// createNextVisit only runs at the moment a job completes, which leaves two
+// gaps that both happen in real use:
+//
+//   1. Someone is put onto a plan AFTER their job was already completed —
+//      "they liked it, sign them up for quarterly". The completion has
+//      passed, so nothing ever generates visit 2.
+//   2. The insert failed at completion time. That failure is deliberately
+//      swallowed so it can't roll back a payment taken on a doorstep, which
+//      means the missing visit is invisible until someone notices.
+//
+// Both leave a plan customer with no due date, which is exactly the state
+// that makes the CRM look broken. This repairs it from the last completed
+// visit. Safe to call repeatedly — it does nothing when a visit is already
+// pending.
+//
+// Returns { created, reason } so the caller can explain the outcome.
+export async function ensureNextVisit(customerId) {
+  if (!customerId) return { created: null, reason: "no-customer" };
+
+  const { data: customer, error: custErr } = await supabase
+    .from("customers")
+    .select("id, service_plan, property_type")
+    .eq("id", customerId)
+    .single();
+  if (custErr) throw custErr;
+
+  const plan = customer?.service_plan || "one_time";
+  if (plan === "one_time") return { created: null, reason: "not-recurring" };
+
+  // Anything already booked or due means there's nothing to repair.
+  const { data: pending, error: pendErr } = await supabase
+    .from("jobs")
+    .select("id")
+    .eq("customer_id", customerId)
+    .in("status", ["upcoming", "scheduled"])
+    .limit(1);
+  if (pendErr) throw pendErr;
+  if (pending?.length) return { created: null, reason: "already-pending" };
+
+  // Anchor on their most recent completed visit — the clock runs from when
+  // the work actually happened.
+  const { data: done, error: doneErr } = await supabase
+    .from("jobs")
+    .select("*")
+    .eq("customer_id", customerId)
+    .eq("status", "completed")
+    .order("starts_at", { ascending: false, nullsFirst: false })
+    .limit(1);
+  if (doneErr) throw doneErr;
+
+  const anchor = done?.[0];
+  if (!anchor) return { created: null, reason: "no-completed-job" };
+
+  // A visit completed before they signed up is stamped one_time, and
+  // createNextVisit refuses to move the clock off a one_time job. Putting
+  // them on a plan makes that visit their first plan visit, so stamp it —
+  // the same thing the complete-job screen does when the plan is set there.
+  let anchorJob = anchor;
+  if ((anchor.service_plan || "one_time") === "one_time") {
+    await setJobPlan(anchor.id, {
+      servicePlan: plan,
+      propertyType: customer.property_type,
+    });
+    anchorJob = {
+      ...anchor,
+      service_plan: plan,
+      property_type: customer.property_type || anchor.property_type,
+    };
+  }
+
+  const created = await createNextVisit(anchorJob);
+  return { created, reason: created ? "created" : "nothing-to-create" };
+}
+
 // Recurring visits close enough to their due date to be worth scheduling.
 export async function fetchDueVisits() {
   const cutoff = new Date();
@@ -502,14 +578,20 @@ export async function completeJob(job, { finalPrice, paymentMethod, paymentNotes
   }
 
   // Book the next visit for recurring plans. Deliberately last and
-  // deliberately swallowed: the job is already completed and paid, and a
-  // failure to schedule three months out must not roll that back or show
-  // an error to someone standing on a doorstep.
+  // deliberately caught: the job is already completed and paid, and a
+  // failure to schedule three months out must not roll that back or throw
+  // at someone standing on a doorstep.
+  //
+  // Caught, but not thrown away — the error is returned. Swallowing it
+  // entirely is how a plan customer ends up with no due date and nothing
+  // anywhere saying why.
   let nextVisit = null;
+  let nextVisitError = null;
   try {
     nextVisit = await createNextVisit(job);
   } catch (e) {
     console.error("Couldn't schedule the next visit:", e);
+    nextVisitError = e;
   }
-  return { nextVisit };
+  return { nextVisit, nextVisitError };
 }

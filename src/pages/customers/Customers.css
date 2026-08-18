@@ -689,3 +689,50 @@
   margin-top: 5px;
   align-self: flex-start;
 }
+
+/* --- missing-visit repair ---
+   Shown inside the estimate panel when a plan customer's next visit was
+   never actually created. An estimate never reaches the Jobs board, so
+   this has to read as something to act on, not just more explanation. */
+
+.custdetail__repair {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.custdetail__repair-text {
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: #92400e;
+}
+
+.custdetail__repair-btn {
+  background: #2563eb;
+  border: none;
+  color: #ffffff;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.custdetail__repair-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.custdetail__repair-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.custdetail__repair-error {
+  font-size: 0.82rem;
+  color: #b91c1c;
+  line-height: 1.5;
+}

@@ -5,7 +5,11 @@ import {
   updateCustomer,
   deleteCustomer,
 } from "../../services/customerService";
-import { fetchNextVisit, RECURRING_LEAD_TIME_DAYS } from "../../services/jobService";
+import {
+  fetchNextVisit,
+  ensureNextVisit,
+  RECURRING_LEAD_TIME_DAYS,
+} from "../../services/jobService";
 import {
   PROPERTY_TYPES,
   SERVICE_PLANS,
@@ -54,6 +58,8 @@ export default function CustomerDetail() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [nextVisit, setNextVisit] = useState(null);
+  const [repairing, setRepairing] = useState(false);
+  const [repairError, setRepairError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [forceDelete, setForceDelete] = useState(false);
   const [forceText, setForceText] = useState("");
@@ -111,6 +117,21 @@ export default function CustomerDetail() {
       });
       setCustomer(form);
       setEditing(false);
+
+      // Putting someone on a plan here is the "they liked it, sign them up"
+      // path, and it usually happens after their first visit is already
+      // finished. Nothing else would ever generate visit 2 in that case, so
+      // do it now rather than leaving them with a plan and no due date.
+      const planChanged =
+        (form.service_plan || "one_time") !== (customer.service_plan || "one_time");
+      if (planChanged && (form.service_plan || "one_time") !== "one_time") {
+        try {
+          await ensureNextVisit(id);
+        } catch (visitErr) {
+          console.error("Couldn't create the next visit:", visitErr);
+        }
+      }
+      await load();
     } catch (e) {
       console.error(e);
       setError("Couldn't save changes. Try again.");
@@ -123,6 +144,31 @@ export default function CustomerDetail() {
     setForm(customer);
     setEditing(false);
     setError("");
+  }
+
+  // Create the missing follow-up visit for a plan customer whose last job
+  // is already finished. Surfaces the real error rather than logging it,
+  // because a silent failure here is what hid the problem in the first
+  // place.
+  async function handleRepairVisit() {
+    setRepairing(true);
+    setRepairError("");
+    try {
+      const { created, reason } = await ensureNextVisit(id);
+      if (!created) {
+        setRepairError(
+          reason === "no-completed-job"
+            ? "There's no completed visit to count from yet."
+            : "Nothing to create — they already have a visit on the books."
+        );
+      }
+      await load();
+    } catch (e) {
+      console.error(e);
+      setRepairError(e.message || "Couldn't create the next visit.");
+    } finally {
+      setRepairing(false);
+    }
   }
 
   async function handleDelete() {
@@ -160,30 +206,46 @@ export default function CustomerDetail() {
   const propertyType = customer.property_type || "residential";
 
   // Until the current job is finished there's no real due date — the clock
-  // starts when the work actually happens. Project from the booked job so a
-  // plan isn't invisible for three months. Display only: nothing is
-  // written, and the real due date replaces it on completion.
+  // starts when the work actually happens. Project from the most recent
+  // visit so a plan isn't invisible for three months. Display only: nothing
+  // is written, and the real due date replaces it once one exists.
+  //
+  // `jobs` is ordered newest-first, so these pick the latest of each.
   const lastScheduled = jobs.find((j) => j.status === "scheduled");
+  const lastCompleted = jobs.find((j) => j.status === "completed");
+  // A booked job is the better anchor when there is one — it's the visit
+  // the next one actually follows. Falling back to a completed job matters
+  // for the case that used to show nothing at all: someone put on a plan
+  // after their only visit was already finished.
+  const anchorJob = lastScheduled || lastCompleted;
   // Same precedence createNextVisit uses, so what's shown matches what will
   // actually be created: the customer's plan is current truth, the job's
   // plan is the fallback for records booked before it was set.
   const effectivePlan =
     customer.service_plan && customer.service_plan !== "one_time"
       ? customer.service_plan
-      : lastScheduled?.service_plan || customer.service_plan || "one_time";
+      : anchorJob?.service_plan || customer.service_plan || "one_time";
   const projectedVisit =
-    !nextVisit && effectivePlan !== "one_time" && lastScheduled?.starts_at
+    !nextVisit && effectivePlan !== "one_time" && anchorJob?.starts_at
       ? {
-          startsAt: nextVisitDate(lastScheduled.starts_at, effectivePlan),
+          startsAt: nextVisitDate(anchorJob.starts_at, effectivePlan),
           price: priceForVisit(
-            lastScheduled.final_price ?? lastScheduled.price,
+            anchorJob.final_price ?? anchorJob.price,
             effectivePlan,
-            (lastScheduled.visit_number || 1) + 1,
+            (anchorJob.visit_number || 1) + 1,
             propertyType
           ),
-          after: lastScheduled.starts_at,
+          after: anchorJob.starts_at,
+          fromCompleted: !lastScheduled,
         }
       : null;
+
+  // A plan customer whose last visit is already finished should have a real
+  // due date on record, not an estimate. If they don't, the row that should
+  // have been created when that job completed never was — offer to create
+  // it rather than quietly showing a projection forever.
+  const needsVisitRepair =
+    !nextVisit && !lastScheduled && isRecurring && !!lastCompleted;
 
   const totalPaid = jobs
     .filter((j) => j.status === "completed")
@@ -347,11 +409,41 @@ export default function CustomerDetail() {
             around {formatDue(projectedVisit.startsAt)}
           </strong>
           <span className="custdetail__nextvisit-note">
-            Estimated at ${projectedVisit.price}, counting{" "}
-            {planFor(effectivePlan).months} months from the job booked for{" "}
-            {formatDue(projectedVisit.after)}. The real due date is set when
-            that job is marked complete.
+            {projectedVisit.fromCompleted ? (
+              <>
+                Estimated at ${projectedVisit.price}, counting{" "}
+                {planFor(effectivePlan).months} months from their last visit
+                on {formatDue(projectedVisit.after)}.
+              </>
+            ) : (
+              <>
+                Estimated at ${projectedVisit.price}, counting{" "}
+                {planFor(effectivePlan).months} months from the job booked for{" "}
+                {formatDue(projectedVisit.after)}. The real due date is set
+                when that job is marked complete.
+              </>
+            )}
           </span>
+
+          {needsVisitRepair && (
+            <div className="custdetail__repair">
+              <span className="custdetail__repair-text">
+                This visit isn't on the books yet — it's only an estimate, so
+                it won't reach the Jobs board. That happens when someone is
+                put on a plan after their last visit was already finished.
+              </span>
+              <button
+                className="custdetail__repair-btn"
+                onClick={handleRepairVisit}
+                disabled={repairing}
+              >
+                {repairing ? "Creating…" : "Put it on the books"}
+              </button>
+              {repairError && (
+                <span className="custdetail__repair-error">{repairError}</span>
+              )}
+            </div>
+          )}
         </div>
       )}
 
