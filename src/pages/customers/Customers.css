@@ -736,3 +736,11 @@
   color: #b91c1c;
   line-height: 1.5;
 }
+
+/* Work still to come, shown under the completed-visit count so the two
+   aren't added together. Deliberately quieter than the number itself. */
+.custdetail__stat-extra {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #b45309;
+}

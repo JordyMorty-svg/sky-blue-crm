@@ -247,9 +247,21 @@ export default function CustomerDetail() {
   const needsVisitRepair =
     !nextVisit && !lastScheduled && isRecurring && !!lastCompleted;
 
-  const totalPaid = jobs
-    .filter((j) => j.status === "completed")
-    .reduce((sum, j) => sum + Number(j.final_price ?? j.price ?? 0), 0);
+  const completedJobs = jobs.filter((j) => j.status === "completed");
+
+  const totalPaid = completedJobs.reduce(
+    (sum, j) => sum + Number(j.final_price ?? j.price ?? 0),
+    0
+  );
+
+  // Work that hasn't happened yet — booked, or due on the plan. Kept out
+  // of the visit count so it can't be read as work already done: a
+  // recurring customer always has a future visit on record, and counting
+  // it made a first-time customer look like a repeat one. It sits next to
+  // the count as its own line instead.
+  const pendingCount = jobs.filter(
+    (j) => j.status === "scheduled" || j.status === "upcoming"
+  ).length;
 
   return (
     <div className="custdetail">
@@ -391,8 +403,15 @@ export default function CustomerDetail() {
 
       <div className="custdetail__stats">
         <div className="custdetail__stat">
-          <span className="custdetail__stat-num">{jobs.length}</span>
-          <span className="custdetail__stat-label">Total jobs</span>
+          <span className="custdetail__stat-num">{completedJobs.length}</span>
+          <span className="custdetail__stat-label">
+            {completedJobs.length === 1 ? "Visit completed" : "Visits completed"}
+          </span>
+          {pendingCount > 0 && (
+            <span className="custdetail__stat-extra">
+              +{pendingCount} upcoming
+            </span>
+          )}
         </div>
         <div className="custdetail__stat">
           <span className="custdetail__stat-num">${totalPaid.toLocaleString()}</span>
