@@ -1,0 +1,82 @@
+.posret {
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 64px 20px;
+  text-align: center;
+}
+
+.posret__spinner {
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 20px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: posret-spin 0.8s linear infinite;
+}
+
+@keyframes posret-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Respect a reduced-motion preference — a spinner is decoration here, the
+   text already says what's happening. */
+@media (prefers-reduced-motion: reduce) {
+  .posret__spinner {
+    animation: none;
+    border-top-color: #e2e8f0;
+  }
+}
+
+.posret__title {
+  font-size: 1.3rem;
+  color: #0f172a;
+  margin: 0 0 10px;
+}
+
+.posret__message {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #64748b;
+  margin: 0 0 24px;
+}
+
+.posret__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.posret__primary {
+  background: #2563eb;
+  border: none;
+  color: #ffffff;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.posret__primary:hover {
+  background: #1d4ed8;
+}
+
+.posret__secondary {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.posret__secondary:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}

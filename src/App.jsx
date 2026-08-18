@@ -14,6 +14,7 @@ import JobDetail from "./pages/jobs/JobDetail";
 import JobRecord from "./pages/jobs/JobRecord";
 import Schedule from "./pages/schedule/Schedule";
 import CompleteJob from "./pages/schedule/CompleteJob";
+import PosReturn from "./pages/schedule/PosReturn";
 import Income from "./pages/income/Income";
 import Customers from "./pages/customers/Customers";
 import CustomerDetail from "./pages/customers/CustomerDetail";
@@ -129,6 +130,10 @@ export default function App() {
       <Route path="/schedule" element={<Page><Schedule /></Page>} />
       <Route path="/schedule/calendar" element={<Page><Schedule /></Page>} />
       <Route path="/schedule/complete/:jobId" element={<Page><CompleteJob /></Page>} />
+      {/* Where the Square app returns after a tap. Square opens this as a
+          plain URL, so it has to be a real route — public/_redirects sends
+          unknown paths to index.html, which is what makes that work. */}
+      <Route path="/pos-return" element={<Page><PosReturn /></Page>} />
       <Route path="/income" element={<Page><Income /></Page>} />
       <Route path="/customers" element={<Page><Customers /></Page>} />
       <Route path="/customers/add-past" element={<Page><AddPastJobs /></Page>} />

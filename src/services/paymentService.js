@@ -1,5 +1,31 @@
 import { supabase } from "../supabaseClient";
 
+// Look up the payment behind a Square Point of Sale transaction.
+//
+// The Square app returns a transaction id when a card is tapped; this
+// resolves it to the payment, so a tapped job records exactly like one
+// paid through the in-app card form — same payment id, same receipt.
+export async function resolvePosPayment(transactionId) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const res = await fetch("/api/resolve-pos-payment", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access_token || ""}`,
+    },
+    body: JSON.stringify({ transactionId }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || "Couldn't find that payment in Square.");
+  }
+  return data; // { paymentId, receiptUrl, amount, card, squareCustomerId, ... }
+}
+
 // Charge a card through our Netlify function, which holds the Square
 // secret. Pass EITHER sourceId (a fresh token from the Web Payments SDK)
 // or savedCardId (a "ccof:..." card on file from a previous visit).
@@ -63,7 +89,17 @@ export async function saveCardOnCustomer(
 
   const changes = {};
   if (squareCustomerId) changes.square_customer_id = squareCustomerId;
-  if (card) {
+
+  // The brand/last4/expiry columns describe the card in square_card_id —
+  // they're what the complete-job screen shows above "Charge $X to
+  // ····4242". So they only move when the stored card itself moves.
+  //
+  // Without the card.id guard, a card TAPPED through the Square app would
+  // rewrite the display fields while square_card_id kept pointing at a
+  // different, still-stored card: the screen would offer to charge one
+  // card and actually charge another. A tap is never stored on file, so it
+  // has no id and correctly changes nothing here.
+  if (card?.id) {
     changes.square_card_id = card.id;
     changes.card_brand = card.brand;
     changes.card_last4 = card.last4;
