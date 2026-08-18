@@ -531,7 +531,19 @@ export default function CustomerDetail() {
             {jobs
               .filter((j) => j.status !== "scheduled" && j.status !== "upcoming")
               .map((job) => (
-                <div className="custjob" key={job.id}>
+                <div
+                  className="custjob custjob--clickable"
+                  key={job.id}
+                  // Read-only record, not the editor — a finished job has a
+                  // payment behind it that editing would silently contradict.
+                  onClick={() =>
+                    navigate(`/jobs/record/${job.id}`, {
+                      state: { from: `/customers/${id}` },
+                    })
+                  }
+                  role="button"
+                  tabIndex={0}
+                >
                   <div className="custjob__main">
                     <span className="custjob__when">{formatWhen(job.starts_at)}</span>
                     <span className="custjob__meta">

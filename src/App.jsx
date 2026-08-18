@@ -11,6 +11,7 @@ import ScheduleJob from "./pages/jobs/ScheduleJob";
 import ConfirmVisit from "./pages/jobs/ConfirmVisit";
 import ScheduleForCustomer from "./pages/customers/ScheduleForCustomer";
 import JobDetail from "./pages/jobs/JobDetail";
+import JobRecord from "./pages/jobs/JobRecord";
 import Schedule from "./pages/schedule/Schedule";
 import CompleteJob from "./pages/schedule/CompleteJob";
 import Income from "./pages/income/Income";
@@ -121,6 +122,9 @@ export default function App() {
       <Route path="/jobs/scheduled" element={<Page><Jobs /></Page>} />
       <Route path="/jobs/schedule/:leadId" element={<Page><ScheduleJob /></Page>} />
       <Route path="/jobs/visit/:jobId" element={<Page><ConfirmVisit /></Page>} />
+      {/* Finished work is read-only, so it gets its own page rather than
+          the editor. Static segment, so it outranks /jobs/:id. */}
+      <Route path="/jobs/record/:id" element={<Page><JobRecord /></Page>} />
       <Route path="/jobs/:id" element={<Page><JobDetail /></Page>} />
       <Route path="/schedule" element={<Page><Schedule /></Page>} />
       <Route path="/schedule/calendar" element={<Page><Schedule /></Page>} />

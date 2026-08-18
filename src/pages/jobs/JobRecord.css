@@ -1,0 +1,314 @@
+.jobrec {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+.jobrec__state {
+  padding: 40px 20px;
+  text-align: center;
+  color: #64748b;
+}
+
+.jobrec__back {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 18px;
+}
+
+.jobrec__back:hover {
+  text-decoration: underline;
+}
+
+.jobrec__error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  margin-bottom: 16px;
+}
+
+.jobrec__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.jobrec__title {
+  font-size: 1.6rem;
+  color: #0f172a;
+  margin: 0 0 4px;
+}
+
+.jobrec__address {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.jobrec__status {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.jobrec__status--completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.jobrec__status--cancelled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* --- the money, up top, because it's the first thing you came for --- */
+
+.jobrec__amount {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+
+.jobrec__amount-num {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #15803d;
+  line-height: 1;
+}
+
+.jobrec__amount-label {
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+/* --- facts table --- */
+
+.jobrec__facts {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 4px 20px;
+  margin: 0 0 20px;
+}
+
+.jobrec__fact {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.jobrec__fact:last-child {
+  border-bottom: none;
+}
+
+.jobrec__fact dt {
+  flex: 0 0 90px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.jobrec__fact dd {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+.jobrec__fact-plan {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.jobrec__facthint {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.jobrec__diff {
+  margin-left: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+
+.jobrec__diff--up {
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.jobrec__diff--down {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+/* --- notes --- */
+
+.jobrec__notes {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+}
+
+.jobrec__notes-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 6px;
+}
+
+.jobrec__notes-text {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: #334155;
+  white-space: pre-wrap;
+}
+
+/* --- paperwork --- */
+
+.jobrec__subhead {
+  font-size: 1.1rem;
+  color: #0f172a;
+  margin: 0 0 12px;
+}
+
+.jobrec__doc {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 15px 18px;
+  margin-bottom: 10px;
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.jobrec__doc:hover {
+  border-color: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+.jobrec__doc-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.jobrec__doc-main strong {
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.jobrec__doc-main span {
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.jobrec__doc-go {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2563eb;
+  white-space: nowrap;
+}
+
+.jobrec__nodoc {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 0;
+  font-size: 0.87rem;
+  line-height: 1.6;
+  color: #64748b;
+}
+
+@media (max-width: 560px) {
+  .jobrec__head {
+    flex-direction: column;
+  }
+
+  .jobrec__fact {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .jobrec__fact dt {
+    flex: none;
+  }
+
+  .jobrec__doc {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* --- invoice status re-check ---
+   An invoice's truth lives in Square. This sits with the amount because
+   that's the number it can change. */
+
+.jobrec__recheck {
+  margin-left: auto;
+  align-self: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.jobrec__recheck:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.jobrec__checkerror {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: -8px 0 20px;
+}

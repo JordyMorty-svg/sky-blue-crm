@@ -201,6 +201,27 @@ export async function fetchJob(id) {
   return data;
 }
 
+// A finished job, for the read-only record view.
+//
+// Differs from fetchJob in joining tech NAMES rather than ids: the editor
+// needs ids to populate a picker, but a record of what happened needs to
+// say who actually did the work.
+export async function fetchJobRecord(id) {
+  const { data, error } = await supabase
+    .from("jobs")
+    .select(`
+      *,
+      lead:lead_id ( name, address, phone, email, interior, notes ),
+      customer:customer_id ( id, name, address, phone, email ),
+      assignments:job_assignments ( tech:tech_id ( id, full_name ) )
+    `)
+    .eq("id", id)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 // Permanently delete a job — used when one was booked by mistake or
 // replaced. Assignments go first because they reference the job; any
 // follow-up visit pointing at this one via previous_job_id is left alone,

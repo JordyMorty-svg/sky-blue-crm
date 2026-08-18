@@ -141,7 +141,10 @@ export default function CompleteJob() {
     // these should undo a successful charge — warn, don't block.
     if (payment) {
       try {
-        await savePaymentOnJob(job.id, payment.paymentId);
+        await savePaymentOnJob(job.id, {
+          paymentId: payment.paymentId,
+          receiptUrl: payment.receiptUrl,
+        });
         if (job.customer_id && (payment.squareCustomerId || payment.card)) {
           await saveCardOnCustomer(job.customer_id, payment);
         }

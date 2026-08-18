@@ -79,11 +79,20 @@ export async function saveCardOnCustomer(
   if (error) throw error;
 }
 
-// Record which Square payment settled a job.
-export async function savePaymentOnJob(jobId, paymentId) {
+// Record which Square payment settled a job, and where its receipt lives.
+//
+// The receipt url matters more than it looks: Square hosts a permanent,
+// printable page for every card payment — the same document the customer
+// gets. Keeping the link means a completed job can show its receipt later
+// without the CRM generating anything itself. It was being returned by
+// create-payment and thrown away here.
+export async function savePaymentOnJob(jobId, { paymentId, receiptUrl } = {}) {
+  const changes = { square_payment_id: paymentId };
+  if (receiptUrl) changes.receipt_url = receiptUrl;
+
   const { error } = await supabase
     .from("jobs")
-    .update({ square_payment_id: paymentId })
+    .update(changes)
     .eq("id", jobId);
   if (error) throw error;
 }
