@@ -20,8 +20,14 @@
   text-align: left;
 }
 
-.techpicker__trigger:hover {
-  border-color: #cbd5e1;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .techpicker__trigger:hover {
+    border-color: #cbd5e1;
+  }
 }
 
 .techpicker__trigger--empty .techpicker__summary {
@@ -64,8 +70,10 @@
   cursor: pointer;
 }
 
-.techpicker__option:hover {
-  background: #f8fafc;
+@media (hover: hover) {
+  .techpicker__option:hover {
+    background: #f8fafc;
+  }
 }
 
 .techpicker__option input {

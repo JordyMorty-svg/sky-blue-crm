@@ -63,8 +63,14 @@
   padding: 0;
 }
 
-.eventeditor__close:hover {
-  color: #0f172a;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .eventeditor__close:hover {
+    color: #0f172a;
+  }
 }
 
 .eventeditor__note {
@@ -133,8 +139,10 @@
   cursor: pointer;
 }
 
-.eventeditor__save:hover:not(:disabled) {
-  background: #1d4ed8;
+@media (hover: hover) {
+  .eventeditor__save:hover:not(:disabled) {
+    background: #1d4ed8;
+  }
 }
 
 .eventeditor__save:disabled {
@@ -152,6 +160,8 @@
   cursor: pointer;
 }
 
-.eventeditor__cancel:hover {
-  border-color: #94a3b8;
+@media (hover: hover) {
+  .eventeditor__cancel:hover {
+    border-color: #94a3b8;
+  }
 }

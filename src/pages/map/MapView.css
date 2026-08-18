@@ -44,8 +44,14 @@
   transition: background 0.15s ease, transform 0.05s ease;
 }
 
-.mapview__addbtn:hover {
-  background: #1d4ed8;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .mapview__addbtn:hover {
+    background: #1d4ed8;
+  }
 }
 
 .mapview__addbtn:active {
@@ -56,8 +62,10 @@
   background: #ea580c;
 }
 
-.mapview__addbtn--active:hover {
-  background: #c2410c;
+@media (hover: hover) {
+  .mapview__addbtn--active:hover {
+    background: #c2410c;
+  }
 }
 
 .mapview__addbtn-dot {
@@ -94,8 +102,10 @@
   white-space: nowrap;
 }
 
-.mapview__loc-btn:hover {
-  background: #f1f5f9;
+@media (hover: hover) {
+  .mapview__loc-btn:hover {
+    background: #f1f5f9;
+  }
 }
 
 .mapview__loc-btn--tracking {
@@ -103,8 +113,10 @@
   color: #ffffff;
 }
 
-.mapview__loc-btn--tracking:hover {
-  background: #1d4ed8;
+@media (hover: hover) {
+  .mapview__loc-btn--tracking:hover {
+    background: #1d4ed8;
+  }
 }
 
 .mapview__legend-item {
@@ -171,8 +183,10 @@
   cursor: pointer;
 }
 
-.mapview__info-link:hover {
-  background: #1d4ed8;
+@media (hover: hover) {
+  .mapview__info-link:hover {
+    background: #1d4ed8;
+  }
 }
 
 @media (max-width: 720px) {

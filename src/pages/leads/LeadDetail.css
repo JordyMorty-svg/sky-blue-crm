@@ -26,8 +26,14 @@
   padding: 0;
 }
 
-.detail__back:hover {
-  text-decoration: underline;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .detail__back:hover {
+    text-decoration: underline;
+  }
 }
 
 .detail__source {
@@ -131,8 +137,10 @@
   cursor: pointer;
 }
 
-.detail__save:hover:not(:disabled) {
-  background: #1d4ed8;
+@media (hover: hover) {
+  .detail__save:hover:not(:disabled) {
+    background: #1d4ed8;
+  }
 }
 
 .detail__save:disabled {
@@ -150,8 +158,10 @@
   cursor: pointer;
 }
 
-.detail__cancel:hover {
-  border-color: #94a3b8;
+@media (hover: hover) {
+  .detail__cancel:hover {
+    border-color: #94a3b8;
+  }
 }
 
 .detail__delete-wrap {
@@ -177,8 +187,10 @@
   cursor: pointer;
 }
 
-.detail__delete:hover {
-  background: #fef2f2;
+@media (hover: hover) {
+  .detail__delete:hover {
+    background: #fef2f2;
+  }
 }
 
 .detail__delete-yes {
@@ -191,8 +203,10 @@
   cursor: pointer;
 }
 
-.detail__delete-yes:hover {
-  background: #b91c1c;
+@media (hover: hover) {
+  .detail__delete-yes:hover {
+    background: #b91c1c;
+  }
 }
 
 @media (max-width: 720px) {
@@ -205,20 +219,21 @@
     width: 100%;
   }
 }
-/* --- status history timeline --- */
+
+/* --- status history ---
+   Appended-only timeline of who moved this lead and when, read from the
+   lead_events table. Oldest at the top, so it reads as a story. */
 
 .detail__history {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 20px 22px;
-  margin: 24px 0 0;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .detail__historytitle {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   color: #0f172a;
-  margin: 0 0 14px;
+  margin-bottom: 14px;
 }
 
 .detail__timeline {
@@ -233,26 +248,25 @@
   content: "";
   position: absolute;
   left: 4px;
-  top: 6px;
-  bottom: 6px;
+  top: 8px;
+  bottom: 8px;
   width: 1px;
   background: #e2e8f0;
 }
 
 .detail__event {
+  position: relative;
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  padding: 6px 0 6px 20px;
-  position: relative;
-  font-size: 0.88rem;
-  color: #475569;
+  gap: 12px;
+  padding: 8px 0 8px 22px;
+  font-size: 0.9rem;
 }
 
 .detail__eventdot {
   position: absolute;
   left: 0;
-  top: 11px;
+  top: 14px;
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -261,21 +275,41 @@
 }
 
 .detail__eventtext {
-  flex: 1;
+  color: #334155;
 }
 
 .detail__eventtext strong {
   color: #0f172a;
 }
 
+/* Pushed right so the dates line up in a column and the eye can scan them. */
 .detail__eventdate {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  font-size: 0.78rem;
   color: #94a3b8;
-  font-size: 0.8rem;
   white-space: nowrap;
 }
 
 .detail__eventactor {
-  color: #475569;
   font-weight: 600;
-  margin-right: 8px;
+  color: #64748b;
+}
+
+@media (max-width: 560px) {
+  .detail__event {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+  }
+
+  .detail__eventdate {
+    margin-left: 0;
+    align-items: flex-start;
+    flex-direction: row;
+    gap: 8px;
+  }
 }

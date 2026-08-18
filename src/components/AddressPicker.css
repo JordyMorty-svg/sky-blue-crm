@@ -45,7 +45,13 @@
   border-radius: 7px;
 }
 
-.addresspicker__option:hover {
-  background: #eff6ff;
-  color: #2563eb;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .addresspicker__option:hover {
+    background: #eff6ff;
+    color: #2563eb;
+  }
 }

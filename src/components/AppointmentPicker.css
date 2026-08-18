@@ -58,7 +58,13 @@
   border-radius: 6px;
 }
 
-.appt__calendar .react-datepicker__day:hover {
-  background: #eff6ff;
-  border-radius: 6px;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .appt__calendar .react-datepicker__day:hover {
+    background: #eff6ff;
+    border-radius: 6px;
+  }
 }

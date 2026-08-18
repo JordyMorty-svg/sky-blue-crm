@@ -14,8 +14,14 @@
   margin-bottom: 16px;
 }
 
-.pastjobs__back:hover {
-  text-decoration: underline;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .pastjobs__back:hover {
+    text-decoration: underline;
+  }
 }
 
 .pastjobs__title {
@@ -140,8 +146,10 @@
   flex-shrink: 0;
 }
 
-.pastrow__remove:hover {
-  color: #dc2626;
+@media (hover: hover) {
+  .pastrow__remove:hover {
+    color: #dc2626;
+  }
 }
 
 .pastjobs__addrow {
@@ -156,8 +164,10 @@
   margin-bottom: 24px;
 }
 
-.pastjobs__addrow:hover {
-  background: #dbeafe;
+@media (hover: hover) {
+  .pastjobs__addrow:hover {
+    background: #dbeafe;
+  }
 }
 
 .pastjobs__actions {
@@ -176,8 +186,10 @@
   cursor: pointer;
 }
 
-.pastjobs__submit:hover:not(:disabled) {
-  background: #15803d;
+@media (hover: hover) {
+  .pastjobs__submit:hover:not(:disabled) {
+    background: #15803d;
+  }
 }
 
 .pastjobs__submit:disabled {
@@ -195,6 +207,8 @@
   cursor: pointer;
 }
 
-.pastjobs__cancel:hover {
-  border-color: #94a3b8;
+@media (hover: hover) {
+  .pastjobs__cancel:hover {
+    border-color: #94a3b8;
+  }
 }

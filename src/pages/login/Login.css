@@ -95,8 +95,14 @@
   transition: background 0.2s ease;
 }
 
-.login__button:hover:not(:disabled) {
-  background: #1d4ed8;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .login__button:hover:not(:disabled) {
+    background: #1d4ed8;
+  }
 }
 
 .login__button:disabled {

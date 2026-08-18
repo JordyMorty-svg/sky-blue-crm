@@ -50,8 +50,14 @@
   cursor: pointer;
 }
 
-.schedule__today:hover {
-  background: #dbeafe;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .schedule__today:hover {
+    background: #dbeafe;
+  }
 }
 
 .schedule__dayhead {
@@ -140,8 +146,10 @@
   white-space: nowrap;
 }
 
-.schedjob__complete:hover:not(:disabled) {
-  background: #15803d;
+@media (hover: hover) {
+  .schedjob__complete:hover:not(:disabled) {
+    background: #15803d;
+  }
 }
 
 .schedjob__complete:disabled {
@@ -181,9 +189,11 @@
   cursor: pointer;
 }
 
-.calbar__nav button:hover {
-  border-color: #2563eb;
-  color: #2563eb;
+@media (hover: hover) {
+  .calbar__nav button:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
 }
 
 .calbar__label {
@@ -211,8 +221,10 @@
   cursor: pointer;
 }
 
-.calbar__views button:hover {
-  color: #2563eb;
+@media (hover: hover) {
+  .calbar__views button:hover {
+    color: #2563eb;
+  }
 }
 
 .calbar__view--active {
@@ -303,8 +315,10 @@
   cursor: pointer;
 }
 
-.rbc-custom-toolbar__today:hover {
-  background: #dbeafe;
+@media (hover: hover) {
+  .rbc-custom-toolbar__today:hover {
+    background: #dbeafe;
+  }
 }
 
 .rbc-custom-toolbar__arrow {
@@ -319,9 +333,11 @@
   line-height: 1;
 }
 
-.rbc-custom-toolbar__arrow:hover {
-  border-color: #2563eb;
-  color: #2563eb;
+@media (hover: hover) {
+  .rbc-custom-toolbar__arrow:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
 }
 
 .rbc-custom-toolbar__label {
@@ -349,8 +365,10 @@
   cursor: pointer;
 }
 
-.rbc-custom-toolbar__view:hover {
-  color: #2563eb;
+@media (hover: hover) {
+  .rbc-custom-toolbar__view:hover {
+    color: #2563eb;
+  }
 }
 
 .rbc-custom-toolbar__view.is-active {
@@ -465,9 +483,28 @@
   margin-top: 6px;
 }
 
-/* Complete + Edit stack on the right of a scheduled job row. Stacked
-   rather than side by side so the row height stays predictable and the
-   green primary action keeps its weight. */
+/* Wrapper for the day view — the date picker and the job list beneath it. */
+.schedule__day {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Confirmation shown after completing a job that generated a recurring
+   follow-up, so the next visit doesn't just appear on the Jobs board with
+   no explanation of where it came from. */
+.schedule__nextvisit {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #14532d;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+/* Stacked so "Mark completed" stays the obvious primary action and Edit
+   reads as secondary underneath it, rather than competing side by side. */
 .schedjob__actions {
   display: flex;
   flex-direction: column;
@@ -488,20 +525,9 @@
   white-space: nowrap;
 }
 
-.schedjob__edit:hover {
-  border-color: #2563eb;
-  color: #2563eb;
-}
-
-/* Confirmation shown after a recurring job completes and the next one is
-   booked — arrives via route state from the complete-job screen. */
-.schedule__nextvisit {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #14532d;
-  border-radius: 10px;
-  padding: 10px 14px;
-  font-size: 0.88rem;
-  line-height: 1.5;
-  margin-bottom: 16px;
+@media (hover: hover) {
+  .schedjob__edit:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
 }

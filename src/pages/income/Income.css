@@ -41,9 +41,15 @@
   transition: all 0.15s ease;
 }
 
-.income__period-btn:not(.income__period-btn--active):hover {
-  border-color: #2563eb;
-  color: #2563eb;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .income__period-btn:not(.income__period-btn--active):hover {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
 }
 
 .income__periods .income__period-btn--active,
@@ -53,10 +59,12 @@
   color: #ffffff !important;
 }
 
-.income__period-btn--active:hover {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-  color: #ffffff !important;
+@media (hover: hover) {
+  .income__period-btn--active:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #ffffff !important;
+  }
 }
 
 .income__custom {

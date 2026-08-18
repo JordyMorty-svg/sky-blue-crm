@@ -45,9 +45,15 @@
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.shell__tab:hover {
-  background: #eff6ff;
-  color: #2563eb;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .shell__tab:hover {
+    background: #eff6ff;
+    color: #2563eb;
+  }
 }
 
 .shell__tab--active {
@@ -92,9 +98,11 @@
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 
-.shell__signout:hover {
-  border-color: #2563eb;
-  color: #2563eb;
+@media (hover: hover) {
+  .shell__signout:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
 }
 
 .shell__main {

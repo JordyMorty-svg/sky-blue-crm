@@ -61,8 +61,14 @@
   cursor: pointer;
 }
 
-.posret__primary:hover {
-  background: #1d4ed8;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .posret__primary:hover {
+    background: #1d4ed8;
+  }
 }
 
 .posret__secondary {
@@ -76,7 +82,10 @@
   cursor: pointer;
 }
 
-.posret__secondary:hover {
-  border-color: #2563eb;
-  color: #2563eb;
+@media (hover: hover) {
+  .posret__secondary:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
 }
+

@@ -21,8 +21,14 @@
   margin-bottom: 18px;
 }
 
-.jobrec__back:hover {
-  text-decoration: underline;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .jobrec__back:hover {
+    text-decoration: underline;
+  }
 }
 
 .jobrec__error {
@@ -218,9 +224,11 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.jobrec__doc:hover {
-  border-color: #2563eb;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+@media (hover: hover) {
+  .jobrec__doc:hover {
+    border-color: #2563eb;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+  }
 }
 
 .jobrec__doc-main {
@@ -297,9 +305,11 @@
   white-space: nowrap;
 }
 
-.jobrec__recheck:hover {
-  border-color: #2563eb;
-  color: #2563eb;
+@media (hover: hover) {
+  .jobrec__recheck:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
 }
 
 .jobrec__checkerror {

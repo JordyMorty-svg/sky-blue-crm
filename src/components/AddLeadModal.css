@@ -46,8 +46,14 @@
   padding: 0 4px;
 }
 
-.modal__close:hover {
-  color: #0f172a;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .modal__close:hover {
+    color: #0f172a;
+  }
 }
 
 .modal__form {
@@ -127,9 +133,11 @@
   color: #475569;
 }
 
-.modal__btn--ghost:hover {
-  border-color: #2563eb;
-  color: #2563eb;
+@media (hover: hover) {
+  .modal__btn--ghost:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
 }
 
 .modal__btn--primary {
@@ -137,8 +145,10 @@
   color: white;
 }
 
-.modal__btn--primary:hover:not(:disabled) {
-  background: #1d4ed8;
+@media (hover: hover) {
+  .modal__btn--primary:hover:not(:disabled) {
+    background: #1d4ed8;
+  }
 }
 
 .modal__btn--primary:disabled {

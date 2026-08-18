@@ -66,8 +66,14 @@
   color: #ffffff;
 }
 
-.leads__archivebtn:hover:not(:disabled) {
-  background: #92400e;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .leads__archivebtn:hover:not(:disabled) {
+    background: #92400e;
+  }
 }
 
 .leads__archivebtn:disabled {
@@ -154,9 +160,11 @@
   transition: background 0.15s ease;
 }
 
-.column__add:hover {
-  background: #2563eb;
-  color: #ffffff;
+@media (hover: hover) {
+  .column__add:hover {
+    background: #2563eb;
+    color: #ffffff;
+  }
 }
 
 .column__drop {
@@ -187,8 +195,10 @@
   cursor: pointer;
 }
 
-.card__body:hover {
-  background: #f8fafc;
+@media (hover: hover) {
+  .card__body:hover {
+    background: #f8fafc;
+  }
 }
 
 .card__top {
@@ -285,8 +295,10 @@
   cursor: pointer;
 }
 
-.card__move-btn:hover {
-  background: #eff6ff;
+@media (hover: hover) {
+  .card__move-btn:hover {
+    background: #eff6ff;
+  }
 }
 
 .card__move-menu {
@@ -306,9 +318,11 @@
   border-bottom: 1px solid #f8fafc;
 }
 
-.card__move-option:hover {
-  background: #eff6ff;
-  color: #2563eb;
+@media (hover: hover) {
+  .card__move-option:hover {
+    background: #eff6ff;
+    color: #2563eb;
+  }
 }
 
 /* Mobile: columns stack */

@@ -30,6 +30,49 @@ select {
   color: inherit;
 }
 
+/* ---- Touch behaviour ----
+ *
+ * This CRM gets used on a phone at somebody's front door more often than
+ * at a desk, and mobile browsers do two things that make an interface
+ * designed on a laptop read wrongly.
+ *
+ * 1. :hover LATCHES. Tap a button and it keeps its hover style until you
+ *    tap something else. Wherever hover means "blue" and selected also
+ *    means "blue" — the payment method buttons, the plan picker, the view
+ *    switcher — the last thing you touched goes on looking chosen right
+ *    next to the thing that actually is. Every hover rule in this app is
+ *    therefore gated behind `@media (hover: hover)`, so those styles only
+ *    exist on devices with a real pointer.
+ *
+ * 2. Tapping paints a translucent highlight box over the element. Fine on
+ *    a plain link; distracting on a styled card or pill that already has
+ *    a pressed state of its own.
+ *
+ * Removing that highlight must not remove the keyboard focus ring, so
+ * :focus-visible is restored explicitly below — it matches real keyboard
+ * focus and never a tap or a mouse click.
+ */
+a,
+button,
+input,
+select,
+textarea,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Skips the browser's wait for a possible double-tap-to-zoom, which
+   otherwise makes every button in the app feel a beat slow on a phone. */
+button,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
 /* Simple loading text used by ProtectedRoute */
 .crm-loading {
   min-height: 100vh;

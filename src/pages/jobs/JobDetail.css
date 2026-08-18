@@ -20,8 +20,14 @@
   margin-bottom: 16px;
 }
 
-.jobDetail__back:hover {
-  text-decoration: underline;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .jobDetail__back:hover {
+    text-decoration: underline;
+  }
 }
 
 .jobDetail__title {
@@ -141,8 +147,10 @@
   cursor: pointer;
 }
 
-.jobDetail__save:hover:not(:disabled) {
-  background: #1d4ed8;
+@media (hover: hover) {
+  .jobDetail__save:hover:not(:disabled) {
+    background: #1d4ed8;
+  }
 }
 
 .jobDetail__save:disabled {
@@ -160,9 +168,12 @@
   cursor: pointer;
 }
 
-.jobDetail__cancel:hover {
-  border-color: #94a3b8;
+@media (hover: hover) {
+  .jobDetail__cancel:hover {
+    border-color: #94a3b8;
+  }
 }
+
 /* --- delete, kept visually apart from the save/cancel row --- */
 
 .jobDetail__danger {
@@ -194,9 +205,11 @@
   cursor: pointer;
 }
 
-.jobDetail__delete:hover {
-  background: #fef2f2;
-  border-color: #dc2626;
+@media (hover: hover) {
+  .jobDetail__delete:hover {
+    background: #fef2f2;
+    border-color: #dc2626;
+  }
 }
 
 .jobDetail__deleteyes {
@@ -210,8 +223,10 @@
   cursor: pointer;
 }
 
-.jobDetail__deleteyes:hover:not(:disabled) {
-  background: #b91c1c;
+@media (hover: hover) {
+  .jobDetail__deleteyes:hover:not(:disabled) {
+    background: #b91c1c;
+  }
 }
 
 .jobDetail__deleteyes:disabled {

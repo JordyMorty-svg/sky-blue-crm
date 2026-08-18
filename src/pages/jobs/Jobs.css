@@ -74,9 +74,15 @@
   transition: all 0.15s ease;
 }
 
-.jobs__range:not(.jobs__range--active):hover {
-  border-color: #2563eb;
-  color: #2563eb;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .jobs__range:not(.jobs__range--active):hover {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
 }
 
 .jobs__range--active {
@@ -85,10 +91,12 @@
   color: #ffffff !important;
 }
 
-.jobs__range--active:hover {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-  color: #ffffff !important;
+@media (hover: hover) {
+  .jobs__range--active:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #ffffff !important;
+  }
 }
 
 .jobs__empty {
@@ -153,8 +161,10 @@
   white-space: nowrap;
 }
 
-.jobrow__btn:hover {
-  background: #1d4ed8;
+@media (hover: hover) {
+  .jobrow__btn:hover {
+    background: #1d4ed8;
+  }
 }
 
 .jobrow--clickable {
@@ -162,9 +172,11 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.jobrow--clickable:hover {
-  border-color: #2563eb;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+@media (hover: hover) {
+  .jobrow--clickable:hover {
+    border-color: #2563eb;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+  }
 }
 
 @media (max-width: 720px) {

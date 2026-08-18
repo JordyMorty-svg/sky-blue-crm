@@ -20,8 +20,14 @@
   margin-bottom: 16px;
 }
 
-.newlead__back:hover {
-  text-decoration: underline;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .newlead__back:hover {
+    text-decoration: underline;
+  }
 }
 
 .newlead__head {
@@ -177,8 +183,10 @@
   cursor: pointer;
 }
 
-.newlead__submit:hover:not(:disabled) {
-  background: #1d4ed8;
+@media (hover: hover) {
+  .newlead__submit:hover:not(:disabled) {
+    background: #1d4ed8;
+  }
 }
 
 .newlead__submit:disabled {
@@ -196,8 +204,10 @@
   cursor: pointer;
 }
 
-.newlead__cancel:hover {
-  border-color: #94a3b8;
+@media (hover: hover) {
+  .newlead__cancel:hover {
+    border-color: #94a3b8;
+  }
 }
 
 @media (max-width: 640px) {

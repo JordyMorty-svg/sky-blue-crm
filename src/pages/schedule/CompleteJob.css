@@ -20,8 +20,14 @@
   margin-bottom: 16px;
 }
 
-.complete__back:hover {
-  text-decoration: underline;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .complete__back:hover {
+    text-decoration: underline;
+  }
 }
 
 .complete__title {
@@ -132,9 +138,11 @@
   transition: all 0.15s ease;
 }
 
-.complete__method:hover {
-  border-color: #2563eb;
-  color: #2563eb;
+@media (hover: hover) {
+  .complete__method:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
 }
 
 .complete__method--active {
@@ -160,8 +168,10 @@
   cursor: pointer;
 }
 
-.complete__submit:hover:not(:disabled) {
-  background: #15803d;
+@media (hover: hover) {
+  .complete__submit:hover:not(:disabled) {
+    background: #15803d;
+  }
 }
 
 .complete__submit:disabled {
@@ -179,10 +189,11 @@
   cursor: pointer;
 }
 
-.complete__cancel:hover {
-  border-color: #94a3b8;
+@media (hover: hover) {
+  .complete__cancel:hover {
+    border-color: #94a3b8;
+  }
 }
-
 
 .complete__hint {
   font-size: 0.82rem;
@@ -190,7 +201,6 @@
   line-height: 1.45;
   margin: -6px 0 14px;
 }
-
 
 .complete__hint {
   font-size: 0.82rem;
@@ -253,8 +263,10 @@
   cursor: pointer;
 }
 
-.complete__tapbtn:hover:not(:disabled) {
-  background: #166534;
+@media (hover: hover) {
+  .complete__tapbtn:hover:not(:disabled) {
+    background: #166534;
+  }
 }
 
 .complete__tapbtn:disabled {

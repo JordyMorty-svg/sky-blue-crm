@@ -29,8 +29,14 @@
   cursor: pointer;
 }
 
-.customers__addpast:hover {
-  background: #1d4ed8;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .customers__addpast:hover {
+    background: #1d4ed8;
+  }
 }
 
 .customers__title {
@@ -94,9 +100,11 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.custrow:hover {
-  border-color: #2563eb;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+@media (hover: hover) {
+  .custrow:hover {
+    border-color: #2563eb;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+  }
 }
 
 .custrow__main {
@@ -133,8 +141,10 @@
   margin-bottom: 16px;
 }
 
-.custdetail__back:hover {
-  text-decoration: underline;
+@media (hover: hover) {
+  .custdetail__back:hover {
+    text-decoration: underline;
+  }
 }
 
 .custdetail__namerow {
@@ -161,8 +171,10 @@
   cursor: pointer;
 }
 
-.custdetail__edit:hover {
-  background: #dbeafe;
+@media (hover: hover) {
+  .custdetail__edit:hover {
+    background: #dbeafe;
+  }
 }
 
 .custedit {
@@ -213,8 +225,10 @@
   cursor: pointer;
 }
 
-.custedit__save:hover:not(:disabled) {
-  background: #1d4ed8;
+@media (hover: hover) {
+  .custedit__save:hover:not(:disabled) {
+    background: #1d4ed8;
+  }
 }
 
 .custedit__save:disabled {
@@ -232,8 +246,10 @@
   cursor: pointer;
 }
 
-.custedit__cancel:hover {
-  border-color: #94a3b8;
+@media (hover: hover) {
+  .custedit__cancel:hover {
+    border-color: #94a3b8;
+  }
 }
 
 .custdetail__name {
@@ -470,8 +486,10 @@
   margin-left: auto;
 }
 
-.custdetail__schedule:hover {
-  background: #1d4ed8;
+@media (hover: hover) {
+  .custdetail__schedule:hover {
+    background: #1d4ed8;
+  }
 }
 
 /* --- next recurring visit, due but not scheduled --- */
@@ -516,8 +534,10 @@
   cursor: pointer;
 }
 
-.custjob--clickable:hover {
-  border-color: #2563eb;
+@media (hover: hover) {
+  .custjob--clickable:hover {
+    border-color: #2563eb;
+  }
 }
 
 /* --- delete a customer, kept well away from the edit controls --- */
@@ -539,9 +559,11 @@
   cursor: pointer;
 }
 
-.custdetail__delete:hover {
-  background: #fef2f2;
-  border-color: #dc2626;
+@media (hover: hover) {
+  .custdetail__delete:hover {
+    background: #fef2f2;
+    border-color: #dc2626;
+  }
 }
 
 .custdetail__dangertext {
@@ -626,8 +648,10 @@
   cursor: pointer;
 }
 
-.custdetail__deleteyes:hover:not(:disabled) {
-  background: #b91c1c;
+@media (hover: hover) {
+  .custdetail__deleteyes:hover:not(:disabled) {
+    background: #b91c1c;
+  }
 }
 
 .custdetail__deleteyes:disabled {
@@ -722,8 +746,10 @@
   cursor: pointer;
 }
 
-.custdetail__repair-btn:hover:not(:disabled) {
-  background: #1d4ed8;
+@media (hover: hover) {
+  .custdetail__repair-btn:hover:not(:disabled) {
+    background: #1d4ed8;
+  }
 }
 
 .custdetail__repair-btn:disabled {

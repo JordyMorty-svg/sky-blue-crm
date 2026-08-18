@@ -20,8 +20,14 @@
   margin-bottom: 16px;
 }
 
-.scheduleJob__back:hover {
-  text-decoration: underline;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .scheduleJob__back:hover {
+    text-decoration: underline;
+  }
 }
 
 .scheduleJob__title {
@@ -153,8 +159,10 @@
   cursor: pointer;
 }
 
-.scheduleJob__cancel:hover {
-  border-color: #94a3b8;
+@media (hover: hover) {
+  .scheduleJob__cancel:hover {
+    border-color: #94a3b8;
+  }
 }
 
 .scheduleJob__submit {
@@ -168,8 +176,10 @@
   cursor: pointer;
 }
 
-.scheduleJob__submit:hover:not(:disabled) {
-  background: #1d4ed8;
+@media (hover: hover) {
+  .scheduleJob__submit:hover:not(:disabled) {
+    background: #1d4ed8;
+  }
 }
 
 .scheduleJob__submit:disabled {
@@ -187,9 +197,12 @@
   font-weight: 600;
   margin-bottom: 14px;
 }
+
+/* Explanatory note under a field — used where a value is pre-filled and
+   the reason why isn't obvious from the input alone. */
 .scheduleJob__hint {
-  font-size: 0.8rem;
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
   color: #64748b;
-  line-height: 1.45;
-  margin: 6px 0 0;
 }

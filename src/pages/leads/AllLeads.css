@@ -69,9 +69,15 @@
   transition: all 0.15s ease;
 }
 
-.allleads__chip:hover {
-  border-color: #2563eb;
-  color: #2563eb;
+/* Hover styling is gated behind (hover: hover) throughout this app.
+   On a touch screen :hover latches after a tap and stays until you
+   tap something else, so a hover style that looks like selection
+   leaves the wrong control looking chosen. See index.css. */
+@media (hover: hover) {
+  .allleads__chip:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
 }
 
 .allleads__chip--active {
@@ -172,8 +178,10 @@
   cursor: pointer;
 }
 
-.allleads__delete:hover:not(:disabled) {
-  background: #b91c1c;
+@media (hover: hover) {
+  .allleads__delete:hover:not(:disabled) {
+    background: #b91c1c;
+  }
 }
 
 .allleads__delete:disabled {
@@ -192,9 +200,11 @@
   cursor: pointer;
 }
 
-.allleads__clear:hover {
-  border-color: #64748b;
-  color: #ffffff;
+@media (hover: hover) {
+  .allleads__clear:hover {
+    border-color: #64748b;
+    color: #ffffff;
+  }
 }
 
 /* --- table --- */
@@ -266,8 +276,10 @@
   text-align: left;
 }
 
-.allleads__name:hover {
-  text-decoration: underline;
+@media (hover: hover) {
+  .allleads__name:hover {
+    text-decoration: underline;
+  }
 }
 
 .allleads__empty {
@@ -435,8 +447,10 @@
   cursor: pointer;
 }
 
-.allleads__confirm:hover:not(:disabled) {
-  background: #b91c1c;
+@media (hover: hover) {
+  .allleads__confirm:hover:not(:disabled) {
+    background: #b91c1c;
+  }
 }
 
 .allleads__confirm:disabled {
@@ -454,8 +468,10 @@
   cursor: pointer;
 }
 
-.allleads__cancel:hover:not(:disabled) {
-  border-color: #94a3b8;
+@media (hover: hover) {
+  .allleads__cancel:hover:not(:disabled) {
+    border-color: #94a3b8;
+  }
 }
 
 @media (max-width: 640px) {
