@@ -92,6 +92,12 @@ export function rememberPendingPayment(pending) {
   }
 }
 
+// How long a hand-off stays worth chasing. Beyond this the record is
+// treated as abandoned — a tap the operator started and never finished,
+// which must not sit around waiting to attach itself to some later
+// unrelated payment.
+export const HANDOFF_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
+
 export function readPendingPayment(jobId) {
   try {
     const raw = JSON.parse(localStorage.getItem(PENDING_KEY));
@@ -105,6 +111,18 @@ export function readPendingPayment(jobId) {
   }
 }
 
+// A hand-off recent enough that the CRM should still go looking for its
+// payment. Anything older is ignored rather than deleted, so a genuinely
+// long gap (phone died at the door, finished the round first) can still be
+// investigated by hand.
+export function readChasablePayment(jobId, now) {
+  const pending = readPendingPayment(jobId);
+  if (!pending?.startedAt) return null;
+  const age = now - new Date(pending.startedAt).getTime();
+  if (!Number.isFinite(age) || age < 0 || age > HANDOFF_WINDOW_MS) return null;
+  return pending;
+}
+
 export function clearPendingPayment() {
   try {
     localStorage.removeItem(PENDING_KEY);
@@ -116,6 +134,34 @@ export function clearPendingPayment() {
 // ---------------------------------------------------------------------
 // Building the link
 // ---------------------------------------------------------------------
+
+// A short, human-readable tag identifying which job a Square order belongs
+// to. Written into the order's note, which is the only field the POS API
+// lets us attach and later read back.
+//
+// This is what makes the payment findable WITHOUT the callback. The
+// callback is a browser redirect; redirects get lost — a killed tab, a
+// dead battery, no signal at the door, or an iOS home-screen install where
+// the callback lands in a different browser entirely. Money has already
+// moved by then, so "we'll be told" is not good enough. With a code on the
+// order, the CRM can ask Square directly.
+//
+// Eight hex characters of the job's UUID: enough that a collision inside a
+// one-hour search window is not a real prospect, short enough to be
+// unremarkable on a customer's receipt.
+// The operator-facing note with the tracking code appended. Kept separate
+// so the code is never accidentally omitted on one platform.
+function noteWithCode(note, jobId) {
+  const code = jobCode(jobId);
+  if (!code) return note || "";
+  return note ? `${note} · ${code}` : code;
+}
+
+export function jobCode(jobId) {
+  const hex = String(jobId || "").replace(/-/g, "");
+  if (!hex) return "";
+  return `SB-${hex.slice(0, 8).toUpperCase()}`;
+}
 
 function centsOf(amount) {
   return Math.round(Number(amount) * 100);
@@ -177,7 +223,8 @@ export function buildPosUrl({ amount, jobId, note, servicePlan, propertyType }) 
       callback_url: callbackUrl(),
       client_id: clientId,
       version: IOS_API_VERSION,
-      notes: note || undefined,
+      // The code goes in the note so the order can be found later.
+      notes: noteWithCode(note, jobId),
       state: packState({ jobId, servicePlan, propertyType }),
       location_id: locationId || undefined,
       options: {
@@ -219,8 +266,12 @@ export function buildPosUrl({ amount, jobId, note, servicePlan, propertyType }) 
     if (locationId) {
       parts.push(`S.com.squareup.pos.LOCATION_ID=${encodeURIComponent(locationId)}`);
     }
-    if (note) {
-      parts.push(`S.com.squareup.pos.NOTE=${encodeURIComponent(note.slice(0, 500))}`);
+    if (noteWithCode(note, jobId)) {
+      parts.push(
+        `S.com.squareup.pos.NOTE=${encodeURIComponent(
+          noteWithCode(note, jobId).slice(0, 500)
+        )}`
+      );
     }
     parts.push("end");
     return parts.join(";");

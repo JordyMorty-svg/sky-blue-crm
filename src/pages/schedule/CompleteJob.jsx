@@ -11,11 +11,15 @@ import {
   saveCardOnCustomer,
   savePaymentOnJob,
   resolvePosPayment,
+  findPosPayment,
 } from "../../services/paymentService";
 import {
   buildPosUrl,
   canUseSquarePos,
   isStandalonePWA,
+  jobCode,
+  readChasablePayment,
+  clearPendingPayment,
   rememberPendingPayment,
 } from "../../components/squarePos";
 import {
@@ -68,6 +72,11 @@ export default function CompleteJob() {
   const [servicePlan, setServicePlan] = useState("one_time");
   // True while we're resolving a tap that already happened in Square.
   const [settling, setSettling] = useState(false);
+  // True while we're asking Square whether a tap went through at all.
+  const [chasing, setChasing] = useState(false);
+  // A hand-off that started but hasn't been accounted for yet.
+  const [unfinished, setUnfinished] = useState(null);
+  const [chaseNote, setChaseNote] = useState("");
 
   const posAvailable = canUseSquarePos();
   const handOffLeavesApp = isStandalonePWA();
@@ -263,33 +272,69 @@ export default function CompleteJob() {
     });
   }
 
-  // --- guard against paying twice --------------------------------------
+  // --- coming back from the Square app ---------------------------------
   //
-  // The tap hand-off can finish somewhere other than this page: on an iOS
-  // home-screen install, Square returns into Safari and the job is
-  // completed there, while this copy of the page sits untouched in the
-  // installed app. Switch back to it and you're looking at a live payment
-  // form for a job that's already paid — press the button and the customer
-  // is charged a second time.
+  // Returning here means one of three things, and they need telling apart
+  // before anything is offered to press:
   //
-  // So whenever this page comes back into view, ask the database whether
-  // the job is still open. It's one cheap read against the worst outcome
-  // this app can produce.
+  //   1. The job was completed elsewhere. On an iOS home-screen install
+  //      the callback lands in Safari and finishes the job there, leaving
+  //      this copy of the page showing a live payment form for a job
+  //      that's already paid. Press the button and the customer is charged
+  //      twice — the worst thing this app can do.
+  //   2. A tap was taken but nothing recorded it, because the callback
+  //      never arrived. Square knows; ask it.
+  //   3. Nothing happened — they backed out of Square. Carry on.
+  //
+  // Runs on every return to visibility rather than once on mount, because
+  // the page is never unmounted during the hand-off.
   useEffect(() => {
-    async function recheck() {
+    let cancelled = false;
+
+    async function onReturn() {
       if (document.visibilityState !== "visible") return;
       if (!job || job.status !== "scheduled") return;
+
+      let current = job;
       try {
         const fresh = await fetchJob(jobId);
-        if (fresh.status !== "scheduled") setJob(fresh);
+        if (cancelled) return;
+        current = fresh;
+        if (fresh.status !== "scheduled") {
+          // Case 1 — finished in the other window.
+          clearPendingPayment();
+          setUnfinished(null);
+          setJob(fresh);
+          return;
+        }
       } catch (e) {
         // A failed re-check must not block a legitimate payment; the worst
-        // case is we're back to the behaviour before this guard existed.
+        // case is the behaviour we had before this guard existed.
         console.error("Couldn't re-check the job status:", e);
       }
+
+      // Cases 2 and 3 — still open, so see whether Square took money.
+      const pending = readChasablePayment(jobId, Date.now());
+      if (!pending?.code || cancelled) return;
+      setUnfinished(pending);
+      const done = await chaseTappedPayment(current, pending);
+      if (done && !cancelled) setUnfinished(null);
     }
-    document.addEventListener("visibilitychange", recheck);
-    return () => document.removeEventListener("visibilitychange", recheck);
+
+    document.addEventListener("visibilitychange", onReturn);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onReturn);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId, job?.status]);
+
+  // A hand-off from a previous visit to this page — the app was closed
+  // before it could be settled. Surfaced so it can be chased by hand.
+  useEffect(() => {
+    if (!job || job.status !== "scheduled") return;
+    const pending = readChasablePayment(jobId, Date.now());
+    if (pending?.code) setUnfinished(pending);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId, job?.status]);
 
@@ -305,8 +350,13 @@ export default function CompleteJob() {
       return;
     }
 
+    // `code` and `startedAt` are what make the payment findable later
+    // without the callback: the code is stamped on the Square order, and
+    // the time bounds the search.
     rememberPendingPayment({
       jobId: job.id,
+      code: jobCode(job.id),
+      startedAt: new Date().toISOString(),
       finalPrice: Number(finalPrice),
       notes,
       email,
@@ -343,7 +393,16 @@ export default function CompleteJob() {
     setSettling(true);
     try {
       const payment = await resolvePosPayment(posResult.transactionId);
+      await recordTappedPayment(jobRow, payment, pending);
+    } catch (e) {
+      reportSettleFailure(e);
+    }
+  }
 
+  // The half that writes the job away, shared by both routes to a tapped
+  // payment: the callback, and the search that runs when the callback
+  // never came.
+  async function recordTappedPayment(jobRow, payment, pending) {
       // Square is the authority on what was actually charged. If the crew
       // changed the amount inside the Square app, that's the real figure.
       const amount = payment.amount || pending?.finalPrice || jobRow.price;
@@ -374,16 +433,74 @@ export default function CompleteJob() {
             "residential",
         },
       });
+    clearPendingPayment();
+  }
+
+  // Money moved, the record didn't. This wording matters: anything that
+  // reads like the charge failed invites running the card a second time.
+  function reportSettleFailure(e) {
+    console.error(e);
+    setError(
+      `The card was charged in Square, but recording it here failed: ${
+        e.message || "unknown error"
+      } — the job is still open. Complete it as a card payment so your ` +
+        "books match, and don't run the card again."
+    );
+    setSettling(false);
+  }
+
+  // --- tap: find a payment the callback never told us about -----------
+  //
+  // The callback is a browser redirect and redirects get lost. From an iOS
+  // home-screen install it ALWAYS lands somewhere else, and anywhere else
+  // it can still die with the tab. Since the card has already been charged
+  // by that point, waiting to be told is the wrong default — ask Square.
+  //
+  // Returns true when a payment was found and recorded.
+  async function chaseTappedPayment(jobRow, pending, { quiet = true } = {}) {
+    setChasing(true);
+    setChaseNote("");
+    try {
+      const found = await findPosPayment({
+        code: pending.code,
+        since: pending.startedAt,
+      });
+
+      if (!found.found) {
+        setChasing(false);
+        // Backing out of Square without paying is completely normal, so an
+        // automatic check says nothing. A check the operator asked for
+        // deserves an answer either way.
+        if (!quiet) {
+          setChaseNote(
+            "No payment for this job in Square yet. If you did take one, " +
+              "give it a moment and check again."
+          );
+        }
+        return false;
+      }
+
+      setChasing(false);
+      setSettling(true);
+      await recordTappedPayment(jobRow, found, pending);
+      return true;
     } catch (e) {
       console.error(e);
-      setError(
-        `The card was charged in Square, but recording it here failed: ${
-          e.message || "unknown error"
-        } — the job is still open. Complete it as a card payment so your ` +
-          "books match, and don't run the card again."
+      setChasing(false);
+      // Never silent on a genuine error: this runs precisely when money
+      // may already have moved.
+      setChaseNote(
+        `Couldn't check Square: ${e.message || "unknown error"}. The job is ` +
+          "still open — check the Square app before charging again."
       );
-      setSettling(false);
+      return false;
     }
+  }
+
+  async function handleCheckSquare() {
+    if (!unfinished || !job) return;
+    const done = await chaseTappedPayment(job, unfinished, { quiet: false });
+    if (done) setUnfinished(null);
   }
 
   // Cash / check / square / invoice. Card has its own path below, because
@@ -510,6 +627,19 @@ export default function CompleteJob() {
     );
   }
 
+  // Asking Square whether a tap went through. The form stays hidden while
+  // we don't know — if the answer is yes, showing a payment button would
+  // be inviting a second charge.
+  if (chasing) {
+    return (
+      <div className="complete__state complete__settling">
+        <div className="complete__spinner" aria-hidden="true" />
+        <strong>Checking Square…</strong>
+        <span>Seeing whether this job was already paid for.</span>
+      </div>
+    );
+  }
+
   // Coming back from a successful tap. The charge already happened, so
   // there's nothing to press and nothing to reconsider — showing the form
   // again would invite someone to run the card a second time.
@@ -543,6 +673,29 @@ export default function CompleteJob() {
       </div>
 
       {error && <p className="complete__error">{error}</p>}
+
+      {/* A tap was started for this job and nothing has accounted for it.
+          Usually they backed out of Square, in which case carrying on is
+          right — but if money did move, this is the way to find it without
+          running the card again. */}
+      {unfinished && (
+        <div className="complete__unfinished">
+          <strong>A card tap was started for this job.</strong>
+          <span>
+            If it went through, don't charge again — pull it in from Square
+            instead.
+          </span>
+          <button
+            type="button"
+            className="complete__checkbtn"
+            onClick={handleCheckSquare}
+            disabled={chasing}
+          >
+            Check Square for the payment
+          </button>
+          {chaseNote && <span className="complete__chasenote">{chaseNote}</span>}
+        </div>
+      )}
 
       <div className="complete__form">
         <label className="complete__label">Amount received ($)</label>

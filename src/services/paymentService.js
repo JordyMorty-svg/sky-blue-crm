@@ -26,6 +26,37 @@ export async function resolvePosPayment(transactionId) {
   return data; // { paymentId, receiptUrl, amount, card, squareCustomerId, ... }
 }
 
+// Ask Square whether a tap actually went through, without the callback.
+//
+// The counterpart to resolvePosPayment. That one needs the transaction id
+// the callback carries; this one needs only the code stamped on the order,
+// so it still works when the callback never arrives — which is the normal
+// case from an iOS home-screen install, and the occasional case everywhere
+// else when a browser gets killed mid-redirect.
+//
+// Returns { found: false } when there's simply no payment, which is the
+// expected answer whenever someone backs out of Square without charging.
+export async function findPosPayment({ code, since }) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const res = await fetch("/api/find-pos-payment", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access_token || ""}`,
+    },
+    body: JSON.stringify({ code, since }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || "Couldn't check Square for that payment.");
+  }
+  return data;
+}
+
 // Charge a card through our Netlify function, which holds the Square
 // secret. Pass EITHER sourceId (a fresh token from the Web Payments SDK)
 // or savedCardId (a "ccof:..." card on file from a previous visit).
