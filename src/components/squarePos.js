@@ -49,6 +49,23 @@ export function canUseSquarePos() {
   return isIOS() || isAndroid();
 }
 
+// Running from the home screen rather than in a browser tab.
+//
+// Worth knowing because iOS treats a home-screen install as its own app
+// with its own cookies, its own local storage and its own login — while
+// Square's callback opens in Safari regardless. So a tap started here
+// finishes somewhere else, and that somewhere else needs signing into
+// once. Nothing in JavaScript can change that; it can only be explained
+// before it happens rather than discovered on a doorstep.
+export function isStandalonePWA() {
+  if (typeof window === "undefined") return false;
+  return (
+    window.navigator.standalone === true ||
+    (typeof window.matchMedia === "function" &&
+      window.matchMedia("(display-mode: standalone)").matches)
+  );
+}
+
 // ---------------------------------------------------------------------
 // Remembering what we were doing
 // ---------------------------------------------------------------------
@@ -108,14 +125,41 @@ function callbackUrl() {
   return `${window.location.origin}${POS_RETURN_PATH}`;
 }
 
+// What travels to Square and back in the `state` field, which is echoed
+// to the callback untouched.
+//
+// Storage cannot be relied on across this hop. An iOS home-screen install
+// is a different storage jar from Safari, and Square's callback opens in
+// Safari — so a payment started in the installed app comes back somewhere
+// that cannot see anything rememberPendingPayment wrote. `state` is the
+// only channel that always survives.
+//
+// Deliberately limited to non-personal values. A callback URL is a plain
+// GET that lands in browser history and server logs, so no name, email,
+// address or note goes in here — those are re-read from the customer
+// record instead. The plan is the one thing that can't be: it may have
+// been agreed thirty seconds ago at the door and exist nowhere else yet.
+function packState({ jobId, servicePlan, propertyType }) {
+  return [jobId, servicePlan || "", propertyType || ""].join("~");
+}
+
+export function unpackState(raw) {
+  if (!raw) return { jobId: null };
+  const [jobId, servicePlan, propertyType] = String(raw).split("~");
+  return {
+    jobId: jobId || null,
+    servicePlan: servicePlan || null,
+    propertyType: propertyType || null,
+  };
+}
+
 /**
  * The URL that opens Square Point of Sale with the charge queued up.
  *
- * `state` comes back to us untouched, so the job id rides along in it —
- * that's what lets the return page know which job was just paid for even
- * if local storage was unavailable.
+ * `state` comes back to us untouched, carrying the job id and the plan —
+ * see packState above for why that isn't left to local storage.
  */
-export function buildPosUrl({ amount, jobId, note }) {
+export function buildPosUrl({ amount, jobId, note, servicePlan, propertyType }) {
   const cents = centsOf(amount);
   if (!Number.isFinite(cents) || cents <= 0) {
     throw new Error("Enter the amount before tapping a card.");
@@ -134,7 +178,7 @@ export function buildPosUrl({ amount, jobId, note }) {
       client_id: clientId,
       version: IOS_API_VERSION,
       notes: note || undefined,
-      state: jobId,
+      state: packState({ jobId, servicePlan, propertyType }),
       location_id: locationId || undefined,
       options: {
         // Card only. Cash and cheque are recorded in the CRM directly —
@@ -161,11 +205,15 @@ export function buildPosUrl({ amount, jobId, note }) {
       `i.com.squareup.pos.TOTAL_AMOUNT=${cents}`,
       "S.com.squareup.pos.CURRENCY_CODE=USD",
       "S.com.squareup.pos.TENDER_TYPES=com.squareup.pos.TENDER_CARD",
-      `S.com.squareup.pos.REQUEST_METADATA=${encodeURIComponent(jobId)}`,
+      `S.com.squareup.pos.REQUEST_METADATA=${encodeURIComponent(
+        packState({ jobId, servicePlan, propertyType })
+      )}`,
       // Where Android sends you if the Square app isn't installed. Without
       // this the tap button appears to do nothing at all.
       `S.browser_fallback_url=${encodeURIComponent(
-        `${callbackUrl()}?notInstalled=1&state=${encodeURIComponent(jobId)}`
+        `${callbackUrl()}?notInstalled=1&state=${encodeURIComponent(
+          packState({ jobId, servicePlan, propertyType })
+        )}`
       )}`,
     ];
     if (locationId) {
@@ -194,7 +242,7 @@ export function parsePosCallback(search) {
   if (params.get("notInstalled")) {
     return {
       ok: false,
-      jobId: params.get("state") || null,
+      ...unpackState(params.get("state")),
       errorCode: "APP_NOT_INSTALLED",
     };
   }
@@ -210,7 +258,7 @@ export function parsePosCallback(search) {
     }
     return {
       ok: parsed.status === "ok",
-      jobId: parsed.state || null,
+      ...unpackState(parsed.state),
       // Square's own docs call this the transaction id; it doubles as the
       // ORDER id, which is how the payment is looked up later.
       transactionId: parsed.transaction_id || null,
@@ -228,7 +276,7 @@ export function parsePosCallback(search) {
   if (androidError || serverTxn || clientTxn) {
     return {
       ok: !androidError && !!serverTxn,
-      jobId: metadata || null,
+      ...unpackState(metadata),
       transactionId: serverTxn || null,
       clientTransactionId: clientTxn || null,
       errorCode: androidError || null,

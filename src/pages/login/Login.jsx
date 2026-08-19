@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import "./Login.css";
 
@@ -9,6 +9,18 @@ export default function Login() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+  const { state } = useLocation();
+
+  // Where ProtectedRoute was trying to send them before it found no
+  // session. The search string has to come too — a Square tap returns to
+  // /pos-return?data=… and the transaction id lives entirely in there.
+  const from = state?.from
+    ? `${state.from.pathname}${state.from.search || ""}`
+    : "/leads";
+
+  // Landing here straight off a card payment isn't a page anyone chose to
+  // visit, so explain why they're being asked to sign in.
+  const returningFromPayment = state?.from?.pathname === "/pos-return";
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -27,8 +39,9 @@ export default function Login() {
       return;
     }
 
-    // Success — go to the leads board.
-    navigate("/leads", { replace: true });
+    // Success — resume whatever they were doing, or the leads board if
+    // they came to /login directly.
+    navigate(from, { replace: true });
   }
 
   return (
@@ -41,7 +54,15 @@ export default function Login() {
         </div>
 
         <h1 className="login__title">Sign in</h1>
-        <p className="login__subtitle">Team access portal</p>
+        {returningFromPayment ? (
+          <p className="login__subtitle login__subtitle--payment">
+            The card was charged. Sign in to finish recording the job — the
+            payment is safe either way, and you won't be asked again on this
+            browser.
+          </p>
+        ) : (
+          <p className="login__subtitle">Team access portal</p>
+        )}
 
         <form onSubmit={handleLogin} className="login__form">
           <label className="login__label" htmlFor="email">Email</label>

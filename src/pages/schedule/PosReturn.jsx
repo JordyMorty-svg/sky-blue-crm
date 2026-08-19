@@ -37,9 +37,13 @@ export default function PosReturn() {
     }
 
     // Storage holds what was on screen before we left: the final amount, a
-    // plan just agreed, a note, a corrected email. Square echoes only the
-    // job id back, so without this the operator would have to type it all
-    // again after paying.
+    // plan just agreed, a note, a corrected email.
+    //
+    // It is entirely absent when the payment started in an iOS home-screen
+    // install, because Square's callback opens Safari and that's a separate
+    // storage jar. Square's own `state` is the fallback and always survives
+    // — it carries the job id and the plan. Everything else is re-read from
+    // the customer record.
     const pending = readPendingPayment(result.jobId);
     const jobId = result.jobId || pending?.jobId;
 
@@ -73,7 +77,13 @@ export default function PosReturn() {
           transactionId: result.transactionId,
           clientTransactionId: result.clientTransactionId,
         },
-        pending,
+        // Storage first, then whatever Square echoed back. On the PWA path
+        // `pending` is null and these two fields are all that survive.
+        pending: pending || {
+          jobId,
+          servicePlan: result.servicePlan,
+          propertyType: result.propertyType,
+        },
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

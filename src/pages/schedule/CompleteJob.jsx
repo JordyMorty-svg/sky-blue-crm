@@ -15,6 +15,7 @@ import {
 import {
   buildPosUrl,
   canUseSquarePos,
+  isStandalonePWA,
   rememberPendingPayment,
 } from "../../components/squarePos";
 import {
@@ -69,6 +70,7 @@ export default function CompleteJob() {
   const [settling, setSettling] = useState(false);
 
   const posAvailable = canUseSquarePos();
+  const handOffLeavesApp = isStandalonePWA();
 
   async function load() {
     try {
@@ -261,6 +263,36 @@ export default function CompleteJob() {
     });
   }
 
+  // --- guard against paying twice --------------------------------------
+  //
+  // The tap hand-off can finish somewhere other than this page: on an iOS
+  // home-screen install, Square returns into Safari and the job is
+  // completed there, while this copy of the page sits untouched in the
+  // installed app. Switch back to it and you're looking at a live payment
+  // form for a job that's already paid — press the button and the customer
+  // is charged a second time.
+  //
+  // So whenever this page comes back into view, ask the database whether
+  // the job is still open. It's one cheap read against the worst outcome
+  // this app can produce.
+  useEffect(() => {
+    async function recheck() {
+      if (document.visibilityState !== "visible") return;
+      if (!job || job.status !== "scheduled") return;
+      try {
+        const fresh = await fetchJob(jobId);
+        if (fresh.status !== "scheduled") setJob(fresh);
+      } catch (e) {
+        // A failed re-check must not block a legitimate payment; the worst
+        // case is we're back to the behaviour before this guard existed.
+        console.error("Couldn't re-check the job status:", e);
+      }
+    }
+    document.addEventListener("visibilitychange", recheck);
+    return () => document.removeEventListener("visibilitychange", recheck);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId, job?.status]);
+
   // --- tap: hand off to the Square app ---------------------------------
   //
   // Leaving the browser tears this page down, so everything on screen is
@@ -289,6 +321,11 @@ export default function CompleteJob() {
         amount: Number(finalPrice),
         jobId: job.id,
         note: `${customerName} — ${jobDescription}`,
+        // Ride along in Square's `state` so a plan agreed at the door
+        // survives even when the return lands in a different browser with
+        // no access to what we just stored.
+        servicePlan,
+        propertyType,
       });
     } catch (e) {
       console.error(e);
@@ -445,6 +482,34 @@ export default function CompleteJob() {
   if (loading) return <div className="complete__state">Loading…</div>;
   if (!job) return <div className="complete__state">{error || "Not found."}</div>;
 
+  // Finished elsewhere — almost always the Safari half of a tap hand-off.
+  // Show the outcome instead of a payment form nobody should use again.
+  if (job.status && job.status !== "scheduled") {
+    return (
+      <div className="complete__state complete__done">
+        <strong>This job is already completed.</strong>
+        <span>
+          It was finished in another window — most likely the browser Square
+          returned to after the tap. Nothing more to do here.
+        </span>
+        <div className="complete__doneactions">
+          <button
+            className="complete__submit"
+            onClick={() => navigate(`/jobs/record/${job.id}`)}
+          >
+            View the job record
+          </button>
+          <button
+            className="complete__cancel"
+            onClick={() => navigate("/schedule")}
+          >
+            Back to schedule
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Coming back from a successful tap. The charge already happened, so
   // there's nothing to press and nothing to reconsider — showing the form
   // again would invite someone to run the card a second time.
@@ -536,6 +601,18 @@ export default function CompleteJob() {
               phone. A tap is charged at the in-person rate — cheaper than
               typing the card number in.
             </p>
+
+            {/* iOS sends the callback to Safari even when the CRM was
+                opened from the home screen, and Safari is a separate login.
+                Better said here than discovered mid-payment. */}
+            {handOffLeavesApp && (
+              <p className="complete__tapwarn">
+                You're running the CRM from the home screen. Square sends you
+                back through Safari, so the job gets finished there rather
+                than in this window — and Safari will ask you to sign in the
+                first time. The payment is never at risk either way.
+              </p>
+            )}
           </div>
         )}
 

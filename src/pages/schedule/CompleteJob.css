@@ -318,3 +318,42 @@
     border-top-color: #e2e8f0;
   }
 }
+
+/* Shown when a tap started here but was finished in the browser Square
+   returned to. The point is to close the door on a second charge. */
+
+.complete__done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.complete__done span {
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  max-width: 420px;
+}
+
+.complete__doneactions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* The home-screen caveat, amber because it changes what to expect rather
+   than reporting a failure. */
+.complete__tapwarn {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: #92400e;
+}

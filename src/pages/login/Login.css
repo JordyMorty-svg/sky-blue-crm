@@ -109,3 +109,15 @@
   background: #93c5fd;
   cursor: default;
 }
+
+/* Sign-in prompted by a Square return rather than chosen — the card is
+   already charged, so this has to reassure rather than just instruct. */
+.login__subtitle--payment {
+  color: #14532d;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 10px 13px;
+  line-height: 1.55;
+  text-align: left;
+}
