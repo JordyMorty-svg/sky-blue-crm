@@ -844,3 +844,82 @@
     order: -1;
   }
 }
+
+/* ============================================================
+   Month view on a phone
+   ============================================================
+   Seven columns of a month grid is about 50px each, which fits "Nib…" and
+   "Ma…" — enough to know something is there, never enough to know what.
+   Truncated names are worse than no names: they cost a full row of height
+   and answer nothing.
+
+   So on a phone the events become dots. The month stops trying to be a
+   list and goes back to being what it's good at — a shape showing which
+   days are busy — and tapping a day opens that day's list, where there's
+   room for names. */
+
+@media (max-width: 700px) {
+  .schedule__calendar .rbc-month-view .rbc-event {
+    width: 9px !important;
+    height: 9px;
+    min-height: 9px;
+    padding: 0 !important;
+    margin: 1px 2px;
+    border-radius: 50% !important;
+    /* Push the label out of view rather than hiding it, so screen readers
+       and long-press previews still have the name. */
+    overflow: hidden;
+    text-indent: -9999px;
+    box-shadow: none;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  /* Deliberately NOT touching .rbc-row-segment's flex sizing: that's what
+     positions each event under its own day column. Overriding it to
+     `flex: 0 0 auto` pulls every dot in the row over to Sunday. Only the
+     event inside the segment gets restyled. */
+  .schedule__calendar .rbc-month-view .rbc-row-segment {
+    padding: 0 1px;
+  }
+
+  .schedule__calendar .rbc-month-view .rbc-event-content {
+    display: none;
+  }
+
+  /* Rows can be short now that nothing inside them is a block of text. */
+  .schedule__calendar .rbc-month-row {
+    min-height: 54px;
+  }
+
+  .schedule__calendar .rbc-date-cell {
+    padding: 4px 5px;
+    font-size: 0.78rem;
+  }
+
+  .schedule__calendar .rbc-header {
+    padding: 8px 2px;
+    font-size: 0.7rem;
+  }
+
+  /* "+2 more" is the one bit of text worth keeping — it's a count. */
+  .schedule__calendar .rbc-show-more {
+    font-size: 0.66rem;
+    padding: 0 2px;
+  }
+}
+
+/* Belt and braces on the header alignment.
+   The container is now tall enough that the time grid doesn't scroll, so
+   there's usually no scrollbar at all. If one ever does appear — someone
+   books at 6am, or a browser renders rows taller — a zero-width scrollbar
+   keeps the body exactly as wide as the header above it. Scrolling still
+   works by wheel, trackpad and touch. */
+.schedule__calendar .rbc-time-content {
+  scrollbar-width: none;
+}
+
+.schedule__calendar .rbc-time-content::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}

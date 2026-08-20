@@ -19,7 +19,7 @@ import { isIOS, isAndroid } from "./squarePos";
  *
  *   Desktop — Google Maps on the web, which needs nothing installed.
  *
- * How the link is opened matters as much as which link it is — see
+ * How the link is opened matters as much as which link it is, see
  * openNavigation at the bottom.
  */
 

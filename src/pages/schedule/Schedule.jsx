@@ -75,21 +75,65 @@ function formatTime(iso) {
   return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
+// The toolbar for the phone list views. Same markup and classes as the
+// react-big-calendar one so the two look identical when you switch — the
+// grid views still use CalendarToolbar below.
+function MobileCalToolbar({ label, onToday, onPrev, onNext, view, onView }) {
+  return (
+    <div className="rbc-custom-toolbar">
+      <div className="rbc-custom-toolbar__nav">
+        <button className="rbc-custom-toolbar__today" onClick={onToday}>
+          Today
+        </button>
+        <button
+          className="rbc-custom-toolbar__arrow"
+          onClick={onPrev}
+          aria-label="Previous"
+        >
+          ‹
+        </button>
+        <button
+          className="rbc-custom-toolbar__arrow"
+          onClick={onNext}
+          aria-label="Next"
+        >
+          ›
+        </button>
+      </div>
+      <span className="rbc-custom-toolbar__label">{label}</span>
+      <div className="rbc-custom-toolbar__views">
+        {["day", "week", "month"].map((v) => (
+          <button
+            key={v}
+            onClick={() => onView(v)}
+            className={`rbc-custom-toolbar__view ${view === v ? "is-active" : ""}`}
+          >
+            {v.charAt(0).toUpperCase() + v.slice(1)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
- * The week, as a list, for phones.
+ * The calendar, as a list, for phones. One day or seven.
  *
  * react-big-calendar's week view is a seven-column time grid. That's the
  * right shape on a laptop and the wrong one on a phone: seven columns in
  * 360px leaves ~45px each, so "Nibler Joseph" renders as a vertical
  * stack of single letters and the grid shoves the whole page sideways.
  *
- * A phone has one axis worth using — vertical — so this walks the week in
+ * A phone has one axis worth using — vertical — so this walks the range in
  * order and groups by day. Empty days are dropped rather than drawn: on a
  * grid a blank column carries meaning, but in a list it's just scrolling.
+ *
+ * The Day view has the same problem in a subtler form: a single column of
+ * empty hours where the one job sits half-scrolled off the top, its name
+ * invisible because the block starts above the viewport. Same fix.
  */
-function MobileWeek({ events, date, onSelect }) {
-  const weekStart = startOfWeek(date, { weekStartsOn: 0 });
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+function MobileAgenda({ events, start, dayCount, onSelect }) {
+  const days = Array.from({ length: dayCount }, (_, i) => addDays(start, i));
 
   const withJobs = days
     .map((day) => ({
@@ -101,13 +145,20 @@ function MobileWeek({ events, date, onSelect }) {
     .filter((d) => d.jobs.length > 0);
 
   if (withJobs.length === 0) {
-    return <p className="schedule__empty">Nothing scheduled this week.</p>;
+    return (
+      <p className="schedule__empty">
+        {dayCount === 1
+          ? "Nothing scheduled this day."
+          : "Nothing scheduled this week."}
+      </p>
+    );
   }
 
   return (
     <div className="weeklist">
       {withJobs.map(({ day, jobs }) => (
         <div className="weeklist__day" key={day.toISOString()}>
+          {dayCount > 1 && (
           <div
             className={`weeklist__dayhead ${
               isSameDay(day, new Date()) ? "weeklist__dayhead--today" : ""
@@ -119,6 +170,7 @@ function MobileWeek({ events, date, onSelect }) {
               {jobs.length} {jobs.length === 1 ? "job" : "jobs"}
             </span>
           </div>
+          )}
 
           {jobs.map((job) => (
             <button
@@ -416,56 +468,43 @@ export default function Schedule() {
               Completed
             </span>
           </div>
-          {/* A seven-column time grid can't work at phone width, so the
-              week becomes a list there. Day and Month are one column and
-              a set of numbers respectively — both survive the squeeze. */}
-          {isNarrow && calView === "week" ? (
+          {/* Neither grid works at phone width. The week is seven columns
+              of ~45px; the day is one column of mostly-empty hours with the
+              job's name scrolled off the top. Both become lists. Month is
+              the one grid that survives — it's a shape, not text. */}
+          {isNarrow && calView !== "month" ? (
             <>
-              <div className="rbc-custom-toolbar">
-                <div className="rbc-custom-toolbar__nav">
-                  <button
-                    className="rbc-custom-toolbar__today"
-                    onClick={() => setCalDate(new Date())}
-                  >
-                    Today
-                  </button>
-                  <button
-                    className="rbc-custom-toolbar__arrow"
-                    onClick={() => setCalDate(addDays(calDate, -7))}
-                    aria-label="Previous week"
-                  >
-                    ‹
-                  </button>
-                  <button
-                    className="rbc-custom-toolbar__arrow"
-                    onClick={() => setCalDate(addDays(calDate, 7))}
-                    aria-label="Next week"
-                  >
-                    ›
-                  </button>
-                </div>
-                <span className="rbc-custom-toolbar__label">
-                  {format(startOfWeek(calDate, { weekStartsOn: 0 }), "MMMM d")} –{" "}
-                  {format(endOfWeek(calDate, { weekStartsOn: 0 }), "d")}
-                </span>
-                <div className="rbc-custom-toolbar__views">
-                  {["day", "week", "month"].map((v) => (
-                    <button
-                      key={v}
-                      onClick={() => setCalView(v)}
-                      className={`rbc-custom-toolbar__view ${
-                        calView === v ? "is-active" : ""
-                      }`}
-                    >
-                      {v.charAt(0).toUpperCase() + v.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <MobileCalToolbar
+                view={calView}
+                onView={setCalView}
+                onToday={() => setCalDate(new Date())}
+                onPrev={() =>
+                  setCalDate(addDays(calDate, calView === "day" ? -1 : -7))
+                }
+                onNext={() =>
+                  setCalDate(addDays(calDate, calView === "day" ? 1 : 7))
+                }
+                label={
+                  calView === "day"
+                    ? format(calDate, "EEEE, MMMM d")
+                    : `${format(
+                        startOfWeek(calDate, { weekStartsOn: 0 }),
+                        "MMMM d"
+                      )} – ${format(
+                        endOfWeek(calDate, { weekStartsOn: 0 }),
+                        "d"
+                      )}`
+                }
+              />
 
-              <MobileWeek
+              <MobileAgenda
                 events={events}
-                date={calDate}
+                start={
+                  calView === "day"
+                    ? calDate
+                    : startOfWeek(calDate, { weekStartsOn: 0 })
+                }
+                dayCount={calView === "day" ? 1 : 7}
                 onSelect={(event) => setEditingEvent(event)}
               />
             </>
@@ -496,9 +535,13 @@ export default function Schedule() {
             }}
             selectable
             components={{ toolbar: CalendarToolbar }}
-            // Shorter on a phone: 680px of grid means the toolbar scrolls
-            // off before you can reach the view buttons.
-            style={{ height: isNarrow ? 520 : 680 }}
+            // 7am–9pm is 14 hour-rows at 48px = 672px of grid, plus the
+            // header and all-day strip. At 680 the body scrolled while the
+            // header didn't, so the header ended up wider than the columns
+            // beneath it by exactly one scrollbar — which is the
+            // misalignment. Tall enough to fit means nothing scrolls and
+            // nothing can drift.
+            style={{ height: isNarrow ? 520 : 780 }}
           />
           )}
         </div>
