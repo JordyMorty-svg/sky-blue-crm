@@ -13,6 +13,7 @@ import PlanPicker from "../../components/PlanPicker";
 import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import TechPicker from "../../components/TechPicker";
+import JobHistory from "../../components/JobHistory";
 import "./JobDetail.css";
 
 export default function JobDetail() {
@@ -260,6 +261,17 @@ export default function JobDetail() {
           )}
         </div>
       </div>
+
+      {/* The same history the finished-job record shows. Useful before the
+          job as well as after it: "have we already moved this twice?" and
+          "when did they go onto the plan?" are questions you ask while the
+          job is still upcoming, and the answer is right here rather than in
+          somebody's memory of a text message.
+
+          A scheduled job simply has no completion or payment row yet — the
+          component needs no special case for it, because those events are
+          only written when the work is actually submitted. */}
+      <JobHistory jobId={id} className="jobDetail__history" />
     </div>
   );
 }

@@ -488,3 +488,17 @@
   border-radius: 8px;
   padding: 9px 12px;
 }
+
+/* Shown in place of the plan picker on a one-off extra, so the absence of
+   the control reads as deliberate rather than as something failing to
+   load. */
+.complete__extranote {
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  border-radius: 10px;
+  padding: 11px 14px;
+  margin: 0 0 16px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #5b21b6;
+}

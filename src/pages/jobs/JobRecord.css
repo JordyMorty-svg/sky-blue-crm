@@ -410,3 +410,12 @@
     color: #2563eb;
   }
 }
+
+/* --- when it was submitted ---
+   Sits directly under the amount, because "how much" and "when exactly"
+   are the two things you came to this page to find out. */
+.jobrec__submitted {
+  margin: -12px 0 20px;
+  font-size: 0.84rem;
+  color: #64748b;
+}

@@ -20,6 +20,12 @@ import { fetchCalendarJobs } from "../../services/calendarService";
 import JobPlanTag from "../../components/JobPlanTag";
 import ViewSwitcher from "../../components/ViewSwitcher";
 import {
+  remember,
+  recall,
+  rememberDay,
+  recallDay,
+} from "../../components/viewMemory";
+import {
   MAPS_APPS,
   navigationUrl,
   needsMapsChoice,
@@ -256,11 +262,37 @@ export default function Schedule() {
   const { pathname, state } = useLocation();
   const nextVisit = state?.nextVisit || null;
   const mode = pathname.startsWith("/schedule/calendar") ? "calendar" : "schedule";
-  const [selectedDay, setSelectedDay] = useState(new Date());
+  // Remembered so that stepping into a customer and coming back doesn't
+  // silently move you to today. recallDay only honours a date saved on
+  // this same calendar day — see viewMemory.js for why.
+  const [selectedDay, setSelectedDay] = useState(
+    () => recallDay("scheduleDay") || new Date()
+  );
   const [jobs, setJobs] = useState([]);
   const [calJobs, setCalJobs] = useState([]);
-  const [calView, setCalView] = useState("week");
+  const [calView, setCalView] = useState(() =>
+    recall("calView", "week", ["day", "week", "month"])
+  );
   const isNarrow = useIsNarrow();
+
+  // Every place these three change goes through one of these, so there's
+  // no path that updates the screen without recording it.
+  function pickCalView(v) {
+    setCalView(v);
+    remember("calView", v);
+  }
+
+  function pickCalDate(d) {
+    const next = d || new Date();
+    setCalDate(next);
+    rememberDay("calDate", next);
+  }
+
+  function pickDay(d) {
+    const next = d || new Date();
+    setSelectedDay(next);
+    rememberDay("scheduleDay", next);
+  }
 
   // Where a job on the calendar takes you.
   //
@@ -293,7 +325,9 @@ export default function Schedule() {
         : { toolbar: CalendarToolbar },
     [isNarrow]
   );
-  const [calDate, setCalDate] = useState(new Date());
+  const [calDate, setCalDate] = useState(
+    () => recallDay("calDate") || new Date()
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -424,11 +458,11 @@ export default function Schedule() {
           <div className="schedule__daypick">
             <DatePicker
               selected={selectedDay}
-              onChange={(d) => setSelectedDay(d || new Date())}
+              onChange={(d) => pickDay(d)}
               dateFormat="EEEE, MMMM d"
               className="schedule__dateinput"
             />
-            <button className="schedule__today" onClick={() => setSelectedDay(new Date())}>
+            <button className="schedule__today" onClick={() => pickDay(new Date())}>
               Today
             </button>
           </div>
@@ -546,13 +580,13 @@ export default function Schedule() {
             <>
               <MobileCalToolbar
                 view={calView}
-                onView={setCalView}
-                onToday={() => setCalDate(new Date())}
+                onView={pickCalView}
+                onToday={() => pickCalDate(new Date())}
                 onPrev={() =>
-                  setCalDate(addDays(calDate, calView === "day" ? -1 : -7))
+                  pickCalDate(addDays(calDate, calView === "day" ? -1 : -7))
                 }
                 onNext={() =>
-                  setCalDate(addDays(calDate, calView === "day" ? 1 : 7))
+                  pickCalDate(addDays(calDate, calView === "day" ? 1 : 7))
                 }
                 label={
                   calView === "day"
@@ -585,9 +619,9 @@ export default function Schedule() {
             startAccessor="start"
             endAccessor="end"
             view={calView}
-            onView={setCalView}
+            onView={pickCalView}
             date={calDate}
-            onNavigate={setCalDate}
+            onNavigate={pickCalDate}
             views={["day", "week", "month"]}
             formats={CAL_FORMATS}
             min={DAY_MIN}
@@ -595,13 +629,13 @@ export default function Schedule() {
             eventPropGetter={eventStyle}
             onSelectEvent={openEvent}
             onDrillDown={(date) => {
-              setCalDate(date);
-              setCalView("day");
+              pickCalDate(date);
+              pickCalView("day");
             }}
             onSelectSlot={(slot) => {
               if (calView === "month") {
-                setCalDate(slot.start);
-                setCalView("day");
+                pickCalDate(slot.start);
+                pickCalView("day");
               }
             }}
             selectable

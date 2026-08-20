@@ -32,3 +32,12 @@
   letter-spacing: 0;
   opacity: 0.85;
 }
+
+/* Violet, matching the plan-change dot in the job history. An extra is
+   neither a plan visit (amber) nor an ordinary one-off (grey): it's a job
+   that sits deliberately alongside a plan, and on a recurring customer's
+   profile that distinction is the whole point of the badge. */
+.plantag--extra {
+  background: #f3e8ff;
+  color: #6d28d9;
+}

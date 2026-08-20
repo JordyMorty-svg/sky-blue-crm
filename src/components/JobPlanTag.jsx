@@ -11,6 +11,14 @@ import "./JobPlanTag.css";
 export default function JobPlanTag({ job }) {
   const plan = job?.service_plan || "one_time";
 
+  // Checked before the plan, because an extra is stamped one_time and would
+  // otherwise read as an ordinary single cleaning. For a customer on a plan
+  // those are very different things: this one deliberately sits outside
+  // their cycle and doesn't move their next visit.
+  if (job?.is_extra) {
+    return <span className="plantag plantag--extra">One-off extra</span>;
+  }
+
   if (plan === "one_time") {
     return <span className="plantag plantag--onetime">One-time</span>;
   }

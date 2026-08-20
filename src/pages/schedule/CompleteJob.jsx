@@ -28,6 +28,7 @@ import {
 } from "../../services/customerService";
 import CardPaymentForm from "../../components/CardPaymentForm";
 import PlanPicker from "../../components/PlanPicker";
+import { planFor } from "../../services/leadService";
 import "./CompleteJob.css";
 
 // "tap" and "card" are both card payments and both record as method
@@ -205,18 +206,29 @@ export default function CompleteJob() {
     // rather than a mutation — `job` is state.
     let jobToComplete = job;
     try {
-      await applyPlanFromJob(
-        job.customer_id,
-        { servicePlan, propertyType },
-        job.customer
-      );
-      await setJobPlan(job.id, { servicePlan, propertyType });
-      if (servicePlan && servicePlan !== "one_time") {
-        jobToComplete = {
-          ...job,
-          service_plan: servicePlan,
-          property_type: propertyType,
-        };
+      // An extra is deliberately outside the recurring cycle, so completing
+      // it must not touch the plan at all.
+      //
+      // This is where the plan bug actually bit: the picker defaults to the
+      // customer's current plan, so submitting an extra for a Quarterly
+      // customer stamped the extra Quarterly, logged a "One-time ->
+      // Quarterly" change against it, and generated a next visit from a job
+      // that was never part of the cycle. Their plan lives on the customer
+      // record and is already correct — there is nothing to save here.
+      if (!job.is_extra) {
+        await applyPlanFromJob(
+          job.customer_id,
+          { servicePlan, propertyType },
+          job.customer
+        );
+        await setJobPlan(job.id, { servicePlan, propertyType });
+        if (servicePlan && servicePlan !== "one_time") {
+          jobToComplete = {
+            ...job,
+            service_plan: servicePlan,
+            property_type: propertyType,
+          };
+        }
       }
     } catch (planErr) {
       console.error("Couldn't save the service plan:", planErr);
@@ -934,7 +946,19 @@ export default function CompleteJob() {
           </>
         )}
 
-        {job.customer_id && (
+        {/* No plan picker on an extra. It was booked as a one-off on top of
+            an existing plan, and offering the control here is what made it
+            easy to overwrite that plan by accident. */}
+        {job.customer_id && job.is_extra && (
+          <p className="complete__extranote">
+            <strong>One-off extra.</strong> This visit sits outside{" "}
+            {customerName}&rsquo;s{" "}
+            {planFor(job.customer?.service_plan).label} plan — completing it
+            won&rsquo;t change the plan or move their next visit.
+          </p>
+        )}
+
+        {job.customer_id && !job.is_extra && (
           <>
             <label className="complete__label">
               Service plan{" "}

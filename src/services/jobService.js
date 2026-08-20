@@ -222,6 +222,25 @@ export async function fetchJobRecord(id) {
   return data;
 }
 
+// The history of a job: when it was booked, when it was submitted, when
+// the money actually arrived, and who did each.
+//
+// Oldest first, because it reads as a story. Written entirely by a trigger
+// (db/job-events.sql), so it records changes made in the Supabase table
+// editor too, not just ones the app made.
+export async function fetchJobEvents(jobId) {
+  if (!jobId) return [];
+  const { data, error } = await supabase
+    .from("job_events")
+    .select("*, actor:changed_by ( full_name )")
+    .eq("job_id", jobId)
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
+
 // Permanently delete a job — used when one was booked by mistake or
 // replaced. Assignments go first because they reference the job; any
 // follow-up visit pointing at this one via previous_job_id is left alone,
@@ -333,6 +352,12 @@ export async function createNextVisit(job) {
   // Every screen that puts someone on a plan stamps the job as well, so a
   // job booked before they signed up still counts once you set the plan
   // from that job.
+  // An extra is explicitly outside the cycle — a touch-up, a callout, a
+  // storm cleanup. It gets done and paid for, but it must not generate the
+  // next plan visit, or booking one in month two of a six-month cycle
+  // silently pushes the real visit out to month eight.
+  if (job.is_extra) return null;
+
   const jobPlan = job.service_plan || "one_time";
   if (jobPlan === "one_time") return null;
 
@@ -432,11 +457,19 @@ export async function ensureNextVisit(customerId) {
 
   // Anchor on their most recent completed visit — the clock runs from when
   // the work actually happened.
+  //
+  // Extras are excluded. This is the difference the is_extra column exists
+  // for: a job stamped one_time might be "booked before they signed up",
+  // which SHOULD become their first plan visit, or it might be a deliberate
+  // extra, which must be left alone. Without the flag this query picked the
+  // extra, re-stamped it with the plan, and wrote a plan-change event onto a
+  // job nobody meant to change.
   const { data: done, error: doneErr } = await supabase
     .from("jobs")
     .select("*")
     .eq("customer_id", customerId)
     .eq("status", "completed")
+    .eq("is_extra", false)
     .order("starts_at", { ascending: false, nullsFirst: false })
     .limit(1);
   if (doneErr) throw doneErr;
@@ -534,18 +567,29 @@ export async function scheduleJobForCustomer({
   services,
   servicePlan,
   propertyType,
+  // A one-off booked outside the recurring cycle: touch-up, callout, extra
+  // clean. It's a normal job in every way that matters — scheduled, worked,
+  // paid — but it is NOT one of their plan visits and must not behave like
+  // one. See db/one-off-jobs.sql for what went wrong without this.
+  isExtra = false,
 }) {
-  // Continue the customer's visit count rather than restarting at 1, so
-  // plan discounts keep applying correctly.
-  const { data: prior, error: priorErr } = await supabase
-    .from("jobs")
-    .select("visit_number")
-    .eq("customer_id", customer.id)
-    .order("visit_number", { ascending: false })
-    .limit(1);
-  if (priorErr) throw priorErr;
+  // Plan visits continue the customer's count so discounts keep applying.
+  // Extras take 0: they aren't a numbered visit at all, and taking the next
+  // number was what pushed every subsequent visit out by one.
+  let visitNumber = 0;
 
-  const visitNumber = (prior?.[0]?.visit_number || 0) + 1;
+  if (!isExtra) {
+    const { data: prior, error: priorErr } = await supabase
+      .from("jobs")
+      .select("visit_number")
+      .eq("customer_id", customer.id)
+      .eq("is_extra", false)
+      .order("visit_number", { ascending: false })
+      .limit(1);
+    if (priorErr) throw priorErr;
+
+    visitNumber = (prior?.[0]?.visit_number || 0) + 1;
+  }
 
   const { data: job, error } = await supabase
     .from("jobs")
@@ -557,9 +601,15 @@ export async function scheduleJobForCustomer({
       duration_hours: durationHours,
       notes: notes || null,
       status: "scheduled",
-      service_plan: servicePlan || customer.service_plan || "one_time",
+      // An extra is stamped one_time whatever the customer is on. The plan
+      // lives on the customer and is untouched by this; the stamp is about
+      // this job's own relationship to the cycle, which is "none".
+      service_plan: isExtra
+        ? "one_time"
+        : servicePlan || customer.service_plan || "one_time",
       property_type: propertyType || customer.property_type || "residential",
       visit_number: visitNumber,
+      is_extra: isExtra,
     })
     .select()
     .single();

@@ -1,0 +1,173 @@
+/* Job history timeline.
+   Same language as the lead status history, so the two read as one idea.
+   Oldest at the top: it's a story, not a feed. */
+
+.jobhist {
+  margin-top: 28px;
+}
+
+.jobhist__head {
+  font-size: 1.1rem;
+  color: #0f172a;
+  margin: 0 0 12px;
+}
+
+.jobhist__timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+/* The connecting line, drawn behind the dots. */
+.jobhist__timeline::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: #e2e8f0;
+}
+
+.jobhist__event {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 9px 0 9px 22px;
+}
+
+.jobhist__dot {
+  position: absolute;
+  left: 0;
+  top: 14px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  border: 2px solid #ffffff;
+}
+
+/* The ones that involve money get colour; the rest are context. */
+.jobhist__event--completed .jobhist__dot {
+  background: #2563eb;
+}
+
+.jobhist__event--payment .jobhist__dot {
+  background: #16a34a;
+}
+
+.jobhist__event--cancelled .jobhist__dot {
+  background: #ef4444;
+}
+
+.jobhist__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.jobhist__title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.jobhist__meta {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+/* Pushed right so the timestamps line up in a column and can be scanned. */
+.jobhist__when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.jobhist__actor {
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* Changes along the way — reschedules, plan switches, re-quotes.
+   Still fully readable, just quieter, so the eye walks the milestones first
+   and picks these up as the context they are. A hollow dot reads as "this
+   happened between the marked moments" without needing a legend. */
+.jobhist__event--minor .jobhist__title {
+  font-weight: 500;
+  color: #475569;
+}
+
+.jobhist__event--minor .jobhist__dot {
+  background: #ffffff;
+  border: 2px solid #cbd5e1;
+}
+
+/* A plan change is a sale, so it gets a filled dot like the other
+   milestones. Property type is the same colour but hollow — it's a
+   correction to a detail, not a commitment. */
+.jobhist__event--plan .jobhist__dot {
+  background: #7c3aed;
+}
+
+.jobhist__event--property .jobhist__dot {
+  border-color: #7c3aed;
+}
+
+.jobhist__event--price .jobhist__dot {
+  border-color: #d97706;
+}
+
+.jobhist__more {
+  margin: 2px 0 0 22px;
+  padding: 6px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  /* Sized for a thumb even though it reads as a small control. */
+  min-height: 34px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+@media (hover: hover) {
+  .jobhist__more:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+}
+
+.jobhist__more:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Keep this block last in the file: it overrides the row layout above, and
+   equal-specificity rules are decided by source order. */
+@media (max-width: 560px) {
+  .jobhist__event {
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .jobhist__when {
+    align-items: flex-start;
+    flex-direction: row;
+    gap: 8px;
+  }
+}

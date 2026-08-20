@@ -9,6 +9,7 @@ import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO } from "../../components/appointmentUtils";
 import TechPicker from "../../components/TechPicker";
 import PlanPicker from "../../components/PlanPicker";
+import { planFor } from "../../services/leadService";
 import DayPreview from "../jobs/DayPreview";
 import "../jobs/ScheduleJob.css";
 
@@ -32,6 +33,12 @@ export default function ScheduleForCustomer() {
   const [notes, setNotes] = useState("");
   const [propertyType, setPropertyType] = useState("residential");
   const [servicePlan, setServicePlan] = useState("one_time");
+  // For a customer already on a plan, the question isn't "which plan" — it's
+  // whether this booking is one of their plan visits or an extra on top.
+  // Defaults to extra, because that's what booking from the profile almost
+  // always is: plan visits generate themselves and are confirmed from the
+  // Jobs board. The safe default is also the one that changes nothing.
+  const [isExtra, setIsExtra] = useState(true);
   const [conflicts, setConflicts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -46,7 +53,10 @@ export default function ScheduleForCustomer() {
       setCustomer(c);
       setTechs(techData);
       setPropertyType(c.property_type || "residential");
-      setServicePlan(c.service_plan || "one_time");
+      // Deliberately NOT pre-selected to the customer's current plan. This
+      // picker only appears for customers who aren't on one yet, and
+      // pre-filling it made booking an extra look like re-signing them up.
+      setServicePlan("one_time");
       // Default to what they last paid, so repeat work is one tap.
       const lastPaid = jobs.find((j) => j.final_price ?? j.price);
       if (lastPaid) setPrice(String(lastPaid.final_price ?? lastPaid.price));
@@ -65,6 +75,15 @@ export default function ScheduleForCustomer() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const onAPlan = (customer?.service_plan || "one_time") !== "one_time";
+  // Only a plan customer can book an "extra" — for everyone else there's no
+  // cycle to be outside of, so the flag is meaningless and stays false.
+  //
+  // Declared above handleSubmit rather than beside the JSX: the submit
+  // handler closes over it, and the early returns below would otherwise
+  // leave it in the temporal dead zone on the renders that bail out.
+  const extraBooking = onAPlan && isExtra;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -85,9 +104,14 @@ export default function ScheduleForCustomer() {
 
     setSaving(true);
     try {
-      // Only ever an upgrade — booking a one-off for a plan customer must
-      // not cancel their plan.
-      await applyPlanFromJob(id, { servicePlan, propertyType }, customer);
+      // An extra says nothing about what plan they're on, so it must not
+      // write to the customer at all — not even the property type, which
+      // would stamp a change event on every one of their open jobs.
+      if (!extraBooking) {
+        // Only ever an upgrade — booking a one-off for a plan customer must
+        // not cancel their plan.
+        await applyPlanFromJob(id, { servicePlan, propertyType }, customer);
+      }
 
       await scheduleJobForCustomer({
         customer,
@@ -99,6 +123,7 @@ export default function ScheduleForCustomer() {
         services,
         servicePlan,
         propertyType,
+        isExtra: extraBooking,
       });
       navigate(`/customers/${id}`);
     } catch (e) {
@@ -167,17 +192,63 @@ export default function ScheduleForCustomer() {
           />
         </div>
 
-        <div className="scheduleJob__field">
-          <label className="scheduleJob__label">Service plan</label>
-          <PlanPicker
-            propertyType={propertyType}
-            plan={servicePlan}
-            onPropertyTypeChange={setPropertyType}
-            onPlanChange={setServicePlan}
-            basePrice={price}
-            currentPlan={customer.service_plan}
-          />
-        </div>
+        {/* Two different questions, depending on where the customer already
+            stands. Showing the plan picker to someone who is already on a
+            plan was the confusing part: it looked like the job decided the
+            plan, when in fact the plan lives on the customer and the job
+            only decides whether it counts as one of their visits. */}
+        {onAPlan ? (
+          <div className="scheduleJob__field">
+            <label className="scheduleJob__label">What kind of visit is this?</label>
+            <div className="scheduleJob__kind">
+              <button
+                type="button"
+                className={`scheduleJob__kindbtn ${
+                  isExtra ? "" : "scheduleJob__kindbtn--active"
+                }`}
+                onClick={() => setIsExtra(false)}
+              >
+                <span className="scheduleJob__kindname">
+                  Their {planFor(customer.service_plan).label} visit
+                </span>
+                <span className="scheduleJob__kindhint">
+                  Counts as a plan visit and moves the next one along
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className={`scheduleJob__kindbtn ${
+                  isExtra ? "scheduleJob__kindbtn--active" : ""
+                }`}
+                onClick={() => setIsExtra(true)}
+              >
+                <span className="scheduleJob__kindname">One-off extra</span>
+                <span className="scheduleJob__kindhint">
+                  A touch-up or callout on top. Leaves their plan and their
+                  next visit exactly where they are.
+                </span>
+              </button>
+            </div>
+
+            <p className="scheduleJob__kindnote">
+              {customer.name} is on the {planFor(customer.service_plan).label}{" "}
+              plan either way — change that on their profile, not here.
+            </p>
+          </div>
+        ) : (
+          <div className="scheduleJob__field">
+            <label className="scheduleJob__label">Service plan</label>
+            <PlanPicker
+              propertyType={propertyType}
+              plan={servicePlan}
+              onPropertyTypeChange={setPropertyType}
+              onPlanChange={setServicePlan}
+              basePrice={price}
+              currentPlan={customer.service_plan}
+            />
+          </div>
+        )}
 
         <div className="scheduleJob__field">
           <label className="scheduleJob__label">Estimated duration (hours)</label>

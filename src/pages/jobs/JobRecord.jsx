@@ -7,6 +7,8 @@ import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import { planFor } from "../../services/leadService";
 import JobPlanTag from "../../components/JobPlanTag";
+import JobHistory from "../../components/JobHistory";
+import { PAYMENT_LABELS, money, formatStamp } from "../../components/jobFormat";
 import "./JobRecord.css";
 
 /**
@@ -17,15 +19,6 @@ import "./JobRecord.css";
  * page, and there's a payment in Square that no longer matches. Corrections
  * belong in a note, not in the numbers.
  */
-
-const PAYMENT_LABELS = {
-  cash: "Cash",
-  check: "Check",
-  card: "Card",
-  invoice: "Emailed invoice",
-  // Historical: card payments recorded before they moved in-app.
-  square: "Card (Square)",
-};
 
 // Square's own vocabulary, said the way you'd say it out loud.
 const INVOICE_STATUS_LABELS = {
@@ -53,10 +46,6 @@ function formatWhen(iso) {
   });
 }
 
-function money(n) {
-  return `$${Number(n || 0).toLocaleString()}`;
-}
-
 export default function JobRecord() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -73,6 +62,9 @@ export default function JobRecord() {
         : "← Back to jobs";
 
   const [job, setJob] = useState(null);
+  // Bumped to make JobHistory refetch — after a re-date, which writes an
+  // event of its own. The component owns its data; this just pokes it.
+  const [historyKey, setHistoryKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(false);
@@ -113,6 +105,10 @@ export default function JobRecord() {
       try {
         const data = await fetchJobRecord(id);
         setError("");
+        // The history loads itself inside JobHistory, and fails quietly
+        // there if the migration hasn't been run — it's context, not the
+        // record, and must never take this page down with it.
+        //
         // The stored status is a snapshot from when the invoice was sent.
         // Anything not already settled is worth re-checking on open —
         // that's the whole window in which it can have been paid without
@@ -158,6 +154,9 @@ export default function JobRecord() {
       });
       setJob({ ...job, starts_at: startsAt });
       setRedating(false);
+      // The move is itself a recorded event — pick it up rather than
+      // leaving the history a step behind what's on screen.
+      setHistoryKey((k) => k + 1);
     } catch (e) {
       console.error(e);
       setDateError(e.message || "Couldn't change the date.");
@@ -235,6 +234,12 @@ export default function JobRecord() {
       </div>
 
       {checkError && <p className="jobrec__checkerror">{checkError}</p>}
+
+      {job.completed_at && (
+        <p className="jobrec__submitted">
+          Submitted {formatStamp(job.completed_at)}
+        </p>
+      )}
 
       <dl className="jobrec__facts">
         <div className="jobrec__fact">
@@ -333,6 +338,8 @@ export default function JobRecord() {
           <p className="jobrec__notes-text">{job.notes}</p>
         </div>
       )}
+
+      <JobHistory jobId={job.id} refreshKey={historyKey} />
 
       <h2 className="jobrec__subhead">Paperwork</h2>
 

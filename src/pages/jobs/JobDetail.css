@@ -233,3 +233,16 @@
   background: #fca5a5;
   cursor: default;
 }
+
+/* The job history, in a card of its own below the form. It's a record
+   rather than something you edit, so it deliberately doesn't look like part
+   of the form above it.
+
+   JobHistory renders nothing at all when a job has no events yet, so this
+   card can't end up on the page as an empty bordered box. */
+.jobDetail__history {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px 24px 24px;
+}
