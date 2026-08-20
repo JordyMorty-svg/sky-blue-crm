@@ -18,6 +18,9 @@ import { isIOS, isAndroid } from "./squarePos";
  *     won't: asked once per phone, remembered after that.
  *
  *   Desktop — Google Maps on the web, which needs nothing installed.
+ *
+ * How the link is opened matters as much as which link it is — see
+ * openNavigation at the bottom.
  */
 
 export const MAPS_APPS = [
@@ -87,7 +90,17 @@ function hasUsableCoords(latitude, longitude) {
 export function appleMapsUrl(place) {
   const daddr = destinationOf(place);
   // dirflg=d asks for driving directions rather than a dropped pin.
-  return `https://maps.apple.com/?daddr=${encodeURIComponent(daddr)}&dirflg=d`;
+  const query = `daddr=${encodeURIComponent(daddr)}&dirflg=d`;
+
+  // On iOS use the maps:// SCHEME rather than the https address. A scheme
+  // isn't a web page, so nothing in the browser is ever asked to load it —
+  // iOS just hands it to Maps and the CRM stays exactly where it was.
+  // The https form makes Safari create a page first, and that page is what
+  // was being left behind as a blank tab.
+  //
+  // Everywhere else keep https: it opens Maps on a Mac and degrades to the
+  // website on Windows, where maps:// means nothing.
+  return isIOS() ? `maps://?${query}` : `https://maps.apple.com/?${query}`;
 }
 
 export function googleMapsUrl(place) {
@@ -145,11 +158,26 @@ export function needsMapsChoice() {
  */
 export function openNavigation(url) {
   if (!url) return;
-  if (/^https?:/i.test(url)) {
+
+  // On a phone, NEVER window.open.
+  //
+  // iOS opens the blank tab first and only then follows the link into
+  // Maps, so the tab is abandoned mid-load. Coming back to the browser you
+  // land on an empty "Search or enter website name" page instead of the
+  // CRM, and the schedule is a back-button away rather than in front of
+  // you. A direct navigation has no such tab: the OS intercepts it, opens
+  // the maps app, and leaves the current page untouched.
+  //
+  // On a desktop a new tab IS right — there's no app hand-off, so the map
+  // has to load somewhere, and it shouldn't be over the top of the CRM.
+  const onPhone = isIOS() || isAndroid();
+
+  if (!onPhone && /^https?:/i.test(url)) {
     window.open(url, "_blank", "noopener,noreferrer");
-  } else {
-    window.location.href = url;
+    return;
   }
+
+  window.location.href = url;
 }
 
 // What to feed the functions above, given a job row.
