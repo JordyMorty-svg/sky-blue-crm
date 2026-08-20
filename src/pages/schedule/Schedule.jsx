@@ -17,7 +17,6 @@ import "react-datepicker/dist/react-datepicker.css";
 import { useAuth } from "../../context/useAuth";
 import { fetchMyJobs } from "../../services/jobService";
 import { fetchCalendarJobs } from "../../services/calendarService";
-import EventEditor from "./EventEditor";
 import JobPlanTag from "../../components/JobPlanTag";
 import ViewSwitcher from "../../components/ViewSwitcher";
 import {
@@ -263,6 +262,28 @@ export default function Schedule() {
   const [calView, setCalView] = useState("week");
   const isNarrow = useIsNarrow();
 
+  // Where a job on the calendar takes you.
+  //
+  // It used to open a popup that edited the date, time and duration and
+  // nothing else — but the calendar has already told you the date and time
+  // by where the block sits on the grid, so the one thing the popup added
+  // was the one thing you could already see. It couldn't show the address,
+  // the crew, the price or the notes, and it couldn't complete the job.
+  //
+  // Booked work opens the editor, which does everything the popup did and
+  // the rest besides. Finished work opens its record, which is read-only
+  // on purpose: there's a Square payment behind it that editing here would
+  // silently contradict.
+  function openEvent(event) {
+    const path =
+      event.status === "completed"
+        ? `/jobs/record/${event.id}`
+        : `/jobs/${event.id}`;
+    // pathname, not a literal, so Back returns to whichever calendar view
+    // you were looking at.
+    navigate(path, { state: { from: pathname } });
+  }
+
   // Memoised: a fresh `components` object on every render makes
   // react-big-calendar remount its internals.
   const calComponents = useMemo(
@@ -275,7 +296,6 @@ export default function Schedule() {
   const [calDate, setCalDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [editingEvent, setEditingEvent] = useState(null);
 
   useEffect(() => {
     if (user?.id) load();
@@ -539,7 +559,7 @@ export default function Schedule() {
                     : startOfWeek(calDate, { weekStartsOn: 0 })
                 }
                 dayCount={calView === "day" ? 1 : 7}
-                onSelect={(event) => setEditingEvent(event)}
+                onSelect={openEvent}
               />
             </>
           ) : (
@@ -557,7 +577,7 @@ export default function Schedule() {
             min={DAY_MIN}
             max={DAY_MAX}
             eventPropGetter={eventStyle}
-            onSelectEvent={(event) => setEditingEvent(event)}
+            onSelectEvent={openEvent}
             onDrillDown={(date) => {
               setCalDate(date);
               setCalView("day");
@@ -584,17 +604,6 @@ export default function Schedule() {
           />
           )}
         </div>
-      )}
-
-      {editingEvent && (
-        <EventEditor
-          event={editingEvent}
-          onClose={() => setEditingEvent(null)}
-          onSaved={() => {
-            setEditingEvent(null);
-            load();
-          }}
-        />
       )}
 
       {/* Asked once per phone, then never again. iOS has no default maps

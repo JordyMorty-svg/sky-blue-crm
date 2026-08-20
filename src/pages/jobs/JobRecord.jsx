@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { fetchJobRecord } from "../../services/jobService";
 import { refreshInvoiceOnJob } from "../../services/invoiceService";
+import { updateJobTiming } from "../../services/calendarService";
+import AppointmentPicker from "../../components/AppointmentPicker";
+import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import { planFor } from "../../services/leadService";
 import JobPlanTag from "../../components/JobPlanTag";
 import "./JobRecord.css";
@@ -74,6 +77,14 @@ export default function JobRecord() {
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState("");
+  // Re-dating a finished job. Deliberately behind a click rather than sat
+  // on the page: this is the one number here that moves money between
+  // months in the income report.
+  const [redating, setRedating] = useState(false);
+  const [newDate, setNewDate] = useState(null);
+  const [newTime, setNewTime] = useState("");
+  const [savingDate, setSavingDate] = useState(false);
+  const [dateError, setDateError] = useState("");
 
   // Ask Square whether an invoice has been paid, and write the answer back.
   // Best-effort: this is a display refresh, so Square being unreachable
@@ -119,6 +130,40 @@ export default function JobRecord() {
 
   async function handleRecheck() {
     setJob(await syncInvoice(job));
+  }
+
+  function startRedate() {
+    const { date, time } = splitFromISO(job.starts_at);
+    setNewDate(date);
+    setNewTime(time);
+    setDateError("");
+    setRedating(true);
+  }
+
+  // Only the timing changes. The price, the payment and the receipt are
+  // what actually happened and are left alone — this is for the case where
+  // the work was logged on the wrong day, not for rewriting the job.
+  async function handleSaveDate() {
+    if (!newDate || !newTime) {
+      setDateError("Pick a date and a time.");
+      return;
+    }
+    setSavingDate(true);
+    setDateError("");
+    try {
+      const startsAt = combineToISO(newDate, newTime);
+      await updateJobTiming(job.id, {
+        starts_at: startsAt,
+        duration_hours: job.duration_hours,
+      });
+      setJob({ ...job, starts_at: startsAt });
+      setRedating(false);
+    } catch (e) {
+      console.error(e);
+      setDateError(e.message || "Couldn't change the date.");
+    } finally {
+      setSavingDate(false);
+    }
   }
 
   if (loading) return <div className="jobrec__state">Loading…</div>;
@@ -194,8 +239,49 @@ export default function JobRecord() {
       <dl className="jobrec__facts">
         <div className="jobrec__fact">
           <dt>When</dt>
-          <dd>{formatWhen(job.starts_at)}</dd>
+          <dd className="jobrec__fact-when">
+            <span>{formatWhen(job.starts_at)}</span>
+            {!redating && (
+              <button className="jobrec__redate" onClick={startRedate}>
+                Change
+              </button>
+            )}
+          </dd>
         </div>
+
+        {redating && (
+          <div className="jobrec__redatebox">
+            <AppointmentPicker
+              date={newDate}
+              time={newTime}
+              onDateChange={setNewDate}
+              onTimeChange={setNewTime}
+            />
+            <p className="jobrec__redatewarn">
+              Moving a completed job moves its <strong>${money(charged)}</strong>{" "}
+              with it — the Income page reports revenue by the day the job
+              sits on, so this changes which month it lands in. The payment
+              in Square is not affected.
+            </p>
+            {dateError && <p className="jobrec__redateerr">{dateError}</p>}
+            <div className="jobrec__redateactions">
+              <button
+                className="jobrec__redatesave"
+                onClick={handleSaveDate}
+                disabled={savingDate}
+              >
+                {savingDate ? "Saving…" : "Move the job"}
+              </button>
+              <button
+                className="jobrec__redatecancel"
+                onClick={() => setRedating(false)}
+                disabled={savingDate}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
         <div className="jobrec__fact">
           <dt>Work</dt>
           <dd>
