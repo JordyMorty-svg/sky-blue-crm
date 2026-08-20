@@ -35,12 +35,36 @@ import "./CompleteJob.css";
 // difference is worth surfacing because it's priced very differently.
 // A tap is an in-person transaction (2.6% + 15c at time of writing);
 // typing the number in is card-not-present (3.5% + 15c).
+//
+// `settled` is the important one. Four of these mean money is in hand.
+// "invoice" means the opposite: nothing has been collected and the
+// customer is about to be emailed a bill. Listing it as a fifth peer is
+// what let a check get invoiced by mistake — same size button, same row,
+// and the word "email" appears in the receipt flow too. It's separated
+// out below a divider for that reason, not for tidiness.
 const PAYMENT_METHODS = [
-  { key: "cash", label: "Cash" },
-  { key: "check", label: "Check" },
-  { key: "tap", label: "Tap card", hint: "cheapest", posOnly: true },
-  { key: "card", label: "Type card" },
-  { key: "invoice", label: "Email invoice" },
+  { key: "cash", label: "Cash", blurb: "Money in hand", settled: true },
+  { key: "check", label: "Check", blurb: "Money in hand", settled: true },
+  {
+    key: "tap",
+    label: "Tap card",
+    blurb: "Contactless, in the Square app",
+    hint: "cheapest",
+    posOnly: true,
+    settled: true,
+  },
+  {
+    key: "card",
+    label: "Type card number",
+    blurb: "Costs more than tapping",
+    settled: true,
+  },
+  {
+    key: "invoice",
+    label: "Email an invoice",
+    blurb: "Sends the customer a bill to pay online. Nothing is collected now.",
+    settled: false,
+  },
 ];
 
 // Methods that mean "paid in the field, right now" — these get a receipt
@@ -596,6 +620,51 @@ export default function CompleteJob() {
     }
   }
 
+  // The commit button says what it is about to do, not "Complete job".
+  //
+  // This is the safeguard that matters. Every other change here makes the
+  // wrong option harder to pick; this one catches it after it's been
+  // picked. Recording a check and emailing a customer a bill used to share
+  // one button, one label and one colour — so the last thing on screen
+  // before an invoice went out gave no hint that an email was involved.
+  function submitLabel() {
+    if (method === "invoice") {
+      const to = email.trim();
+      const amount = `$${Number(finalPrice || 0).toFixed(2)}`;
+      if (saving) return "Sending the bill…";
+      return to ? `Email a ${amount} bill to ${to}` : `Email a ${amount} bill`;
+    }
+    if (saving) return "Completing…";
+    const picked = PAYMENT_METHODS.find((m) => m.key === method);
+    return picked
+      ? `Complete job — paid by ${picked.label.toLowerCase()}`
+      : "Complete job";
+  }
+
+  // One row per option: name, an optional badge, and a line saying what
+  // it means. The explanation is the point — "Check" and "Email an
+  // invoice" are indistinguishable at a glance without it.
+  function renderMethod(m) {
+    const active = method === m.key;
+    return (
+      <button
+        key={m.key}
+        type="button"
+        className={`complete__method ${active ? "complete__method--active" : ""} ${
+          m.settled ? "" : "complete__method--unpaid"
+        }`}
+        onClick={() => setMethod(m.key)}
+        aria-pressed={active}
+      >
+        <span className="complete__methodtop">
+          <span className="complete__methodname">{m.label}</span>
+          {m.hint && <span className="complete__methodhint">{m.hint}</span>}
+        </span>
+        <span className="complete__methodblurb">{m.blurb}</span>
+      </button>
+    );
+  }
+
   if (loading) return <div className="complete__state">Loading…</div>;
   if (!job) return <div className="complete__state">{error || "Not found."}</div>;
 
@@ -714,24 +783,24 @@ export default function CompleteJob() {
           </p>
         )}
 
-        <label className="complete__label">Payment method</label>
+        <label className="complete__label">How was this paid?</label>
+
+        {/* Full width and stacked, never a wrapping grid. On a phone a
+            wrapping row reflows unpredictably, so which option sits where
+            depends on screen width — and one of these emails a customer. */}
         <div className="complete__methods">
           {PAYMENT_METHODS
             // Tapping needs the Square app, which only exists on a phone.
             // Hidden rather than disabled on a laptop — an option you can
             // never use is just clutter.
-            .filter((m) => !m.posOnly || posAvailable)
-            .map((m) => (
-              <button
-                key={m.key}
-                type="button"
-                className={`complete__method ${method === m.key ? "complete__method--active" : ""}`}
-                onClick={() => setMethod(m.key)}
-              >
-                {m.label}
-                {m.hint && <span className="complete__methodhint">{m.hint}</span>}
-              </button>
-            ))}
+            .filter((m) => m.settled && (!m.posOnly || posAvailable))
+            .map((m) => renderMethod(m))}
+        </div>
+
+        {/* Below the line, and labelled for what it actually is. */}
+        <div className="complete__unpaid">
+          <span className="complete__unpaidlabel">Not paid yet</span>
+          {PAYMENT_METHODS.filter((m) => !m.settled).map((m) => renderMethod(m))}
         </div>
 
         {method === "tap" && (
@@ -771,7 +840,7 @@ export default function CompleteJob() {
 
         {method === "invoice" && (
           <>
-            <label className="complete__label">Customer email</label>
+            <label className="complete__label">Where to send the bill</label>
             <input
               className="complete__input"
               type="email"
@@ -779,9 +848,10 @@ export default function CompleteJob() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="customer@email.com"
             />
-            <p className="complete__hint">
-              Square will email an invoice they can pay online by card. The
-              job records as completed but unpaid until they pay.
+            <p className="complete__hint complete__hint--warn">
+              Square emails them an invoice to pay online. The work records
+              as done, but the money is <strong>not</strong> collected — the
+              job stays unpaid until they pay it.
             </p>
           </>
         )}
@@ -792,7 +862,8 @@ export default function CompleteJob() {
         {(RECEIPT_METHODS.includes(method) || method === "tap") && (
           <>
             <label className="complete__label">
-              Customer email <span className="complete__optional">(optional — for receipt)</span>
+              Email a receipt to{" "}
+              <span className="complete__optional">(optional)</span>
             </label>
             <input
               className="complete__input"
@@ -802,8 +873,8 @@ export default function CompleteJob() {
               placeholder="customer@email.com"
             />
             <p className="complete__hint">
-              If provided, we'll email a receipt confirming this payment.
-              Leave blank to skip.
+              Confirms the payment you just took. This does not bill them
+              for anything. Leave blank to skip.
             </p>
           </>
         )}
@@ -896,11 +967,13 @@ export default function CompleteJob() {
               only finished once the money actually clears. */}
           {method !== "card" && method !== "tap" && (
             <button
-              className="complete__submit"
+              className={`complete__submit ${
+                method === "invoice" ? "complete__submit--invoice" : ""
+              }`}
               onClick={handleComplete}
               disabled={saving}
             >
-              {saving ? "Completing…" : "Complete job"}
+              {submitLabel()}
             </button>
           )}
           <button className="complete__cancel" onClick={() => navigate("/schedule")}>

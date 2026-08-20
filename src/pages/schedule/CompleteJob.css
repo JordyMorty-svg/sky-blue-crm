@@ -117,24 +117,31 @@
   background: #fef2f2;
 }
 
+/* Stacked, not wrapped. A wrapping row reflows by screen width, so which
+   option sits under your thumb changes between phones — and one of these
+   options emails a customer a bill. */
 .complete__methods {
   display: flex;
+  flex-direction: column;
   gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .complete__method {
-  flex: 1;
-  min-width: 70px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  width: 100%;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   color: #475569;
-  padding: 12px;
+  padding: 13px 16px;
   border-radius: 10px;
   font-weight: 600;
   font-size: 0.95rem;
   cursor: pointer;
+  text-align: left;
   transition: all 0.15s ease;
 }
 
@@ -202,27 +209,12 @@
   margin: -6px 0 14px;
 }
 
-.complete__hint {
-  font-size: 0.82rem;
-  color: #64748b;
-  line-height: 1.45;
-  margin: -6px 0 14px;
-}
-
 .complete__optional {
   font-weight: 400;
   color: #94a3b8;
   font-size: 0.85rem;
 }
 /* --- tap card (Square Point of Sale hand-off) --- */
-
-/* The method buttons now carry a second line, so they need to stack. */
-.complete__method {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
 
 .complete__methodhint {
   font-size: 0.68rem;
@@ -407,4 +399,92 @@
   font-size: 0.82rem;
   line-height: 1.55;
   color: #7c2d12;
+}
+
+/* --- payment option rows --- */
+
+.complete__methodtop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.complete__methodname {
+  font-weight: 700;
+  font-size: 0.97rem;
+}
+
+.complete__methodblurb {
+  font-weight: 400;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.complete__method--active .complete__methodblurb {
+  color: #dbeafe;
+}
+
+/* --- "not paid yet" ---
+   Below a divider and in a different colour, because an invoice is not a
+   way of being paid — it's the absence of one. Grouping it with cash and
+   check is what made it easy to pick by mistake. */
+
+.complete__unpaid {
+  margin-bottom: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.complete__unpaidlabel {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #b45309;
+  margin-bottom: 8px;
+}
+
+.complete__method--unpaid {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.complete__method--unpaid .complete__methodblurb {
+  color: #b45309;
+}
+
+.complete__method--unpaid.complete__method--active {
+  background: #b45309;
+  border-color: #b45309;
+  color: #ffffff;
+}
+
+.complete__method--unpaid.complete__method--active .complete__methodblurb {
+  color: #fef3c7;
+}
+
+/* The commit button follows the same colour, so the last thing on screen
+   before an email goes out never looks like the ordinary blue "done". */
+.complete__submit--invoice {
+  background: #b45309;
+  white-space: normal;
+  line-height: 1.35;
+}
+
+@media (hover: hover) {
+  .complete__submit--invoice:hover:not(:disabled) {
+    background: #92400e;
+  }
+}
+
+.complete__hint--warn {
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 9px 12px;
 }
