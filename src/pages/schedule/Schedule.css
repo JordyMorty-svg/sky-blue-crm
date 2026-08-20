@@ -673,3 +673,174 @@
     align-items: center;
   }
 }
+
+/* ============================================================
+   The week as a list, on phones
+   ============================================================
+   Replaces react-big-calendar's seven-column grid below 700px. See
+   MobileWeek in Schedule.jsx for why. */
+
+.weeklist {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.weeklist__day {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.weeklist__dayhead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.weeklist__dayname {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.weeklist__daydate {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+/* The count sits right so the eye can scan how heavy each day is without
+   reading any of the jobs. */
+.weeklist__daycount {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.weeklist__dayhead--today .weeklist__dayname {
+  color: #1d4ed8;
+}
+
+.weeklist__dayhead--today {
+  border-bottom-color: #bfdbfe;
+}
+
+.weeklist__job {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #2563eb;
+  border-radius: 10px;
+  padding: 11px 13px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.weeklist__job--completed {
+  border-left-color: #86efac;
+  background: #f8fafc;
+}
+
+@media (hover: hover) {
+  .weeklist__job:hover {
+    border-color: #2563eb;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+  }
+}
+
+/* Fixed width so every start time lines up in a column — that vertical
+   edge is what makes the day scannable. */
+.weeklist__time {
+  /* Wide enough for "12:00 PM" on one line — at 68px it broke after the
+     hour and the column stopped lining up, which is the whole point of a
+     fixed column. */
+  flex: 0 0 76px;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #1d4ed8;
+  padding-top: 1px;
+}
+
+.weeklist__job--completed .weeklist__time {
+  color: #64748b;
+}
+
+.weeklist__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.weeklist__name {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: #0f172a;
+  /* Wrap on whole words. Letter-by-letter stacking is the bug this whole
+     view exists to fix. */
+  overflow-wrap: break-word;
+}
+
+.weeklist__addr {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #94a3b8;
+  overflow-wrap: break-word;
+}
+
+.weeklist__status {
+  flex-shrink: 0;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 3px 9px;
+  margin-top: 1px;
+}
+
+.weeklist__status--scheduled {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.weeklist__status--completed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+/* The calendar card must never push the page sideways — that horizontal
+   scroll is what was cutting the nav bar off at "Customers". */
+.schedule__calendar {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+@media (max-width: 700px) {
+  /* Day and Month still use the grid, so they keep their own scroll —
+     but it stays inside the card instead of moving the whole page. */
+  .schedule__calendar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* The list needs no horizontal room at all. */
+  .schedule__calendar:has(.weeklist) {
+    overflow-x: hidden;
+  }
+
+  /* Date range first, then the controls — context above actions. Without
+     an explicit order it wraps to the bottom, under the view tabs. */
+  .rbc-custom-toolbar__label {
+    width: 100%;
+    order: -1;
+  }
+}

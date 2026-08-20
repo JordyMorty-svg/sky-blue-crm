@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay } from "date-fns";
+import {
+  format,
+  parse,
+  startOfWeek,
+  endOfWeek,
+  addDays,
+  isSameDay,
+  getDay,
+} from "date-fns";
 import { enUS } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import DatePicker from "react-datepicker";
@@ -28,6 +36,27 @@ import "./Schedule.css";
 const locales = { "en-US": enUS };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
 
+// Below this, a seven-column time grid stops being a calendar and starts
+// being a word search: each column is about 45px, so names wrap one letter
+// at a time and the grid pushes the whole page sideways.
+const NARROW_QUERY = "(max-width: 700px)";
+
+function useIsNarrow() {
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(NARROW_QUERY).matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW_QUERY);
+    const onChange = (e) => setNarrow(e.matches);
+    mq.addEventListener("change", onChange);
+    setNarrow(mq.matches);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  return narrow;
+}
+
 const DAY_MIN = new Date(1970, 0, 1, 7, 0, 0);
 const DAY_MAX = new Date(1970, 0, 1, 21, 0, 0);
 
@@ -44,6 +73,77 @@ function sameDay(iso, day) {
 function formatTime(iso) {
   if (!iso) return "";
   return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+/**
+ * The week, as a list, for phones.
+ *
+ * react-big-calendar's week view is a seven-column time grid. That's the
+ * right shape on a laptop and the wrong one on a phone: seven columns in
+ * 360px leaves ~45px each, so "Nibler Joseph" renders as a vertical
+ * stack of single letters and the grid shoves the whole page sideways.
+ *
+ * A phone has one axis worth using — vertical — so this walks the week in
+ * order and groups by day. Empty days are dropped rather than drawn: on a
+ * grid a blank column carries meaning, but in a list it's just scrolling.
+ */
+function MobileWeek({ events, date, onSelect }) {
+  const weekStart = startOfWeek(date, { weekStartsOn: 0 });
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  const withJobs = days
+    .map((day) => ({
+      day,
+      jobs: events
+        .filter((e) => isSameDay(e.start, day))
+        .sort((a, b) => a.start - b.start),
+    }))
+    .filter((d) => d.jobs.length > 0);
+
+  if (withJobs.length === 0) {
+    return <p className="schedule__empty">Nothing scheduled this week.</p>;
+  }
+
+  return (
+    <div className="weeklist">
+      {withJobs.map(({ day, jobs }) => (
+        <div className="weeklist__day" key={day.toISOString()}>
+          <div
+            className={`weeklist__dayhead ${
+              isSameDay(day, new Date()) ? "weeklist__dayhead--today" : ""
+            }`}
+          >
+            <span className="weeklist__dayname">{format(day, "EEEE")}</span>
+            <span className="weeklist__daydate">{format(day, "MMM d")}</span>
+            <span className="weeklist__daycount">
+              {jobs.length} {jobs.length === 1 ? "job" : "jobs"}
+            </span>
+          </div>
+
+          {jobs.map((job) => (
+            <button
+              className={`weeklist__job weeklist__job--${job.status}`}
+              key={job.id}
+              onClick={() => onSelect(job)}
+            >
+              <span className="weeklist__time">
+                {format(job.start, "h:mm a")}
+              </span>
+              <span className="weeklist__body">
+                <span className="weeklist__name">{job.title}</span>
+                {job.address && (
+                  <span className="weeklist__addr">{job.address}</span>
+                )}
+              </span>
+              <span className={`weeklist__status weeklist__status--${job.status}`}>
+                {job.status === "completed" ? "Done" : "Booked"}
+              </span>
+            </button>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // Clean custom toolbar (replaces react-big-calendar's dated default).
@@ -85,6 +185,7 @@ export default function Schedule() {
   const [jobs, setJobs] = useState([]);
   const [calJobs, setCalJobs] = useState([]);
   const [calView, setCalView] = useState("week");
+  const isNarrow = useIsNarrow();
   const [calDate, setCalDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -168,6 +269,8 @@ export default function Schedule() {
       end,
       status: j.status,
       duration_hours: j.duration_hours || 3,
+      // Only used by the mobile week list, where there's room for it.
+      address: j.customer?.address || j.lead?.address || "",
     };
   });
 
@@ -313,6 +416,60 @@ export default function Schedule() {
               Completed
             </span>
           </div>
+          {/* A seven-column time grid can't work at phone width, so the
+              week becomes a list there. Day and Month are one column and
+              a set of numbers respectively — both survive the squeeze. */}
+          {isNarrow && calView === "week" ? (
+            <>
+              <div className="rbc-custom-toolbar">
+                <div className="rbc-custom-toolbar__nav">
+                  <button
+                    className="rbc-custom-toolbar__today"
+                    onClick={() => setCalDate(new Date())}
+                  >
+                    Today
+                  </button>
+                  <button
+                    className="rbc-custom-toolbar__arrow"
+                    onClick={() => setCalDate(addDays(calDate, -7))}
+                    aria-label="Previous week"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    className="rbc-custom-toolbar__arrow"
+                    onClick={() => setCalDate(addDays(calDate, 7))}
+                    aria-label="Next week"
+                  >
+                    ›
+                  </button>
+                </div>
+                <span className="rbc-custom-toolbar__label">
+                  {format(startOfWeek(calDate, { weekStartsOn: 0 }), "MMMM d")} –{" "}
+                  {format(endOfWeek(calDate, { weekStartsOn: 0 }), "d")}
+                </span>
+                <div className="rbc-custom-toolbar__views">
+                  {["day", "week", "month"].map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setCalView(v)}
+                      className={`rbc-custom-toolbar__view ${
+                        calView === v ? "is-active" : ""
+                      }`}
+                    >
+                      {v.charAt(0).toUpperCase() + v.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <MobileWeek
+                events={events}
+                date={calDate}
+                onSelect={(event) => setEditingEvent(event)}
+              />
+            </>
+          ) : (
           <Calendar
             localizer={localizer}
             events={events}
@@ -339,8 +496,11 @@ export default function Schedule() {
             }}
             selectable
             components={{ toolbar: CalendarToolbar }}
-            style={{ height: 680 }}
+            // Shorter on a phone: 680px of grid means the toolbar scrolls
+            // off before you can reach the view buttons.
+            style={{ height: isNarrow ? 520 : 680 }}
           />
+          )}
         </div>
       )}
 
