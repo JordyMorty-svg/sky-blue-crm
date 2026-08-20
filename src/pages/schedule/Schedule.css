@@ -246,11 +246,8 @@
 @media (max-width: 720px) {
   .schedjob {
     flex-direction: column;
-    gap: 10px;
-  }
-
-  .schedjob__complete {
-    width: 100%;
+    gap: 8px;
+    padding: 14px 15px;
   }
 
   .schedule__calendar {
@@ -982,4 +979,72 @@
    repetition in exchange for the two views lining up exactly. */
 .schedule__calendar .rbc-time-header-cell-single-day {
   display: flex;
+}
+
+/* The phone number on a job card is a link, not decoration. */
+.schedjob__phone {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .schedjob__phone:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ============================================================
+   Job card actions on a phone
+   ============================================================
+   Deliberately at the end of the file. The base `.schedjob__actions` rule
+   further up sets `flex-direction: column`, and it's declared AFTER the
+   media query it needs to override — same specificity, so the later rule
+   was quietly winning and all three buttons stayed stacked. Order is the
+   fix, not an !important. */
+
+@media (max-width: 720px) {
+  /* Stacked full-width they were three identical slabs with no
+     Stacked full-width they were three identical slabs with no hierarchy,
+     and "Mark completed" — the one that can't be undone from here — sat
+     directly under the one you press most. Now Navigate and Edit share a
+     row as secondary controls, and Mark completed gets the row below to
+     itself, separated by a rule. Reaching for Navigate can no longer graze
+     it.
+
+     When Edit disappears for tech accounts, Navigate simply takes the
+     whole row: `flex: 1 1 0` doesn't care how many siblings it has. */
+  .schedjob__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    margin-top: 2px;
+    padding-top: 12px;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  .schedjob__nav,
+  .schedjob__edit {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  /* Its own row, below the rule, at the edge of the card. */
+  .schedjob__complete {
+    order: 3;
+    flex: 1 0 100%;
+    width: 100%;
+  }
+
+  /* Comfortably past the 44px minimum for a thumb — these get pressed
+     with wet hands on a ladder. */
+  .schedjob__nav,
+  .schedjob__edit,
+  .schedjob__complete {
+    min-height: 46px;
+    padding: 12px 14px;
+    font-size: 0.92rem;
+  }
+
 }

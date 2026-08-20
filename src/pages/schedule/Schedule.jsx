@@ -465,8 +465,24 @@ export default function Schedule() {
                       {job.lead?.address || job.customer?.address}
                     </div>
                     <div className="schedjob__meta">
-                      {job.lead?.phone || job.customer?.phone} · ${job.price} ·{" "}
-                      {job.duration_hours}h
+                      {/* Tappable: standing at the door and needing to ring
+                          the customer is the commonest reason anyone reads
+                          this line. */}
+                      {(job.lead?.phone || job.customer?.phone) && (
+                        <>
+                          <a
+                            className="schedjob__phone"
+                            href={`tel:${String(
+                              job.lead?.phone || job.customer?.phone
+                            ).replace(/[^\d+]/g, "")}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {job.lead?.phone || job.customer?.phone}
+                          </a>
+                          {" · "}
+                        </>
+                      )}
+                      ${job.price} · {job.duration_hours}h
                     </div>
                     {job.notes && <div className="schedjob__notes">{job.notes}</div>}
                     <div className="schedjob__crew">
