@@ -254,7 +254,7 @@
   }
 
   .schedule__calendar {
-    padding: 8px;
+    padding: 6px;
     overflow-x: auto;
   }
 }
@@ -848,64 +848,80 @@
 /* ============================================================
    Month view on a phone
    ============================================================
-   Seven columns of a month grid is about 50px each, which fits "Nib…" and
-   "Ma…" — enough to know something is there, never enough to know what.
-   Truncated names are worse than no names: they cost a full row of height
-   and answer nothing.
+   A month column at 390px is about 48px. The first attempt made each
+   event a 9px dot, which read as a shape but had two problems: a 9px
+   target is hard to hit with a thumb, and react-big-calendar works out how
+   many events fit a row by measuring event height — 9px dots made it think
+   far more would fit than the row could hold, so they spilled through the
+   row border into the week below.
 
-   So on a phone the events become dots. The month stops trying to be a
-   list and goes back to being what it's good at — a shape showing which
-   days are busy — and tapping a day opens that day's list, where there's
-   room for names. */
+   Bars, then, the same as desktop, just smaller — and showing only the
+   first name so the word is whole rather than "Nib…". The bar spans the
+   column, so the tap target is the full width of the day. */
 
 @media (max-width: 700px) {
   .schedule__calendar .rbc-month-view .rbc-event {
-    width: 9px !important;
-    height: 9px;
-    min-height: 9px;
-    padding: 0 !important;
-    margin: 1px 2px;
-    border-radius: 50% !important;
-    /* Push the label out of view rather than hiding it, so screen readers
-       and long-press previews still have the name. */
-    overflow: hidden;
-    text-indent: -9999px;
+    /* Every pixel of padding is a character lost: the chip is only ~46px
+       wide, so 5px each side ate most of a name. */
+    /* Horizontal margin only. react-big-calendar works out how many chips
+       fit a row from a chip's measured height, and a vertical margin isn't
+       part of that measurement — so every chip was 2px taller than it
+       thought, and by the fourth one the row had silently swallowed a job
+       with no "+1 more" to say so. Spacing comes from the row instead. */
+    margin: 0 1px;
+    padding: 1px 2px !important;
+    width: calc(100% - 2px) !important;
+    border-radius: 5px !important;
+    font-size: 0.56rem;
+    /* A fixed height, not one derived from font metrics. react-big-calendar
+       measures one rendered chip to decide how many fit a row; if it
+       measures before the font settles it gets a smaller number and packs
+       in one chip too many, which then falls out of the row silently. A
+       stated height is the same on the first measurement as the last. */
+    height: 20px;
+    line-height: 16px;
     box-shadow: none;
-    display: inline-block;
-    vertical-align: middle;
+  }
+
+  /* One word, clipped with an ellipsis only if it's a very long one. */
+  .rbcmonth__label {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* Deliberately NOT touching .rbc-row-segment's flex sizing: that's what
-     positions each event under its own day column. Overriding it to
-     `flex: 0 0 auto` pulls every dot in the row over to Sunday. Only the
-     event inside the segment gets restyled. */
+     positions each event under its own day column. */
   .schedule__calendar .rbc-month-view .rbc-row-segment {
     padding: 0 1px;
   }
 
-  .schedule__calendar .rbc-month-view .rbc-event-content {
-    display: none;
-  }
-
-  /* Rows can be short now that nothing inside them is a block of text. */
-  .schedule__calendar .rbc-month-row {
-    min-height: 54px;
-  }
-
   .schedule__calendar .rbc-date-cell {
-    padding: 4px 5px;
-    font-size: 0.78rem;
+    padding: 3px 5px;
+    font-size: 0.72rem;
   }
 
   .schedule__calendar .rbc-header {
-    padding: 8px 2px;
-    font-size: 0.7rem;
+    padding: 7px 2px;
+    font-size: 0.68rem;
   }
 
-  /* "+2 more" is the one bit of text worth keeping — it's a count. */
+  /* react-big-calendar decides how many chips fit a week row by measuring
+     one chip. Its arithmetic ran one chip optimistic here, so the last one
+     hung 12px into the week below. Clipping the row content means a
+     miscount can never draw across a week boundary — whatever it thinks,
+     nothing escapes its own row. */
+  .schedule__calendar .rbc-month-view .rbc-row-content,
+  .schedule__calendar .rbc-month-view .rbc-month-row {
+    overflow: hidden;
+  }
+
+  /* "+2 more" is a count, which is worth its line. */
   .schedule__calendar .rbc-show-more {
-    font-size: 0.66rem;
-    padding: 0 2px;
+    font-size: 0.6rem;
+    padding: 0 3px;
+    margin-top: 1px;
   }
 }
 
@@ -922,4 +938,48 @@
 .schedule__calendar .rbc-time-content::-webkit-scrollbar {
   width: 0;
   height: 0;
+}
+
+/* ============================================================
+   Making the three views agree with each other
+   ============================================================
+   Switching Day -> Week -> Month shouldn't feel like three different
+   screens. Two things were making it:
+
+   1. The all-day strip. Every job here has a time, so the strip is always
+      empty — but it's 40px tall in Day and 55px in Week, which is why the
+      two views showed a different number of hours and the grid appeared to
+      shift under the toolbar. Removing it costs nothing and makes both
+      headers a single row of the same height.
+
+   2. That extra 55px was also pushing the week's last hour out of view.
+      With the strip gone, 7am-9pm fits in both without scrolling, so the
+      time column reads the same either way. */
+
+.schedule__calendar .rbc-allday-cell {
+  display: none;
+}
+
+.schedule__calendar .rbc-time-header .rbc-header {
+  border-bottom: none;
+}
+
+/* One border, drawn by the header row, rather than the header and the
+   content each drawing their own — they were landing a pixel apart. */
+.schedule__calendar .rbc-time-header.rbc-overflowing {
+  border-right: none;
+}
+
+.schedule__calendar .rbc-time-header-content {
+  border-left: 1px solid #f1f5f9;
+}
+
+/* react-big-calendar hides the column header when a time view shows only
+   one day, on the grounds that the toolbar already names it. That leaves
+   the Day view with no header at all while Week has a 44px one, so the
+   grid jumps up the moment you switch. Show it: the toolbar says
+   "Thursday, August 20" and the column says "20 Thu", which is a small
+   repetition in exchange for the two views lining up exactly. */
+.schedule__calendar .rbc-time-header-cell-single-day {
+  display: flex;
 }

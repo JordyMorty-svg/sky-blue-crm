@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import {
@@ -57,6 +57,18 @@ function useIsNarrow() {
   return narrow;
 }
 
+// A column in the week view is about 107px. "9:00 AM – 12:00 PM" needs
+// roughly twice that, so it was being cut mid-word on every single event.
+// The end time is already implied by how far the block reaches down the
+// grid, which is the entire point of a time grid — so show the start and
+// let the shape say the rest.
+const CAL_FORMATS = {
+  eventTimeRangeFormat: ({ start }) => format(start, "h:mm a"),
+  // Month spelled weekdays out in full while Week abbreviated them, so the
+  // header changed shape when you switched. Short in both.
+  weekdayFormat: (date) => format(date, "EEE"),
+};
+
 const DAY_MIN = new Date(1970, 0, 1, 7, 0, 0);
 const DAY_MAX = new Date(1970, 0, 1, 21, 0, 0);
 
@@ -73,6 +85,18 @@ function sameDay(iso, day) {
 function formatTime(iso) {
   if (!iso) return "";
   return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+// Month chips on a phone.
+//
+// A month column at 390px is about 48px wide, which fits roughly six
+// characters. "Nibler Joseph" truncates to "Nib…" — enough to know
+// something is there, never enough to know what — so show the first name
+// and let it be a whole word. "Shane mcshane" becomes "Shane", which is
+// how you'd say it out loud anyway.
+function MonthEvent({ event }) {
+  const first = String(event?.title || "").trim().split(/\s+/)[0] || "Job";
+  return <span className="rbcmonth__label">{first}</span>;
 }
 
 // The toolbar for the phone list views. Same markup and classes as the
@@ -238,6 +262,16 @@ export default function Schedule() {
   const [calJobs, setCalJobs] = useState([]);
   const [calView, setCalView] = useState("week");
   const isNarrow = useIsNarrow();
+
+  // Memoised: a fresh `components` object on every render makes
+  // react-big-calendar remount its internals.
+  const calComponents = useMemo(
+    () =>
+      isNarrow
+        ? { toolbar: CalendarToolbar, month: { event: MonthEvent } }
+        : { toolbar: CalendarToolbar },
+    [isNarrow]
+  );
   const [calDate, setCalDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -519,6 +553,7 @@ export default function Schedule() {
             date={calDate}
             onNavigate={setCalDate}
             views={["day", "week", "month"]}
+            formats={CAL_FORMATS}
             min={DAY_MIN}
             max={DAY_MAX}
             eventPropGetter={eventStyle}
@@ -534,14 +569,18 @@ export default function Schedule() {
               }
             }}
             selectable
-            components={{ toolbar: CalendarToolbar }}
+            components={calComponents}
             // 7am–9pm is 14 hour-rows at 48px = 672px of grid, plus the
             // header and all-day strip. At 680 the body scrolled while the
             // header didn't, so the header ended up wider than the columns
             // beneath it by exactly one scrollbar — which is the
             // misalignment. Tall enough to fit means nothing scrolls and
             // nothing can drift.
-            style={{ height: isNarrow ? 520 : 780 }}
+            style={{
+              // Month needs six rows of chips; Day and Week only ever show
+              // hours here, and on a phone those two are lists anyway.
+              height: isNarrow ? 720 : 780,
+            }}
           />
           )}
         </div>
