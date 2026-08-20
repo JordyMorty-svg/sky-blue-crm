@@ -166,8 +166,8 @@ export async function fetchScheduledJobs() {
     .from("jobs")
     .select(`
       *,
-      lead:lead_id ( name, address, phone, email, interior ),
-      customer:customer_id ( id, name, address, phone, email ),
+      lead:lead_id ( name, address, phone, email, interior, latitude, longitude ),
+      customer:customer_id ( id, name, address, phone, email, latitude, longitude ),
       assignments:job_assignments ( tech:tech_id ( id, full_name ) )
     `)
     .eq("status", "scheduled")
@@ -293,8 +293,8 @@ export async function fetchMyJobs(techId, { status = "scheduled" } = {}) {
     .from("jobs")
     .select(`
       *,
-      lead:lead_id ( name, address, phone, email, interior ),
-      customer:customer_id ( id, name, address, phone, email ),
+      lead:lead_id ( name, address, phone, email, interior, latitude, longitude ),
+      customer:customer_id ( id, name, address, phone, email, latitude, longitude ),
       assignments:job_assignments ( tech:tech_id ( id, full_name ) )
     `)
     .in("id", jobIds)

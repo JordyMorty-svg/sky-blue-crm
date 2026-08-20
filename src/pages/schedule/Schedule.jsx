@@ -12,6 +12,16 @@ import { fetchCalendarJobs } from "../../services/calendarService";
 import EventEditor from "./EventEditor";
 import JobPlanTag from "../../components/JobPlanTag";
 import ViewSwitcher from "../../components/ViewSwitcher";
+import {
+  MAPS_APPS,
+  navigationUrl,
+  needsMapsChoice,
+  openNavigation,
+  placeForJob,
+  readMapsPref,
+  setMapsPref,
+  clearMapsPref,
+} from "../../components/navigation";
 import { SCHEDULE_VIEWS } from "../../components/navViews";
 import "./Schedule.css";
 
@@ -109,6 +119,40 @@ export default function Schedule() {
     navigate(`/schedule/complete/${job.id}`);
   }
 
+  // Which maps app to hand an address to.
+  //
+  // Android answers this itself via a geo: link, so this only ever matters
+  // on iOS, where there is no OS-level default to read. Asked once, then
+  // remembered — see components/navigation.js.
+  const [mapsApp, setMapsApp] = useState(() => readMapsPref());
+  const [choosingFor, setChoosingFor] = useState(null);
+
+  function handleNavigate(job) {
+    const place = placeForJob(job);
+    if (!place.address && place.latitude == null) return;
+
+    if (needsMapsChoice()) {
+      setChoosingFor(job);
+      return;
+    }
+    openNavigation(navigationUrl(place));
+  }
+
+  // Picked from the chooser: remember it, then go straight there so the
+  // choice doesn't cost an extra journey.
+  function handlePickMapsApp(key) {
+    setMapsPref(key);
+    setMapsApp(key);
+    const job = choosingFor;
+    setChoosingFor(null);
+    if (job) openNavigation(navigationUrl(placeForJob(job), key));
+  }
+
+  function handleForgetMapsApp() {
+    clearMapsPref();
+    setMapsApp(null);
+  }
+
   if (loading) return <div className="schedule__state">Loading your schedule…</div>;
 
   const dayJobs = jobs.filter((j) => sameDay(j.starts_at, selectedDay));
@@ -180,6 +224,23 @@ export default function Schedule() {
             </button>
           </div>
 
+          {/* Only on iOS, and only once a choice has been made — Android
+              routes through its own default and needs nothing here. */}
+          {mapsApp && (
+            <p className="schedule__mapspref">
+              Directions open in{" "}
+              <strong>
+                {MAPS_APPS.find((a) => a.key === mapsApp)?.label || mapsApp}
+              </strong>
+              <button
+                className="schedule__mapschange"
+                onClick={handleForgetMapsApp}
+              >
+                Change
+              </button>
+            </p>
+          )}
+
           {dayJobs.length === 0 ? (
             <p className="schedule__empty">No jobs scheduled for you this day.</p>
           ) : (
@@ -207,6 +268,15 @@ export default function Schedule() {
                     </div>
                   </div>
                   <div className="schedjob__actions">
+                    {/* First in the stack because it's the one you need
+                        before arriving; the other two are for afterwards. */}
+                    <button
+                      className="schedjob__nav"
+                      onClick={() => handleNavigate(job)}
+                      disabled={!placeForJob(job).address}
+                    >
+                      Navigate
+                    </button>
                     <button
                       className="schedjob__complete"
                       onClick={() => handleComplete(job)}
@@ -283,6 +353,46 @@ export default function Schedule() {
             load();
           }}
         />
+      )}
+
+      {/* Asked once per phone, then never again. iOS has no default maps
+          app to read outside the EU, so the CRM keeps the preference the
+          OS won't — see components/navigation.js. */}
+      {choosingFor && (
+        <div
+          className="mapspick"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Choose a maps app"
+        >
+          <div className="mapspick__card">
+            <h2 className="mapspick__title">Open directions in</h2>
+            <p className="mapspick__sub">
+              {placeForJob(choosingFor).address}
+            </p>
+            <div className="mapspick__options">
+              {MAPS_APPS.map((a) => (
+                <button
+                  key={a.key}
+                  className="mapspick__option"
+                  onClick={() => handlePickMapsApp(a.key)}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+            <p className="mapspick__note">
+              Remembered on this phone. You can change it above the day's
+              jobs.
+            </p>
+            <button
+              className="mapspick__cancel"
+              onClick={() => setChoosingFor(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
