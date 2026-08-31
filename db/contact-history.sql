@@ -110,6 +110,8 @@ create policy "contact_log readable by authenticated"
 -- that belong to the same human. A person can have several leads (knocked
 -- twice, called back months later) that all became one customer, so these
 -- are arrays rather than single ids.
+drop function if exists public.contact_identity(uuid, uuid);
+
 create or replace function public.contact_identity(
   p_lead_id     uuid default null,
   p_customer_id uuid default null
@@ -281,6 +283,12 @@ grant execute on function public.record_lead_contact(uuid) to authenticated;
 -- Returns raw values rather than sentences. The wording lives in the app,
 -- the same way SERVICE_PLANS owns plan labels — so changing "Booked" to
 -- "Confirmed" is a one-line JS change, not a migration.
+-- Dropped first, not just replaced: `create or replace` refuses to change a
+-- function's return type, and this one gained columns after the first
+-- version shipped. Without the drop, re-running this file on a database
+-- that already has it fails with "cannot change return type".
+drop function if exists public.contact_timeline(uuid, uuid);
+
 create or replace function public.contact_timeline(
   p_lead_id     uuid default null,
   p_customer_id uuid default null
@@ -295,6 +303,14 @@ returns table (
   payment_method text,
   detail         text,
   actor          text,
+  -- Which job this was, for the rows that come from one. "Job completed"
+  -- on its own doesn't say WHICH job — with a recurring customer there are
+  -- several, and the event's own timestamp is when it was recorded, not
+  -- when the work happened.
+  job_date       timestamptz,
+  visit_number   int,
+  service_plan   text,
+  is_extra       boolean,
   -- Only here so the union can order deterministically; the app ignores it.
   seq            bigint
 )
@@ -312,7 +328,8 @@ begin
   -- outreach
   select cl.created_at, 'contact'::text, cl.kind,
          cl.from_status, cl.to_status, null::numeric, null::text,
-         cl.detail, p.full_name, cl.id
+         cl.detail, p.full_name,
+         null::timestamptz, null::int, null::text, null::boolean, cl.id
   from public.contact_log cl
   left join public.profiles p on p.id = cl.changed_by
   where cl.lead_id = any(ident.lead_ids)
@@ -326,7 +343,8 @@ begin
   -- both would show every historic call twice.
   select le.created_at, 'lead'::text, le.kind,
          le.from_status, le.to_status, null::numeric, null::text,
-         null::text, p.full_name, le.id
+         null::text, p.full_name,
+         null::timestamptz, null::int, null::text, null::boolean, le.id
   from public.lead_events le
   left join public.profiles p on p.id = le.changed_by
   where le.lead_id = any(ident.lead_ids)
@@ -337,7 +355,8 @@ begin
   -- job milestones
   select je.created_at, 'job'::text, je.kind,
          je.from_status, je.to_status, je.amount, je.payment_method,
-         je.detail, p.full_name, je.id
+         je.detail, p.full_name,
+         j.starts_at, j.visit_number, j.service_plan, j.is_extra, je.id
   from public.job_events je
   join public.jobs j on j.id = je.job_id
   left join public.profiles p on p.id = je.changed_by
@@ -347,7 +366,7 @@ begin
   -- Timestamp, then the source row's own id. A trigger writes several
   -- rows inside one statement, so they share now() to the microsecond and
   -- ordering by time alone put "payment" above "completed".
-  order by 1, 10;
+  order by 1, 14;
 end;
 $$;
 

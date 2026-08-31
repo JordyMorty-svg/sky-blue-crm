@@ -1,4 +1,5 @@
 import { supabase } from "../supabaseClient";
+import { planFor } from "./leadService";
 
 /**
  * One person's contact history, across the lead/customer boundary.
@@ -109,6 +110,22 @@ export function describeEvent(row, statusLabel = titleCase) {
   // source === "job"
   const base = JOB_KINDS[row.kind] || titleCase(row.kind);
   const bits = [];
+
+  // Which job this was. "Job completed" on its own says nothing when a
+  // recurring customer has four of them.
+  const which = jobLabel(row);
+  if (which) bits.push(which);
+
+  // The date the WORK happened, which isn't the date the event was
+  // recorded — a job completed on the 27th can be submitted that evening,
+  // and a cancelled one is cancelled days before it was due.
+  //
+  // Skipped for scheduled/rescheduled, whose own detail already spells the
+  // date out ("Moved from Aug 25 to Aug 27").
+  if (row.job_date && row.kind !== "scheduled" && row.kind !== "rescheduled") {
+    bits.push(jobDate(row.job_date));
+  }
+
   if (row.amount != null) bits.push(money(row.amount));
   if (row.payment_method) bits.push(titleCase(row.payment_method));
   if (row.detail) bits.push(row.detail);
@@ -118,6 +135,33 @@ export function describeEvent(row, statusLabel = titleCase) {
     meta: bits.join(" · "),
     tone: row.kind === "payment" ? "money" : "job",
   };
+}
+
+// "Quarterly visit 2", "One-off extra", "Visit 3", or nothing.
+//
+// Nothing is the right answer for a customer's only job: "Visit 1" on a
+// one-time clean is noise, and the whole point of this label is telling
+// several jobs apart.
+function jobLabel(row) {
+  if (row.is_extra) return "One-off extra";
+
+  const plan = row.service_plan || "one_time";
+  const visit = row.visit_number;
+
+  if (plan !== "one_time") {
+    return visit ? `${planFor(plan).label} visit ${visit}` : planFor(plan).label;
+  }
+  return visit > 1 ? `Visit ${visit}` : "";
+}
+
+// The day the work was booked for. No time — on a timeline that already
+// carries a timestamp per row, the hour is noise.
+function jobDate(iso) {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 export function money(n) {
