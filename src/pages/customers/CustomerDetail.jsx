@@ -16,7 +16,9 @@ import {
   planFor,
   nextVisitDate,
   priceForVisit,
+  telHref,
 } from "../../services/leadService";
+import { recordContact } from "../../services/contactService";
 import AddressPicker from "../../components/AddressPicker";
 import JobPlanTag from "../../components/JobPlanTag";
 import "./Customers.css";
@@ -194,6 +196,18 @@ export default function CustomerDetail() {
     }
   }
 
+  // Dials, and records it on the same timeline the lead's calls went to.
+  // record_contact resolves the lead behind this customer, so a call here
+  // and a call from before they booked sit on one history.
+  async function handleCall() {
+    try {
+      await recordContact({ customerId: id, kind: "call" });
+    } catch (e) {
+      // The number still dialled; losing the log entry must not interrupt.
+      console.error("Couldn't record that call:", e);
+    }
+  }
+
   if (loading) return <div className="customers__state">Loading…</div>;
   if (!customer) return <div className="customers__state">{error || "Not found."}</div>;
 
@@ -361,6 +375,19 @@ export default function CustomerDetail() {
             >
               + Schedule a job
             </button>
+            <button
+              className="custdetail__edit"
+              onClick={() =>
+                navigate(`/history/customer/${id}`, {
+                  state: {
+                    from: `/customers/${id}`,
+                    person: { name: customer.name, phone: customer.phone },
+                  },
+                })
+              }
+            >
+              History
+            </button>
             <button className="custdetail__edit" onClick={() => setEditing(true)}>
               Edit
             </button>
@@ -378,7 +405,15 @@ export default function CustomerDetail() {
           </div>
 
           <div className="custdetail__info">
-            {customer.phone && <span>{customer.phone}</span>}
+            {customer.phone && (
+              <a
+                className="custdetail__phone"
+                href={telHref(customer.phone)}
+                onClick={handleCall}
+              >
+                {customer.phone}
+              </a>
+            )}
             {customer.email && <span>{customer.email}</span>}
             {customer.address && <span>{customer.address}</span>}
           </div>

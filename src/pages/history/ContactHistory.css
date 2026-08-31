@@ -1,0 +1,348 @@
+.chist {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.chist__state {
+  padding: 60px 24px;
+  text-align: center;
+  color: #64748b;
+}
+
+.chist__back {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 16px;
+  min-height: 40px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .chist__back:hover {
+    text-decoration: underline;
+  }
+}
+
+.chist__head {
+  margin-bottom: 18px;
+}
+
+.chist__title {
+  font-size: 1.5rem;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.chist__blurb {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.chist__error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.chist__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+
+/* An anchor, not a button: it has to be a real tel: link for the OS to open
+   the dialer. The logging happens in its onClick on the way out. */
+.chist__call {
+  display: inline-flex;
+  align-items: center;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 0 20px;
+  min-height: 44px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .chist__call:hover {
+    background: #1d4ed8;
+  }
+}
+
+.chist__log {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 0 18px;
+  min-height: 44px;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .chist__log:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+}
+
+.chist__log:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.chist__call:focus-visible,
+.chist__log:focus-visible,
+.chist__back:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* --- logging a contact --- */
+
+.chist__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  margin: -8px 0 22px;
+}
+
+.chist__kinds {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chist__kind {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 38px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.chist__kind--active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+@media (hover: hover) {
+  .chist__kind:hover {
+    border-color: #cbd5e1;
+  }
+
+  .chist__kind--active:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+  }
+}
+
+.chist__note {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #0f172a;
+  resize: vertical;
+}
+
+.chist__note:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+.chist__save {
+  align-self: flex-start;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 0 20px;
+  min-height: 42px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .chist__save:hover:not(:disabled) {
+    background: #1d4ed8;
+  }
+}
+
+.chist__save:disabled {
+  background: #93c5fd;
+  cursor: default;
+}
+
+.chist__kind:focus-visible,
+.chist__save:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.chist__empty {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  padding: 20px 0;
+}
+
+/* --- the timeline ---
+   Same language as the job history, so the two read as one idea. Oldest at
+   the top: it's a story, not a feed. */
+
+.chist__timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+.chist__timeline::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: #e2e8f0;
+}
+
+.chist__event {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 9px 0 9px 22px;
+}
+
+.chist__dot {
+  position: absolute;
+  left: 0;
+  top: 14px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  border: 2px solid #ffffff;
+}
+
+/* Outreach is the thing this page exists for, so it gets the strongest
+   mark. Money is green like everywhere else; lead and job milestones are
+   context and stay quiet. */
+.chist__event--contact .chist__dot {
+  background: #2563eb;
+}
+
+.chist__event--money .chist__dot {
+  background: #16a34a;
+}
+
+.chist__event--job .chist__dot {
+  background: #ffffff;
+  border: 2px solid #cbd5e1;
+}
+
+.chist__event--lead .chist__dot {
+  background: #ffffff;
+  border: 2px solid #cbd5e1;
+}
+
+.chist__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.chist__eventtitle {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* Lead and job rows are context around the outreach, so they sit back. */
+.chist__event--lead .chist__eventtitle,
+.chist__event--job .chist__eventtitle {
+  font-weight: 500;
+  color: #475569;
+}
+
+.chist__eventmeta {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.chist__when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.chist__actor {
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* Keep this block last: it overrides the row layout above, and
+   equal-specificity rules are decided by source order. */
+@media (max-width: 560px) {
+  .chist__event {
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .chist__when {
+    align-items: flex-start;
+    flex-direction: row;
+    gap: 8px;
+  }
+}

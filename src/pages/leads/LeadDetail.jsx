@@ -185,14 +185,34 @@ export default function LeadDetail() {
               </a>
             )}
           </div>
-          {form.last_contacted_at && (
-            <p className="detail__lastcall">
-              Last reached out {formatContacted(form.last_contacted_at)}
-              {form.contact_attempts > 1
-                ? ` · ${form.contact_attempts} attempts`
-                : ""}
-            </p>
-          )}
+          <p className="detail__lastcall">
+            {form.last_contacted_at ? (
+              <>
+                Last reached out {formatContacted(form.last_contacted_at)}
+                {form.contact_attempts > 1
+                  ? ` · ${form.contact_attempts} attempts`
+                  : ""}
+                {" · "}
+              </>
+            ) : null}
+            {/* The calls themselves live on the history page, which outlives
+                this lead — once they book, the same timeline is reachable
+                from their customer profile. */}
+            <button
+              type="button"
+              className="detail__historylink"
+              onClick={() =>
+                navigate(`/history/lead/${id}`, {
+                  state: {
+                    from: `/leads/${id}`,
+                    person: { name: form.name, phone: form.phone },
+                  },
+                })
+              }
+            >
+              See full history
+            </button>
+          </p>
         </Field>
 
         <Field label="Email">
@@ -293,7 +313,9 @@ export default function LeadDetail() {
         <div className="detail__history">
           <h2 className="detail__historytitle">Status history</h2>
           <ol className="detail__timeline">
-            {events.map((ev) => (
+            {events
+              .filter((ev) => (ev.kind || "status") !== "call")
+              .map((ev) => (
               <li key={ev.id} className="detail__event">
                 <span className="detail__eventdot" />
                 <span className="detail__eventtext">
@@ -317,7 +339,7 @@ export default function LeadDetail() {
                   {formatEventDate(ev.created_at)}
                 </span>
               </li>
-            ))}
+              ))}
           </ol>
         </div>
       )}

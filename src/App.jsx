@@ -12,6 +12,7 @@ import ConfirmVisit from "./pages/jobs/ConfirmVisit";
 import ScheduleForCustomer from "./pages/customers/ScheduleForCustomer";
 import JobDetail from "./pages/jobs/JobDetail";
 import JobRecord from "./pages/jobs/JobRecord";
+import ContactHistory from "./pages/history/ContactHistory";
 import Schedule from "./pages/schedule/Schedule";
 import CompleteJob from "./pages/schedule/CompleteJob";
 import PosReturn from "./pages/schedule/PosReturn";
@@ -125,6 +126,10 @@ export default function App() {
       <Route path="/jobs/visit/:jobId" element={<Page><ConfirmVisit /></Page>} />
       {/* Finished work is read-only, so it gets its own page rather than
           the editor. Static segment, so it outranks /jobs/:id. */}
+      {/* One page, reached as /history/lead/:id or /history/customer/:id.
+          Both resolve to the same person — see contact_timeline(). */}
+      <Route path="/history/:kind/:id" element={<Page><ContactHistory /></Page>} />
+
       <Route path="/jobs/record/:id" element={<Page><JobRecord /></Page>} />
       <Route path="/jobs/:id" element={<Page><JobDetail /></Page>} />
       <Route path="/schedule" element={<Page><Schedule /></Page>} />
