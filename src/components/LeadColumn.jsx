@@ -42,17 +42,31 @@ export default function LeadColumn({
           aria-expanded={!collapsed}
           aria-label={`${collapsed ? "Expand" : "Collapse"} ${stage.label}`}
         >
-          {/* One glyph that rotates rather than two different characters:
-              ▸ and ▾ have different widths, so swapping them nudged
-              everything beside them sideways on every toggle. */}
-          <span
+          {/* An inline SVG chevron rather than a text character. ▾ and ▸
+              are glyphs: their size and weight depend on whichever font the
+              stack resolves to, which is the same thing that made the
+              column labels clip on Windows. This draws the same on every
+              machine, and it scales to whatever size the button is.
+
+              One icon that rotates, not two pointing different ways, so
+              nothing beside it shifts when you toggle. */}
+          <svg
             className={
               "column__arrow" + (collapsed ? " column__arrow--collapsed" : "")
             }
+            viewBox="0 0 24 24"
             aria-hidden="true"
+            focusable="false"
           >
-            ▾
-          </span>
+            <path
+              d="M5 9l7 7 7-7"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
 
         <span className="column__label">{stage.label}</span>

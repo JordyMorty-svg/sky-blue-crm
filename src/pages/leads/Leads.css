@@ -199,10 +199,10 @@
   padding: 6px 6px 12px;
 }
 
-/* The arrow is its own button, not joined to the stage name. A 36px
-   square is a real target where the old text-height strip was about 17px,
-   and keeping it separate stops the header running out of room in a
-   collapsed rail. */
+/* The arrow IS the button — no box around it. The icon fills the control,
+   so the whole 36px square is both the target and the thing you see.
+   At rest it's a bare chevron; the tinted disc only appears on hover or
+   press, so there's still feedback without a permanent box. */
 .column__arrowbtn {
   display: inline-flex;
   align-items: center;
@@ -211,26 +211,26 @@
   width: 36px;
   height: 36px;
   padding: 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 9px;
-  background: #ffffff;
+  border: none;
+  border-radius: 50%;
+  background: none;
   color: #475569;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 @media (hover: hover) {
   .column__arrowbtn:hover {
-    background: #f8fafc;
-    border-color: #cbd5e1;
+    background: #e2e8f0;
+    color: #0f172a;
   }
 }
 
 .column__arrowbtn:active {
-  background: #eff6ff;
-  border-color: #bfdbfe;
+  background: #dbeafe;
+  color: #2563eb;
 }
 
 .column__arrowbtn:focus-visible {
@@ -238,10 +238,12 @@
   outline-offset: 2px;
 }
 
+/* Three quarters of its button. The button keeps its full 36px so the
+   target stays thumb-sized — only the drawn icon shrinks. */
 .column__arrow {
   display: block;
-  font-size: 0.72rem;
-  line-height: 1;
+  width: 75%;
+  height: 75%;
   transition: transform 0.15s ease;
 }
 
