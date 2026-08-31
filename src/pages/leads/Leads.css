@@ -10,7 +10,10 @@
    page needs a container or it hugs the left edge with a third of the
    screen empty. 1600px fits four full-width columns plus their gaps. */
 .leads {
-  max-width: 1600px;
+  /* Four 380px columns plus three 16px gaps. Sized to the board rather than
+     a round number so that when every stage is open, the outer edges line
+     up with "20 active" and the Add lead button above them. */
+  max-width: 1568px;
   margin: 0 auto;
 }
 
@@ -142,6 +145,16 @@
   display: flex;
   gap: 16px;
   align-items: flex-start;
+  /* Columns are capped at 380px, so once a stage or two is collapsed they
+     no longer fill the container and there's nothing to stop them hugging
+     the left. Centring the leftover keeps the board under the middle of the
+     page whatever combination is open.
+
+     The trade: collapsing a stage now shifts the others sideways by about
+     half the width it gave up. That's the cost of centring anything whose
+     width changes, and it's worth paying here because collapsing is a
+     deliberate, occasional act rather than something you do mid-click. */
+  justify-content: center;
 }
 
 /* Column */
@@ -177,25 +190,65 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 6px 12px;
+  gap: 8px;
+  padding: 6px 6px 12px;
 }
 
+/* The whole label is the toggle, but it used to have `padding: 0`, which
+   made the hit area exactly as tall as the text — about 17px. Fine with a
+   mouse, nowhere near a thumb. Now it's a real 40px target that looks
+   pressable, with negative margin so the stage name stays optically where
+   it was. */
 .column__toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 6px 12px 6px 6px;
+  margin: -6px 0 -6px -6px;
+  min-height: 40px;
+  border-radius: 9px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
 }
 
+@media (hover: hover) {
+  .column__toggle:hover {
+    background: #e2e8f0;
+  }
+}
+
+.column__toggle:active {
+  background: #dbeafe;
+}
+
+.column__toggle:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+/* Sat on the white chip so it reads as a control rather than a stray
+   character next to the heading. */
 .column__arrow {
-  font-size: 0.95rem;
-  color: #64748b;
-  width: 16px;
-  display: inline-block;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.72rem;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.column__arrow--collapsed {
+  transform: rotate(-90deg);
 }
 
 .column__label {
@@ -325,6 +378,20 @@
 
 /* Takes the slack so Move sits hard right, and truncates rather than
    wrapping when a column is narrow. */
+/* The phone on a board card is a live tel: link, so it needs to look like
+   one — the rest of that footer line is deliberately muted. */
+.card__phone {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .card__phone:hover {
+    text-decoration: underline;
+  }
+}
+
 .card__when {
   flex: 1;
   min-width: 0;

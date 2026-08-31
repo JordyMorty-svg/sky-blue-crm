@@ -10,6 +10,8 @@ import {
   TEMPERATURES,
   LEAD_SOURCES,
   sourceFor,
+  telHref,
+  recordLeadContact,
 } from "../../services/leadService";
 import PlanPicker from "../../components/PlanPicker";
 import AppointmentPicker from "../../components/AppointmentPicker";
@@ -25,6 +27,7 @@ export default function LeadDetail() {
   const [apptTime, setApptTime] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [calling, setCalling] = useState(false);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [events, setEvents] = useState([]);
@@ -101,6 +104,23 @@ export default function LeadDetail() {
     }
   }
 
+  // Dials, and records the attempt as it goes. The status rule lives in the
+  // database (record_lead_contact) so it can't drift between this page and
+  // the board: a lead still on 'new' advances to 'contacted', anything
+  // further down the funnel keeps its place.
+  async function handleCall() {
+    setCalling(true);
+    try {
+      const updated = await recordLeadContact(id);
+      if (updated) setForm((f) => ({ ...f, ...updated }));
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't record that call. The number still dialled.");
+    } finally {
+      setCalling(false);
+    }
+  }
+
   async function handleDelete() {
     try {
       await deleteLead(id);
@@ -151,8 +171,28 @@ export default function LeadDetail() {
         </Field>
 
         <Field label="Phone">
-          <input className="detail__input" type="tel" value={form.phone || ""}
-            onChange={(e) => set("phone", e.target.value)} />
+          <div className="detail__phonerow">
+            <input className="detail__input" type="tel" value={form.phone || ""}
+              onChange={(e) => set("phone", e.target.value)} />
+            {telHref(form.phone) && (
+              <a
+                className="detail__call"
+                href={telHref(form.phone)}
+                onClick={handleCall}
+                aria-disabled={calling}
+              >
+                Call
+              </a>
+            )}
+          </div>
+          {form.last_contacted_at && (
+            <p className="detail__lastcall">
+              Last reached out {formatContacted(form.last_contacted_at)}
+              {form.contact_attempts > 1
+                ? ` · ${form.contact_attempts} attempts`
+                : ""}
+            </p>
+          )}
         </Field>
 
         <Field label="Email">
@@ -322,6 +362,23 @@ function formatEventDate(iso) {
     month: "short",
     day: "numeric",
   });
+}
+
+// "today", "yesterday", or a date. Relative wording for the recent past is
+// what people actually want here — "did we ring them today or last week" is
+// the question, and a bare date makes you do the arithmetic.
+function formatContacted(iso) {
+  const then = new Date(iso);
+  const days = Math.floor((Date.now() - then.getTime()) / 86400000);
+  if (days <= 0) {
+    return `today at ${then.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    })}`;
+  }
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  return `on ${formatEventDate(iso)}`;
 }
 
 function Field({ label, children, full }) {

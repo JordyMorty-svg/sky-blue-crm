@@ -3,6 +3,16 @@
 -- Run once in the Supabase SQL editor (Dashboard -> SQL Editor -> New query).
 -- Safe to re-run: every statement is idempotent.
 --
+-- SUPERSEDED IN PART BY db/lead-contact.sql.
+--
+-- That file replaces log_lead_status_change() with a version that also
+-- records outreach attempts, and widens the trigger from `update of status`
+-- to plain `update` so a contact stamp reaches it. This file still holds a
+-- working status-only version, so a fresh database set up from it alone is
+-- fine — but if you ever re-run THIS file on a live database, re-run
+-- db/lead-contact.sql afterwards or tapping a phone number will silently
+-- stop logging.
+--
 -- Why a trigger instead of writing events from the app: status is changed in
 -- five different places today (the pipeline board, the lead detail page, the
 -- All Leads bulk action, scheduleJob and completeJob), and more will appear.

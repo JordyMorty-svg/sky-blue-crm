@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { TEMPERATURES, LEADS_SETTABLE_STATUSES } from "../services/leadService";
+import {
+  TEMPERATURES,
+  LEADS_SETTABLE_STATUSES,
+  telHref,
+} from "../services/leadService";
 
 function formatDate(iso) {
   const d = new Date(iso);
@@ -21,11 +25,12 @@ function formatDate(iso) {
  * lines so one chatty note can't make its card three times the height of
  * its neighbours.
  */
-export default function LeadCard({ lead, onMove }) {
+export default function LeadCard({ lead, onMove, onContact }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const temp = TEMPERATURES.find((t) => t.key === lead.temperature);
+  const phone = telHref(lead.phone);
 
   // Stages you can move to from the board: forward pipeline moves, plus
   // Lost — marking a no at the door is the single most common action after
@@ -69,7 +74,24 @@ export default function LeadCard({ lead, onMove }) {
       <div className="card__foot">
         <span className="card__when">
           {formatDate(lead.created_at)}
-          {lead.phone ? ` · ${lead.phone}` : ""}
+          {phone && (
+            <>
+              {" · "}
+              {/* Dials AND records the attempt. stopPropagation because the
+                  card body opens the lead — without it, ringing someone
+                  would also navigate away from the board underneath them. */}
+              <a
+                className="card__phone"
+                href={phone}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onContact?.(lead);
+                }}
+              >
+                {lead.phone}
+              </a>
+            </>
+          )}
         </span>
 
         {lead.stale && (

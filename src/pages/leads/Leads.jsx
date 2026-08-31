@@ -6,6 +6,7 @@ import {
   fetchActiveLeads,
   updateLead,
   bulkUpdateLeadStatus,
+  recordLeadContact,
   missingFieldFor,
 } from "../../services/leadService";
 import LeadColumn from "../../components/LeadColumn";
@@ -81,6 +82,39 @@ export default function Leads() {
       console.error(e);
       setLeads(previousLeads);
       setError("Couldn't save that change. Try again.");
+    }
+  }
+
+  // Tapping a phone number dials it and records the attempt. The dialer
+  // opens over the page rather than unloading it, so the write does get to
+  // finish — but it's still fire-and-forget from the user's point of view,
+  // which is why the row is patched locally first and only rolled back if
+  // the server disagrees.
+  async function handleContact(lead) {
+    const previous = leads;
+    setLeads((cur) =>
+      cur.map((l) =>
+        l.id === lead.id
+          ? {
+              ...l,
+              last_contacted_at: new Date().toISOString(),
+              contact_attempts: (l.contact_attempts || 0) + 1,
+              // Mirrors the rule in record_lead_contact: only a lead still
+              // on 'new' moves. Anything further along keeps its place.
+              status: l.status === "new" ? "contacted" : l.status,
+            }
+          : l
+      )
+    );
+    try {
+      const updated = await recordLeadContact(lead.id);
+      if (updated) {
+        setLeads((cur) => cur.map((l) => (l.id === lead.id ? { ...l, ...updated } : l)));
+      }
+    } catch (e) {
+      console.error(e);
+      setLeads(previous);
+      setError("Couldn't record that call. The number still dialled.");
     }
   }
 
@@ -194,6 +228,7 @@ export default function Leads() {
             collapsed={!!collapsed[stage.key]}
             onToggle={() => toggleCollapse(stage.key)}
             onMove={handleMove}
+            onContact={handleContact}
           />
         ))}
       </div>

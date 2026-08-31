@@ -13,7 +13,14 @@ import LeadCard from "./LeadCard";
  * collapse state: an empty stage narrows itself today and widens again the
  * moment a lead lands in it, without overwriting what the user chose.
  */
-export default function LeadColumn({ stage, leads, collapsed, onToggle, onMove }) {
+export default function LeadColumn({
+  stage,
+  leads,
+  collapsed,
+  onToggle,
+  onMove,
+  onContact,
+}) {
   const quiet = !collapsed && leads.length === 0;
 
   return (
@@ -30,7 +37,17 @@ export default function LeadColumn({ stage, leads, collapsed, onToggle, onMove }
           onClick={onToggle}
           aria-expanded={!collapsed}
         >
-          <span className="column__arrow">{collapsed ? "▸" : "▾"}</span>
+          {/* One glyph that rotates rather than two different characters:
+              ▸ and ▾ have different widths, so swapping them nudged the
+              stage name sideways on every toggle. */}
+          <span
+            className={
+              "column__arrow" + (collapsed ? " column__arrow--collapsed" : "")
+            }
+            aria-hidden="true"
+          >
+            ▾
+          </span>
           <span className="column__label">{stage.label}</span>
         </button>
         <div className="column__head-right">
@@ -44,7 +61,12 @@ export default function LeadColumn({ stage, leads, collapsed, onToggle, onMove }
             <p className="column__empty">Nothing here.</p>
           ) : (
             leads.map((lead) => (
-              <LeadCard key={lead.id} lead={lead} onMove={onMove} />
+              <LeadCard
+                key={lead.id}
+                lead={lead}
+                onMove={onMove}
+                onContact={onContact}
+              />
             ))
           )}
         </div>

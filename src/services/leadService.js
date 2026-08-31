@@ -161,6 +161,33 @@ export function sourceFor(key) {
   return { key: key || "unknown", label: key || "Not recorded", hint: "" };
 }
 
+// Record that someone tried to reach this lead, and return the updated row.
+//
+// Goes through an RPC rather than a plain update for two reasons, both of
+// which live in db/lead-contact.sql: contact_attempts has to be incremented
+// server-side, and the rule about when a call may change the status belongs
+// next to the data rather than in whichever screen happened to call it.
+//
+// The short version of that rule: status is a position in the funnel, not a
+// contact log. Ringing someone who is already quoted leaves them quoted.
+// Only a lead still sitting on 'new' advances, to 'contacted'.
+export async function recordLeadContact(leadId) {
+  const { data, error } = await supabase.rpc("record_lead_contact", {
+    p_lead_id: leadId,
+  });
+  if (error) throw error;
+  // A set-returning rpc comes back as an array; a scalar composite doesn't.
+  return Array.isArray(data) ? data[0] : data;
+}
+
+// A phone number as a dialable href. Strips the formatting people type —
+// "(541) 555-0101" is not a valid tel: target, 5415550101 is.
+export function telHref(phone) {
+  if (!phone) return null;
+  const digits = String(phone).replace(/[^\d+]/g, "");
+  return digits ? `tel:${digits}` : null;
+}
+
 // Days since each lead last changed status, from the lead_status_age view.
 // One flat query, merged client-side — same shape as the job counts.
 async function fetchStatusAges() {
