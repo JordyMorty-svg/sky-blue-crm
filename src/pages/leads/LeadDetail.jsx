@@ -8,6 +8,8 @@ import {
   ALL_STATUSES,
   LEADS_SETTABLE_STATUSES,
   TEMPERATURES,
+  LEAD_SOURCES,
+  sourceFor,
 } from "../../services/leadService";
 import PlanPicker from "../../components/PlanPicker";
 import AppointmentPicker from "../../components/AppointmentPicker";
@@ -80,6 +82,11 @@ export default function LeadDetail() {
         estimate: Number(form.estimate) || 0,
         status: form.status,
         temperature: form.temperature || null,
+        // The save payload is an explicit column list, not a spread of
+        // `form` — so a new editable field is invisible until it's named
+        // here. The picker would have looked like it worked and quietly
+        // reverted on reload.
+        source: form.source || "door",
         property_type: form.property_type || "residential",
         service_plan: form.service_plan || "one_time",
         appointment_at: combineToISO(apptDate, apptTime),
@@ -114,7 +121,7 @@ export default function LeadDetail() {
           ← Back to pipeline
         </button>
         <span className="detail__source">
-          {form.source === "door" ? "Door knock" : "Website"}
+          {sourceFor(form.source).label}
           {form.creator?.full_name ? ` · ${form.creator.full_name}` : ""}
         </span>
       </div>
@@ -182,6 +189,21 @@ export default function LeadDetail() {
             <option value="">— not set —</option>
             {TEMPERATURES.map((t) => (
               <option key={t.key} value={t.key}>{t.label}</option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Where they came from">
+          <select className="detail__input" value={form.source || "door"}
+            onChange={(e) => set("source", e.target.value)}>
+            {/* Keep an unrecognised value selectable rather than silently
+                switching the lead to Door knock the next time anyone opens
+                it. Same guard the status select uses. */}
+            {!LEAD_SOURCES.some((s) => s.key === (form.source || "door")) && (
+              <option value={form.source}>{form.source}</option>
+            )}
+            {LEAD_SOURCES.map((s) => (
+              <option key={s.key} value={s.key}>{s.label}</option>
             ))}
           </select>
         </Field>

@@ -219,3 +219,50 @@
     padding: 16px;
   }
 }
+
+/* Stage picker. Sits in the header rather than among the fields because it
+   changes WHICH fields appear — it's a decision about the form, not an
+   entry in it. */
+.newlead__stages {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.newlead__stagebtn {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 38px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.newlead__stagebtn--active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+@media (hover: hover) {
+  .newlead__stagebtn:hover {
+    border-color: #cbd5e1;
+  }
+
+  .newlead__stagebtn--active:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+  }
+}
+
+.newlead__stagebtn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}

@@ -14,6 +14,11 @@ import { LEAD_VIEWS } from "../../components/navViews";
 import DragPromptModal from "../../components/DragPromptModal";
 import "./Leads.css";
 
+// Where the Add lead button lands. Contacted is the first stage you can add
+// to by hand and the commonest place a knocked door ends up; the form lets
+// you change it before saving, so this is a starting point, not a rule.
+const DEFAULT_ADD_STAGE = "contacted";
+
 // Load persisted collapse state (survives navigation + refresh).
 function loadCollapsed() {
   try {
@@ -141,7 +146,20 @@ export default function Leads() {
           directly under it was pure duplication. The h1 stays for screen
           readers and document structure, just hidden visually. */}
       <h1 className="visually-hidden">Pipeline</h1>
-      <p className="leads__count">{leads.length} active</p>
+
+      <div className="leads__bar">
+        <p className="leads__count">{leads.length} active</p>
+        {/* One button rather than a "+" on every stage. Three blue chips
+            competed with the cards for attention, and the stage they added
+            to is now chosen on the form itself — where it can also be
+            changed after the fact, which the chips never allowed. */}
+        <button
+          className="leads__add"
+          onClick={() => navigate(`/leads/new/${DEFAULT_ADD_STAGE}`)}
+        >
+          + Add lead
+        </button>
+      </div>
 
       {error && <p className="leads__error">{error}</p>}
 
@@ -175,7 +193,6 @@ export default function Leads() {
             leads={shown.filter((l) => l.status === stage.key)}
             collapsed={!!collapsed[stage.key]}
             onToggle={() => toggleCollapse(stage.key)}
-            onAdd={(s) => navigate(`/leads/new/${s}`)}
             onMove={handleMove}
           />
         ))}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createLead, TEMPERATURES } from "../services/leadService";
+import { createLead, TEMPERATURES, LEAD_SOURCES } from "../services/leadService";
 import PlanPicker from "./PlanPicker";
 import { useAuth } from "../context/useAuth";
 import AppointmentPicker from "./AppointmentPicker";
@@ -27,6 +27,9 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
   const [appointmentDate, setAppointmentDate] = useState(null);
   const [appointmentTime, setAppointmentTime] = useState("");
   const [temperature, setTemperature] = useState("");
+  // Door knock is the default because it's still how most leads arrive —
+  // but it's now a choice, not an assumption baked into createLead.
+  const [source, setSource] = useState("door");
   const [propertyType, setPropertyType] = useState("residential");
   const [servicePlan, setServicePlan] = useState("one_time");
   const [notes, setNotes] = useState("");
@@ -72,6 +75,7 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
           estimate: estimate ? Number(estimate) : 0,
           appointment_at: combineToISO(appointmentDate, appointmentTime),
           temperature: temperature || null,
+          source,
           property_type: propertyType,
           service_plan: servicePlan,
           notes: notes.trim() || null,
@@ -187,6 +191,22 @@ export default function AddLeadModal({ stage, onClose, onCreated }) {
               onDateChange={setAppointmentDate}
               onTimeChange={setAppointmentTime}
             />
+          )}
+
+          <label className="modal__label">Where they came from</label>
+          <select
+            className="modal__input"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+          >
+            {LEAD_SOURCES.map((s) => (
+              <option key={s.key} value={s.key}>{s.label}</option>
+            ))}
+          </select>
+          {LEAD_SOURCES.find((s) => s.key === source)?.hint && (
+            <p className="modal__hint">
+              {LEAD_SOURCES.find((s) => s.key === source).hint}
+            </p>
           )}
 
           {stage !== "booked" && (

@@ -7,11 +7,24 @@ function formatDate(iso) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+/**
+ * One lead on the pipeline board.
+ *
+ * Deliberately shows less than it used to. What you scan a board for is who
+ * it is, what it's worth, and how warm they seemed — everything else is
+ * detail for once you've opened the lead. Stories and window count were on
+ * every card and changed nothing about what you'd do next; the email was
+ * there to be read rather than used.
+ *
+ * Notes stay, because they're the one field that actually changes a
+ * decision at a glance ("$200 flat rate for interior"), but clamped to two
+ * lines so one chatty note can't make its card three times the height of
+ * its neighbours.
+ */
 export default function LeadCard({ lead, onMove }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const storyLabel = lead.stories === "two" ? "2-story" : "1-story";
   const temp = TEMPERATURES.find((t) => t.key === lead.temperature);
 
   // Stages you can move to from the board: forward pipeline moves, plus
@@ -49,51 +62,46 @@ export default function LeadCard({ lead, onMove }) {
           <span className="card__estimate">${lead.estimate}</span>
         </div>
 
-        <div className="card__meta">
-          {storyLabel} · {lead.windows} windows
-          {lead.interior ? " · interior" : ""}
-        </div>
-
-        <div className="card__contact">
-          {lead.phone && <span>{lead.phone}</span>}
-          {lead.email && <span>{lead.email}</span>}
-        </div>
-
         {lead.notes && <p className="card__notes">{lead.notes}</p>}
-
-        <div className="card__foot">
-          <span>{formatDate(lead.created_at)}</span>
-          {lead.stale && (
-            <span
-              className="card__stale"
-              title={`No status change in ${lead.daysSinceChange} days`}
-            >
-              Stale · {lead.daysSinceChange}d
-            </span>
-          )}
-        </div>
       </div>
 
-      <div className="card__actions">
-        <button
-          className="card__move-btn"
-          onClick={() => setMenuOpen((o) => !o)}
-        >
-          Move ▾
-        </button>
-        {menuOpen && (
-          <div className="card__move-menu">
-            {otherStages.map((s) => (
-              <button
-                key={s.key}
-                className="card__move-option"
-                onClick={() => handleMove(s.key)}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+      {/* Outside card__body so tapping Move doesn't also open the lead. */}
+      <div className="card__foot">
+        <span className="card__when">
+          {formatDate(lead.created_at)}
+          {lead.phone ? ` · ${lead.phone}` : ""}
+        </span>
+
+        {lead.stale && (
+          <span
+            className="card__stale"
+            title={`No status change in ${lead.daysSinceChange} days`}
+          >
+            {lead.daysSinceChange}d
+          </span>
         )}
+
+        <div className="card__actions">
+          <button
+            className="card__move-btn"
+            onClick={() => setMenuOpen((o) => !o)}
+          >
+            Move ▾
+          </button>
+          {menuOpen && (
+            <div className="card__move-menu">
+              {otherStages.map((s) => (
+                <button
+                  key={s.key}
+                  className="card__move-option"
+                  onClick={() => handleMove(s.key)}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

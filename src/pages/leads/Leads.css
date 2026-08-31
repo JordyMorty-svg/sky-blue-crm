@@ -6,6 +6,14 @@
 
 /* The switcher above acts as the page heading, so this is just the
    supporting count — centred under it rather than sitting in a header row. */
+/* The board packs left once columns are capped, so on a wide monitor the
+   page needs a container or it hugs the left edge with a third of the
+   screen empty. 1600px fits four full-width columns plus their gaps. */
+.leads {
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
 .leads__count {
   font-size: 0.88rem;
   color: #64748b;
@@ -82,11 +90,58 @@
 }
 
 /* Board: horizontal columns */
+/* The count and the one Add lead button share a line above the board. */
+.leads__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* The count was centred with its own bottom margin when it stood alone.
+   Inside the bar it's the left-hand item and the bar owns the spacing. */
+.leads__bar .leads__count {
+  margin: 0;
+  text-align: left;
+}
+
+.leads__add {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 40px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+}
+
+@media (hover: hover) {
+  .leads__add:hover {
+    background: #1d4ed8;
+  }
+}
+
+.leads__add:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+/* Flex, not four equal columns.
+   `repeat(4, 1fr)` meant a collapsed or empty stage still held a quarter of
+   the screen: with 20 leads sitting in Quoted, three quarters of a wide
+   monitor was showing stage names while every card was squeezed into one
+   narrow strip. Now the stages holding work take the width. */
 .leads__board {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
   gap: 16px;
-  align-items: start;
+  align-items: flex-start;
 }
 
 /* Column */
@@ -94,6 +149,28 @@
   background: #f1f5f9;
   border-radius: 12px;
   padding: 12px;
+  /* flex-basis 0 so columns share the space evenly rather than sizing to
+     their longest note; min-width 0 lets the cards inside actually shrink.
+     The cap matters as much as the growth: with only one busy stage, pure
+     flex-grow stretched it to 700px and a card carrying a name and a price
+     looked like a mostly-empty bar. */
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 380px;
+}
+
+/* A rail. Wide enough for the longest stage name and its count, and no
+   wider — there's nothing else in there to see. */
+.column--collapsed,
+.column--quiet {
+  flex: 0 0 176px;
+}
+
+/* An empty stage says so once, quietly. At rail width the centred
+   "Nothing here." was wrapping awkwardly. */
+.column--quiet .column__empty {
+  padding: 6px 0 2px;
+  font-size: 0.8rem;
 }
 
 .column__head {
@@ -144,29 +221,6 @@
   padding: 1px 9px;
 }
 
-.column__add {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  border: none;
-  background: #dbeafe;
-  color: #2563eb;
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s ease;
-}
-
-@media (hover: hover) {
-  .column__add:hover {
-    background: #2563eb;
-    color: #ffffff;
-  }
-}
-
 .column__drop {
   display: flex;
   flex-direction: column;
@@ -187,7 +241,10 @@
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  overflow: hidden;
+  /* NOT overflow: hidden. That was here to clip the old full-width Move bar
+     to the rounded corners, but the Move menu is absolutely positioned now
+     and hidden overflow chopped it down to its first option. */
+  position: relative;
 }
 
 .card__body {
@@ -231,38 +288,49 @@
   white-space: nowrap;
 }
 
-.card__meta {
-  font-size: 0.82rem;
-  color: #475569;
-  margin-bottom: 8px;
-}
-
-.card__contact {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 0.82rem;
-  color: #64748b;
-  margin-bottom: 8px;
-}
-
+/* Clamped to two lines so one chatty note can't make its card three times
+   the height of the ones around it. The full text is on the lead page. */
 .card__notes {
   font-size: 0.82rem;
-  color: #475569;
-  background: #f8fafc;
-  border-radius: 6px;
-  padding: 6px 8px;
-  margin-bottom: 8px;
+  color: #64748b;
+  margin: 6px 0 0;
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* No padding, and that's load-bearing rather than a style choice.
+     `overflow: hidden` clips to the PADDING box, so any bottom padding is a
+     window that the next line shows through — the note used to sit in a
+     padded grey box and leaked a 6px sliver of line three. With no padding
+     the cap below lands exactly on two lines.
+     max-height backs up the clamp rather than replacing it: the clamp gives
+     the ellipsis where it's supported, this guarantees the height where it
+     isn't. */
+  max-height: calc(1.4em * 2);
 }
 
+/* The footer carries the date, the phone, the stale badge and Move on one
+   line. Move used to have a full-width row of its own on every card, which
+   across twenty cards was twenty rows of chrome for an occasional action. */
 .card__foot {
   font-size: 0.75rem;
   color: #94a3b8;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
+  padding: 7px 14px 8px;
+  border-top: 1px solid #f1f5f9;
+}
+
+/* Takes the slack so Move sits hard right, and truncates rather than
+   wrapping when a column is narrow. */
+.card__when {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Shown when a lead hasn't changed status past STALE_AFTER_DAYS. Derived
@@ -281,18 +349,35 @@
 /* Move control */
 .card__actions {
   position: relative;
-  border-top: 1px solid #f1f5f9;
+  flex-shrink: 0;
 }
 
 .card__move-btn {
-  width: 100%;
   background: none;
   border: none;
-  padding: 9px;
-  font-size: 0.82rem;
-  font-weight: 600;
+  padding: 4px 2px 4px 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
   color: #2563eb;
   cursor: pointer;
+  border-radius: 6px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The menu is absolutely positioned now that the button no longer spans the
+   card — anchored to the right edge so it can't push the column wider. */
+.card__move-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 5;
+  min-width: 140px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
 }
 
 @media (hover: hover) {
@@ -301,13 +386,9 @@
   }
 }
 
-.card__move-menu {
-  display: flex;
-  flex-direction: column;
-  border-top: 1px solid #f1f5f9;
-}
-
 .card__move-option {
+  display: block;
+  width: 100%;
   background: #ffffff;
   border: none;
   padding: 11px;
@@ -328,12 +409,28 @@
 /* Mobile: columns stack */
 @media (max-width: 720px) {
   .leads__board {
-    grid-template-columns: 1fr;
+    flex-direction: column;
     gap: 12px;
+    /* Stretch, not flex-start. In a column-direction flex the cross axis is
+       the width, and the flex-start used for the desktop row would shrink
+       every column to its content. `width: 100%` looks like the obvious fix
+       and isn't: these boxes are content-box, so 100% plus 12px of padding
+       each side overflows the board by 24px. */
+    align-items: stretch;
+  }
+
+  /* Stacked, every column is full width — a 176px rail in a vertical list
+     would just look broken, and the 380px desktop cap would leave a gap on
+     a wider phone. */
+  .column,
+  .column--collapsed,
+  .column--quiet {
+    flex: 0 0 auto;
+    max-width: none;
   }
 
   .card__move-btn {
-    padding: 12px;
-    font-size: 0.9rem;
+    padding: 8px 4px 8px 10px;
+    font-size: 0.85rem;
   }
 }

@@ -4,6 +4,7 @@ import {
   createLead,
   MANUAL_ADD_STAGES,
   TEMPERATURES,
+  LEAD_SOURCES,
 } from "../../services/leadService";
 import { useAuth } from "../../context/useAuth";
 import AppointmentPicker from "../../components/AppointmentPicker";
@@ -44,6 +45,9 @@ export default function NewLead() {
   const [appointmentDate, setAppointmentDate] = useState(null);
   const [appointmentTime, setAppointmentTime] = useState("");
   const [temperature, setTemperature] = useState("");
+  // Door knock is the default because it's still how most leads arrive —
+  // but it's a choice now, not an assumption baked into createLead.
+  const [source, setSource] = useState("door");
   const [propertyType, setPropertyType] = useState("residential");
   const [servicePlan, setServicePlan] = useState("one_time");
   const [notes, setNotes] = useState("");
@@ -100,6 +104,7 @@ export default function NewLead() {
           estimate: estimate ? Number(estimate) : 0,
           appointment_at: combineToISO(appointmentDate, appointmentTime),
           temperature: temperature || null,
+          source,
           property_type: propertyType,
           service_plan: servicePlan,
           notes: notes.trim() || null,
@@ -125,6 +130,32 @@ export default function NewLead() {
           New lead <span className="newlead__stage">{STAGE_LABELS[stage]}</span>
         </h1>
         <p className="newlead__blurb">{STAGE_BLURBS[stage]}</p>
+
+        {/* The board used to carry a "+" per stage; now there's one Add
+            lead button and the stage is chosen here instead. Changing it
+            navigates rather than setting state, so the URL stays the single
+            source of truth and everything derived from it — which fields
+            show, the blurb, the submit label — follows for free.
+
+            React Router keeps this component mounted across the param
+            change, so anything already typed survives the switch. `replace`
+            keeps bouncing between stages out of the back button. */}
+        <div className="newlead__stages" role="group" aria-label="Stage">
+          {MANUAL_ADD_STAGES.map((key) => (
+            <button
+              key={key}
+              type="button"
+              className={
+                "newlead__stagebtn" +
+                (key === stage ? " newlead__stagebtn--active" : "")
+              }
+              aria-pressed={key === stage}
+              onClick={() => navigate(`/leads/new/${key}`, { replace: true })}
+            >
+              {STAGE_LABELS[key]}
+            </button>
+          ))}
+        </div>
       </header>
 
       {error && <p className="newlead__error">{error}</p>}
@@ -222,6 +253,20 @@ export default function NewLead() {
                 />
               </Field>
             )}
+
+            <Field label="Where they came from" hint="how they heard about us">
+              <select
+                className="newlead__input"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+              >
+                {LEAD_SOURCES.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
 
             {stage !== "booked" && (
               <Field label="Temperature" hint="how keen they seemed">

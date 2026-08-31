@@ -128,6 +128,39 @@ export const TEMPERATURES = [
   { key: "maybe", label: "Maybe", color: "#94a3b8" },         // gray
 ];
 
+// Where a lead came from.
+//
+// This is the MARKETING channel — how they heard about Sky Blue — not how
+// they got in touch. Someone who phones in got the number from somewhere,
+// and it's that somewhere you'd spend money on again. Keeping the two
+// separate is what makes "revenue by lead source" mean anything.
+//
+// Stored as plain text with the list owned here rather than a CHECK
+// constraint on the column. A constraint that rejects a value the app
+// writes fails silently at the database and is miserable to debug — the
+// missing 'upcoming' status in jobs.status cost a day. Adding a source is
+// one line in this array and no migration.
+export const LEAD_SOURCES = [
+  { key: "door", label: "Door knock", hint: "Knocked their door" },
+  { key: "outreach", label: "We reached out", hint: "Cold call, email, or walked into a business" },
+  { key: "website", label: "Website", hint: "Contact form on skybluecleaningco.com" },
+  { key: "referral", label: "Referral", hint: "An existing customer sent them" },
+  { key: "social", label: "Social media", hint: "Facebook, Instagram, Nextdoor" },
+  { key: "google", label: "Google", hint: "Search or the Business Profile" },
+  { key: "signage", label: "Sign or truck", hint: "Yard sign, decal, or flyer" },
+  { key: "other", label: "Other", hint: "" },
+];
+
+// Deliberately does NOT fall back to a default source for an unknown value.
+// The old display did (`source === "door" ? "Door knock" : "Website"`), which
+// meant every source that wasn't door-knocking was labelled Website whether
+// it was or not. Showing the raw value is ugly but honest.
+export function sourceFor(key) {
+  const found = LEAD_SOURCES.find((s) => s.key === key);
+  if (found) return found;
+  return { key: key || "unknown", label: key || "Not recorded", hint: "" };
+}
+
 // Days since each lead last changed status, from the lead_status_age view.
 // One flat query, merged client-side — same shape as the job counts.
 async function fetchStatusAges() {
@@ -473,13 +506,15 @@ export function missingFieldFor(stage, lead) {
   return null;
 }
 
-// Create a manual (door-knock) lead at a given stage.
+// Create a manual lead at a given stage.
 // createdBy = the logged-in user's id, for rep attribution.
 // Returns the newly created row.
 export async function createLead(lead, createdBy = null) {
   const { data, error } = await supabase
     .from("leads")
-    .insert({ ...lead, source: "door", created_by: createdBy })
+    // source comes from the form now. Door knock stays the fallback because
+    // it's both the commonest case and what every existing row already says.
+    .insert({ ...lead, source: lead.source || "door", created_by: createdBy })
     .select()
     .single();
 
