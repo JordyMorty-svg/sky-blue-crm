@@ -268,6 +268,59 @@ export async function setJobPlan(jobId, { servicePlan, propertyType }) {
   if (error) throw error;
 }
 
+// Cancel a job without destroying it.
+//
+// Deliberately separate from deleteJob. A cancellation is a fact about the
+// customer worth keeping — "they booked and then cancelled" is exactly the
+// kind of thing you want to see two years later when they call again — and
+// deleting the row throws that away along with its history.
+//
+// Nothing else needs to change: the schedule, the Jobs board and the due
+// list all query by status, the customer profile's totals only count
+// completed work, and the trigger in db/job-events.sql already writes a
+// 'cancelled' event recording who did it and when.
+export async function cancelJob(jobId) {
+  const { error } = await supabase
+    .from("jobs")
+    .update({ status: "cancelled" })
+    .eq("id", jobId);
+  if (error) throw error;
+}
+
+// Put a cancelled job back.
+//
+// Restoring to 'scheduled' would be wrong for a recurring visit that was
+// only ever 'upcoming' — it would drop a job that isn't due for months onto
+// the calendar with no crew. The history already knows what it was before,
+// because the cancellation event records from_status, so ask it rather than
+// guess. Falls back to 'scheduled' when there's no event to read, which is
+// the case for a job cancelled before db/job-events.sql was run.
+export async function restoreJob(jobId) {
+  let back = "scheduled";
+
+  try {
+    const { data, error } = await supabase
+      .from("job_events")
+      .select("from_status")
+      .eq("job_id", jobId)
+      .eq("kind", "cancelled")
+      .order("id", { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    if (data?.[0]?.from_status) back = data[0].from_status;
+  } catch (e) {
+    console.error("Couldn't read what this job was before cancelling:", e);
+  }
+
+  const { error } = await supabase
+    .from("jobs")
+    .update({ status: back })
+    .eq("id", jobId);
+  if (error) throw error;
+
+  return back;
+}
+
 // Update a job's editable fields.
 export async function updateJob(id, changes) {
   const { error } = await supabase.from("jobs").update(changes).eq("id", id);

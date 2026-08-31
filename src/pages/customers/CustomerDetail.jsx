@@ -532,14 +532,24 @@ export default function CustomerDetail() {
               .filter((j) => j.status !== "scheduled" && j.status !== "upcoming")
               .map((job) => (
                 <div
-                  className="custjob custjob--clickable"
+                  className={
+                    "custjob custjob--clickable" +
+                    (job.status === "cancelled" ? " custjob--cancelled" : "")
+                  }
                   key={job.id}
-                  // Read-only record, not the editor — a finished job has a
+                  // A completed job opens its read-only record: there's a
                   // payment behind it that editing would silently contradict.
+                  //
+                  // A cancelled one opens the editor instead. It isn't a
+                  // record of work done, and the editor is where its history
+                  // and the "put it back" button live.
                   onClick={() =>
-                    navigate(`/jobs/record/${job.id}`, {
-                      state: { from: `/customers/${id}` },
-                    })
+                    navigate(
+                      job.status === "completed"
+                        ? `/jobs/record/${job.id}`
+                        : `/jobs/${job.id}`,
+                      { state: { from: `/customers/${id}` } }
+                    )
                   }
                   role="button"
                   tabIndex={0}

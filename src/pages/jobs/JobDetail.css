@@ -246,3 +246,134 @@
   border-radius: 16px;
   padding: 20px 24px 24px;
 }
+
+/* --- cancelled --- */
+
+/* Amber, not red. A cancelled job isn't an error or a warning — it's a
+   normal thing that happened, and the record is deliberately being kept. */
+.jobDetail__cancelled {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.jobDetail__cancelledtext {
+  flex: 1;
+  min-width: 220px;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: #78350f;
+}
+
+.jobDetail__restore {
+  background: #ffffff;
+  border: 1px solid #d97706;
+  color: #b45309;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  min-height: 40px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .jobDetail__restore:hover:not(:disabled) {
+    background: #fffbeb;
+  }
+}
+
+.jobDetail__restore:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.jobDetail__restore:focus-visible,
+.jobDetail__canceljob:focus-visible,
+.jobDetail__cancelyes:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Quieter than Delete: cancelling is the ordinary, reversible choice, so it
+   shouldn't wear the same alarm colour as the one that destroys the row. */
+.jobDetail__canceljob {
+  background: none;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  min-height: 38px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .jobDetail__canceljob:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+}
+
+.jobDetail__cancelyes {
+  background: #d97706;
+  color: #ffffff;
+  border: none;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  min-height: 38px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .jobDetail__cancelyes:hover:not(:disabled) {
+    background: #b45309;
+  }
+}
+
+.jobDetail__cancelyes:disabled {
+  background: #fcd34d;
+  cursor: default;
+}
+
+/* A lone action in the danger zone spans the full width, lining up with
+   Save changes above it. Left-hugging pills read like an afterthought, and
+   these are deliberate choices.
+
+   :only-child rather than a modifier class, so the CONFIRMATION state keeps
+   its own layout — there a sentence and two buttons share the row, and the
+   destructive one must never end up stacked directly on top of the button
+   that backs out of it. */
+.jobDetail__danger > button:only-child {
+  width: 100%;
+  min-height: 44px;
+}
+
+/* The confirm row: the sentence takes its own line and the two choices sit
+   side by side underneath, sharing the width evenly. Side by side, not
+   stacked, for the same fat-finger reason. */
+.jobDetail__danger .jobDetail__dangertext {
+  flex: 1 0 100%;
+}
+
+.jobDetail__danger .jobDetail__deleteyes,
+.jobDetail__danger .jobDetail__cancelyes,
+.jobDetail__dangertext ~ .jobDetail__cancel {
+  flex: 1;
+  min-height: 44px;
+}

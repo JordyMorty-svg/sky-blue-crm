@@ -770,3 +770,39 @@
   font-weight: 600;
   color: #b45309;
 }
+
+/* --- cancelled jobs ---
+   Kept in the history rather than deleted, so "they booked and then called
+   it off" is still visible in two years' time. Struck through and faded so
+   it reads as a thing that didn't happen without disappearing.
+
+   The price is struck through and greyed too, deliberately: leaving it
+   green would read as money earned, and it sits directly under real
+   earnings in the same column. */
+.custjob--cancelled {
+  background: #fcfcfd;
+  border-style: dashed;
+}
+
+.custjob--cancelled .custjob__when,
+.custjob--cancelled .custjob__meta,
+.custjob--cancelled .custjob__price {
+  text-decoration: line-through;
+}
+
+.custjob--cancelled .custjob__when,
+.custjob--cancelled .custjob__meta,
+.custjob--cancelled .custjob__crew {
+  color: #94a3b8;
+}
+
+.custjob--cancelled .custjob__price {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+/* The badges stay legible — the strike-through is about the work, not
+   about which plan it would have been. */
+.custjob--cancelled .plantag {
+  opacity: 0.7;
+}

@@ -7,6 +7,8 @@ import {
   fetchTechs,
   deleteJob,
   setJobPlan,
+  cancelJob,
+  restoreJob,
 } from "../../services/jobService";
 import { applyPlanFromJob } from "../../services/customerService";
 import PlanPicker from "../../components/PlanPicker";
@@ -45,6 +47,8 @@ export default function JobDetail() {
   const [servicePlan, setServicePlan] = useState("one_time");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   async function load() {
     try {
@@ -88,6 +92,11 @@ export default function JobDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Declared above the handlers that close over it, for the same reason as
+  // extraBooking in ScheduleForCustomer: the early returns below would
+  // otherwise leave it in the temporal dead zone on renders that bail out.
+  const isCancelled = job?.status === "cancelled";
+
   async function handleSave() {
     setError("");
     if (!apptDate || !apptTime) {
@@ -128,6 +137,34 @@ export default function JobDetail() {
     }
   }
 
+  async function handleCancel() {
+    setCancelling(true);
+    setError("");
+    try {
+      await cancelJob(id);
+      navigate(returnTo);
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't cancel this job. Try again.");
+      setCancelling(false);
+      setConfirmCancel(false);
+    }
+  }
+
+  async function handleRestore() {
+    setCancelling(true);
+    setError("");
+    try {
+      await restoreJob(id);
+      await load();
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't restore this job. Try again.");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   async function handleDelete() {
     setDeleting(true);
     setError("");
@@ -162,6 +199,28 @@ export default function JobDetail() {
       </div>
 
       {error && <p className="jobDetail__error">{error}</p>}
+
+      {/* A cancelled job stays fully readable and editable — it's a record,
+          not an archive. The banner is here so nobody assigns crew to it by
+          accident, and so the way back is obvious. */}
+      {isCancelled && (
+        <div className="jobDetail__cancelled">
+          <div className="jobDetail__cancelledtext">
+            <strong>This job was cancelled.</strong> It stays on{" "}
+            {job.customer?.name || job.lead?.name || "the customer"}&rsquo;s
+            profile as a record. It isn&rsquo;t on the schedule and doesn&rsquo;t
+            count towards their visits or lifetime value.
+          </div>
+          <button
+            type="button"
+            className="jobDetail__restore"
+            onClick={handleRestore}
+            disabled={cancelling}
+          >
+            {cancelling ? "Restoring…" : "Put it back"}
+          </button>
+        </div>
+      )}
 
       <div className="jobDetail__form">
         <AppointmentPicker
@@ -229,12 +288,51 @@ export default function JobDetail() {
           </button>
         </div>
 
+        {/* Cancelling comes first and reads as the ordinary thing to do,
+            because it almost always is: the customer called off the job and
+            that fact is worth keeping. Delete is the rare one — it destroys
+            the row and its history with it — so it sits below, quieter. */}
+        {!isCancelled && (
+          <div className="jobDetail__danger">
+            {confirmCancel ? (
+              <>
+                <span className="jobDetail__dangertext">
+                  Cancel this job? It stays on the customer&rsquo;s profile as
+                  a record and comes off the schedule.
+                </span>
+                <button
+                  className="jobDetail__cancelyes"
+                  onClick={handleCancel}
+                  disabled={cancelling}
+                >
+                  {cancelling ? "Cancelling…" : "Yes, cancel it"}
+                </button>
+                <button
+                  className="jobDetail__cancel"
+                  onClick={() => setConfirmCancel(false)}
+                  disabled={cancelling}
+                >
+                  Keep it booked
+                </button>
+              </>
+            ) : (
+              <button
+                className="jobDetail__canceljob"
+                onClick={() => setConfirmCancel(true)}
+              >
+                Cancel this job
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="jobDetail__danger">
           {confirmDelete ? (
             <>
               <span className="jobDetail__dangertext">
-                Delete this job permanently? Any payment recorded against it
-                goes too.
+                Delete this job permanently? Its history goes too, and any
+                payment recorded against it. Cancel it instead if you want to
+                keep the record.
               </span>
               <button
                 className="jobDetail__deleteyes"
