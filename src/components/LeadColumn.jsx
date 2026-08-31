@@ -32,14 +32,19 @@ export default function LeadColumn({
       }
     >
       <div className="column__head">
+        {/* The arrow is its own button. Joining it to the stage name made
+            the label look pressable and the arrow look decorative — the
+            wrong way round — and the combined width pushed the count out of
+            a collapsed rail. */}
         <button
-          className="column__toggle"
+          className="column__arrowbtn"
           onClick={onToggle}
           aria-expanded={!collapsed}
+          aria-label={`${collapsed ? "Expand" : "Collapse"} ${stage.label}`}
         >
           {/* One glyph that rotates rather than two different characters:
-              ▸ and ▾ have different widths, so swapping them nudged the
-              stage name sideways on every toggle. */}
+              ▸ and ▾ have different widths, so swapping them nudged
+              everything beside them sideways on every toggle. */}
           <span
             className={
               "column__arrow" + (collapsed ? " column__arrow--collapsed" : "")
@@ -48,11 +53,10 @@ export default function LeadColumn({
           >
             ▾
           </span>
-          <span className="column__label">{stage.label}</span>
         </button>
-        <div className="column__head-right">
-          <span className="column__count">{leads.length}</span>
-        </div>
+
+        <span className="column__label">{stage.label}</span>
+        <span className="column__count">{leads.length}</span>
       </div>
 
       {!collapsed && (

@@ -145,16 +145,6 @@
   display: flex;
   gap: 16px;
   align-items: flex-start;
-  /* Columns are capped at 380px, so once a stage or two is collapsed they
-     no longer fill the container and there's nothing to stop them hugging
-     the left. Centring the leftover keeps the board under the middle of the
-     page whatever combination is open.
-
-     The trade: collapsing a stage now shifts the others sideways by about
-     half the width it gave up. That's the cost of centring anything whose
-     width changes, and it's worth paying here because collapsing is a
-     deliberate, occasional act rather than something you do mid-click. */
-  justify-content: center;
 }
 
 /* Column */
@@ -172,11 +162,27 @@
   max-width: 380px;
 }
 
-/* A rail. Wide enough for the longest stage name and its count, and no
-   wider — there's nothing else in there to see. */
+/* A rail: the arrow button, the stage name in full, and the count.
+   Sized by its content, not by a number. Two attempts at a fixed width both
+   ended in "CONTACTED…" — the label is bold uppercase with letter-spacing,
+   and it measures differently in Segoe UI on Windows than in whatever the
+   next machine resolves the font stack to. Any px value is one font away
+   from clipping again, so the browser measures it instead.
+   flex-shrink stays 0 so a busy stage next door can't squeeze it. */
 .column--collapsed,
 .column--quiet {
-  flex: 0 0 176px;
+  flex: 0 0 auto;
+}
+
+/* Content-sizing alone left the rails ragged — NEW hugging its three
+   letters next to a much wider CONTACTED. This floor evens them up.
+   In `ch` (the width of a "0" in the current font) rather than px, so it
+   grows and shrinks with whatever the font stack resolves to. If a font is
+   wide enough that a name still needs more, the column above simply grows:
+   the worst case is one slightly wider rail, never an ellipsis. */
+.column--collapsed .column__label,
+.column--quiet .column__label {
+  min-width: 12ch;
 }
 
 /* An empty stage says so once, quietly. At rail width the centred
@@ -189,59 +195,51 @@
 .column__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   padding: 6px 6px 12px;
 }
 
-/* The whole label is the toggle, but it used to have `padding: 0`, which
-   made the hit area exactly as tall as the text — about 17px. Fine with a
-   mouse, nowhere near a thumb. Now it's a real 40px target that looks
-   pressable, with negative margin so the stage name stays optically where
-   it was. */
-.column__toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 6px 12px 6px 6px;
-  margin: -6px 0 -6px -6px;
-  min-height: 40px;
-  border-radius: 9px;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease;
-}
-
-@media (hover: hover) {
-  .column__toggle:hover {
-    background: #e2e8f0;
-  }
-}
-
-.column__toggle:active {
-  background: #dbeafe;
-}
-
-.column__toggle:focus-visible {
-  outline: 2px solid #2563eb;
-  outline-offset: 1px;
-}
-
-/* Sat on the white chip so it reads as a control rather than a stray
-   character next to the heading. */
-.column__arrow {
+/* The arrow is its own button, not joined to the stage name. A 36px
+   square is a real target where the old text-height strip was about 17px,
+   and keeping it separate stops the header running out of room in a
+   collapsed rail. */
+.column__arrowbtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
   flex-shrink: 0;
-  border-radius: 7px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
   background: #ffffff;
   color: #475569;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+@media (hover: hover) {
+  .column__arrowbtn:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+}
+
+.column__arrowbtn:active {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.column__arrowbtn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.column__arrow {
+  display: block;
   font-size: 0.72rem;
   line-height: 1;
   transition: transform 0.15s ease;
@@ -252,6 +250,14 @@
 }
 
 .column__label {
+  /* Takes the slack so the count sits hard right, and truncates instead of
+     pushing it past the column edge — "CONTACTED" plus a two-digit count is
+     wider than a collapsed rail. */
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.85rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -259,13 +265,13 @@
   color: #475569;
 }
 
-.column__head-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .column__count {
+  flex-shrink: 0;
+  /* A "0" badge and a "13" badge were different widths, which was the last
+     few pixels of difference between one collapsed rail and the next. Also
+     lines the badges up down an expanded board. */
+  min-width: 2ch;
+  text-align: center;
   font-size: 0.8rem;
   font-weight: 700;
   color: #64748b;
@@ -499,5 +505,11 @@
   .card__move-btn {
     padding: 8px 4px 8px 10px;
     font-size: 0.85rem;
+  }
+
+  /* Full-width columns have room for a full-size touch target. */
+  .column__arrowbtn {
+    width: 40px;
+    height: 40px;
   }
 }
