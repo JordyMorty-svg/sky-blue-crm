@@ -19,6 +19,7 @@ import {
   telHref,
 } from "../../services/leadService";
 import { recordContact } from "../../services/contactService";
+import { setEmailOptOut } from "../../services/followUpService";
 import AddressPicker from "../../components/AddressPicker";
 import JobPlanTag from "../../components/JobPlanTag";
 import "./Customers.css";
@@ -66,6 +67,7 @@ export default function CustomerDetail() {
   const [forceDelete, setForceDelete] = useState(false);
   const [forceText, setForceText] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [optBusy, setOptBusy] = useState(false);
 
   async function load() {
     try {
@@ -205,6 +207,24 @@ export default function CustomerDetail() {
     } catch (e) {
       // The number still dialled; losing the log entry must not interrupt.
       console.error("Couldn't record that call:", e);
+    }
+  }
+
+  // "Don't email this one." Saves straight away rather than waiting for the
+  // Edit form to be saved: someone ticking this has just been asked to stop
+  // emailing a customer, and that shouldn't depend on remembering to press
+  // Save afterwards.
+  async function handleOptOut(e) {
+    const next = e.target.checked;
+    setOptBusy(true);
+    try {
+      await setEmailOptOut(id, next);
+      await load();
+    } catch (err) {
+      console.error(err);
+      setError("Couldn't change the email setting.");
+    } finally {
+      setOptBusy(false);
     }
   }
 
@@ -417,6 +437,31 @@ export default function CustomerDetail() {
             {customer.email && <span>{customer.email}</span>}
             {customer.address && <span>{customer.address}</span>}
           </div>
+
+          {/* Only where there's an address to email. On a customer with no
+              email the control would be a switch that governs nothing. */}
+          {customer.email && (
+            <label className="custdetail__optout">
+              <input
+                type="checkbox"
+                checked={!!customer.email_opt_out}
+                onChange={handleOptOut}
+                disabled={optBusy}
+              />
+              <span>
+                Don't send follow-up emails
+                {customer.last_review_request_at && !customer.email_opt_out && (
+                  <em className="custdetail__optoutnote">
+                    Last review request{" "}
+                    {new Date(customer.last_review_request_at).toLocaleDateString(
+                      "en-US",
+                      { month: "short", day: "numeric", year: "numeric" }
+                    )}
+                  </em>
+                )}
+              </span>
+            </label>
+          )}
 
           {customer.notes && (
             <div className="custdetail__notes">

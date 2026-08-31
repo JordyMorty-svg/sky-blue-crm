@@ -1,0 +1,116 @@
+import { supabase } from "../supabaseClient";
+
+/**
+ * The automatic follow-up email, from the CRM's side.
+ *
+ * The sending itself happens on a schedule in
+ * netlify/functions/send-follow-ups.mjs — nothing here sends anything. What
+ * the app can do is see what is queued and stop it, which is the point:
+ * three days is long enough to remember that a job went badly.
+ *
+ * See db/follow-ups.sql.
+ */
+
+// The queued (or already sent) follow-up for one job, or null.
+//
+// maybeSingle rather than single: most jobs have no row at all — anything
+// completed before db/follow-ups.sql was run, and anything still scheduled.
+// A missing row is the normal case, not an error.
+export async function fetchFollowUp(jobId) {
+  const { data, error } = await supabase
+    .from("follow_ups")
+    .select("*")
+    .eq("job_id", jobId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+// Everything ever queued for one customer, newest first. Used on the
+// customer profile to answer "have we already asked them for a review?"
+export async function fetchCustomerFollowUps(customerId) {
+  const { data, error } = await supabase
+    .from("follow_ups")
+    .select("*")
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+// Call it off. Goes through the database function rather than an update, so
+// a person can only ever move a row to 'skipped' — the app has no way to
+// mark something sent, which keeps the send path honest.
+export async function skipFollowUp(jobId, reason = null) {
+  const { error } = await supabase.rpc("skip_follow_up", {
+    p_job_id: jobId,
+    p_reason: reason,
+  });
+  if (error) throw error;
+}
+
+// "Don't email this customer." Cancels anything already queued for them the
+// next time the sender sweeps, because the rule is re-checked at send time.
+export async function setEmailOptOut(customerId, optOut) {
+  const { error } = await supabase
+    .from("customers")
+    .update({ email_opt_out: optOut })
+    .eq("id", customerId);
+  if (error) throw error;
+}
+
+// --- wording ---------------------------------------------------------------
+
+export function followUpDate(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
+ * One sentence describing where a follow-up has got to.
+ *
+ * `tone` is "waiting" | "done" | "off" | "problem" — the page colours the
+ * row from that rather than re-deriving meaning from the status string.
+ */
+export function describeFollowUp(row) {
+  if (!row) return null;
+
+  switch (row.status) {
+    case "pending":
+      return {
+        tone: "waiting",
+        text: `Review request goes out ${followUpDate(row.due_at)}`,
+        canSkip: true,
+      };
+    case "sending":
+      return { tone: "waiting", text: "Review request is sending now", canSkip: false };
+    case "sent":
+      return {
+        tone: "done",
+        text: `Review request sent ${followUpDate(row.sent_at)}${
+          row.sent_to ? ` to ${row.sent_to}` : ""
+        }`,
+        canSkip: false,
+      };
+    case "skipped":
+      return {
+        tone: "off",
+        // The note is the whole value here — "skipped" alone leaves you
+        // wondering whether someone did it on purpose or something broke.
+        text: `No review request — ${row.note || "skipped"}`,
+        canSkip: false,
+      };
+    case "failed":
+      return {
+        tone: "problem",
+        text: `Review request didn't send — ${row.note || "unknown error"}. It'll retry.`,
+        canSkip: true,
+      };
+    default:
+      return { tone: "off", text: row.status, canSkip: false };
+  }
+}

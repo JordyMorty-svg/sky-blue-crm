@@ -1,0 +1,89 @@
+/* A quiet status line, not a card.
+   It sits next to the job's facts and shouldn't compete with them — what's
+   coming is one sentence, and the only action is a way out of it. */
+
+.fup {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.86rem;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.fup__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: #cbd5e1;
+}
+
+/* Something is going to happen: blue, the same as everything else in this
+   CRM that means "active". */
+.fup__dot--waiting {
+  background: #2563eb;
+}
+
+/* It happened, and that was the desired outcome. */
+.fup__dot--done {
+  background: #16a34a;
+}
+
+/* Deliberately switched off. Grey, not red — nothing is wrong. */
+.fup__dot--off {
+  background: #cbd5e1;
+}
+
+.fup__dot--problem {
+  background: #dc2626;
+}
+
+.fup__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.fup__skip {
+  flex: 0 0 auto;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 0 14px;
+  min-height: 34px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .fup__skip:hover:not(:disabled) {
+    border-color: #fecaca;
+    color: #b91c1c;
+    background: #fef2f2;
+  }
+}
+
+.fup__skip:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.fup__skip:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.fup__error {
+  flex: 1 0 100%;
+  color: #b91c1c;
+  font-size: 0.8rem;
+}

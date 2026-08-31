@@ -8,6 +8,7 @@ import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import { planFor } from "../../services/leadService";
 import JobPlanTag from "../../components/JobPlanTag";
 import JobHistory from "../../components/JobHistory";
+import FollowUpNotice from "../../components/FollowUpNotice";
 import { PAYMENT_LABELS, money, formatStamp } from "../../components/jobFormat";
 import "./JobRecord.css";
 
@@ -338,6 +339,10 @@ export default function JobRecord() {
           <p className="jobrec__notes-text">{job.notes}</p>
         </div>
       )}
+
+      {/* Above the history, not inside it: the history is what happened,
+          this is what is about to. */}
+      <FollowUpNotice jobId={job.id} className="jobrec__followup" />
 
       <JobHistory jobId={job.id} refreshKey={historyKey} />
 

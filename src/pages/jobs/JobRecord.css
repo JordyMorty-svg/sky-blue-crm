@@ -419,3 +419,11 @@
   font-size: 0.84rem;
   color: #64748b;
 }
+
+/* --- the follow-up email ---
+   Spacing only. The notice brings its own look from FollowUpNotice.css,
+   which is shared with the customer profile — this just seats it in the
+   gap above the history. */
+.jobrec__followup {
+  margin: 0 0 22px;
+}

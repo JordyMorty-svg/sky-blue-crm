@@ -51,6 +51,12 @@ const CONTACT_KINDS = {
   text: "Texted",
   email: "Emailed",
   note: "Note",
+  // Written by the follow-up automation, never by a person. Named
+  // differently from a hand-sent email on purpose: "Emailed" on a timeline
+  // implies somebody sat down and wrote it, and the difference matters when
+  // a customer replies and you're working out what they're replying to.
+  auto_email: "Automatic email",
+  opt_out: "Unsubscribed",
 };
 
 const JOB_KINDS = {

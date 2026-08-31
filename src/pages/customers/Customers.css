@@ -806,3 +806,46 @@
 .custjob--cancelled .plantag {
   opacity: 0.7;
 }
+
+/* --- follow-up emails ---
+   A checkbox rather than a toggle switch: it saves the moment it changes,
+   and a checkbox is the control people already read as "this is now true"
+   without looking for a Save button. */
+.custdetail__optout {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 14px 0 0;
+  font-size: 0.86rem;
+  color: #475569;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.custdetail__optout input {
+  width: 17px;
+  height: 17px;
+  margin: 1px 0 0;
+  flex: 0 0 auto;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.custdetail__optout input:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.custdetail__optout span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.4;
+}
+
+.custdetail__optoutnote {
+  font-style: normal;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
