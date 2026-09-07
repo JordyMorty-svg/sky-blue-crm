@@ -807,23 +807,74 @@
   opacity: 0.7;
 }
 
-/* --- follow-up emails ---
-   A checkbox rather than a toggle switch: it saves the moment it changes,
-   and a checkbox is the control people already read as "this is now true"
-   without looking for a Save button. */
-.custdetail__optout {
+/* --- email preferences ---
+   Two settings that answer the same question, so they're one bordered group
+   rather than two loose tickboxes floating in the page. The whole card is
+   the label, which makes the target the size of the card instead of the
+   17px box — this gets used one-handed on a phone in somebody's driveway. */
+/* 20px below to match .custdetail__notes, because whichever of the two
+   comes next — the notes block or the stat tiles — the gap should be the
+   same one. The stats carry no top margin of their own, so without this
+   the cards sit flush against them. */
+.custprefs {
+  margin: 16px 0 20px;
+}
+
+.custprefs__head {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 7px;
+}
+
+/* auto-fit rather than a media query: they sit side by side wherever two
+   fit and stack where they don't, which is the same rule at every width. */
+.custprefs__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.custpref {
   display: flex;
   align-items: flex-start;
-  gap: 9px;
-  margin: 14px 0 0;
-  font-size: 0.86rem;
-  color: #475569;
+  gap: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  border-radius: 11px;
+  padding: 12px 13px;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.custdetail__optout input {
+@media (hover: hover) {
+  .custpref:hover {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+  }
+}
+
+/* On. Tinted rather than filled: these are settings you read at a glance,
+   not buttons you're being invited to press, and a solid blue block would
+   pull more attention than a preference deserves. */
+.custpref--on {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+@media (hover: hover) {
+  .custpref--on:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+  }
+}
+
+.custpref input {
   width: 17px;
   height: 17px;
   margin: 1px 0 0;
@@ -832,20 +883,40 @@
   cursor: pointer;
 }
 
-.custdetail__optout input:disabled {
+.custpref input:disabled {
   cursor: default;
   opacity: 0.6;
 }
 
-.custdetail__optout span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  line-height: 1.4;
+.custpref:focus-within {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
-.custdetail__optoutnote {
-  font-style: normal;
-  font-size: 0.78rem;
+.custpref__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.custpref__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #334155;
+}
+
+.custpref--on .custpref__label {
+  color: #1d4ed8;
+}
+
+.custpref__hint {
+  font-size: 0.76rem;
+  line-height: 1.35;
   color: #94a3b8;
+}
+
+.custpref--on .custpref__hint {
+  color: #60a5fa;
 }

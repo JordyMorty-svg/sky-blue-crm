@@ -456,62 +456,89 @@ export default function CustomerDetail() {
             {customer.address && <span>{customer.address}</span>}
           </div>
 
-          {/* Only where there's an address to email. On a customer with no
-              email the control would be a switch that governs nothing. */}
-          {customer.email && (
-            <label className="custdetail__optout">
-              <input
-                type="checkbox"
-                checked={!!customer.email_opt_out}
-                onChange={handleOptOut}
-                disabled={optBusy}
-              />
-              <span>
-                Don't send follow-up emails
-                {customer.last_review_request_at && !customer.email_opt_out && (
-                  <em className="custdetail__optoutnote">
-                    Last review request{" "}
-                    {new Date(customer.last_review_request_at).toLocaleDateString(
-                      "en-US",
-                      { month: "short", day: "numeric", year: "numeric" }
+          {/* One group, because they answer the same question — should
+              this person hear from us — and reading them as a pair is what
+              makes the difference between them obvious. Side by side on a
+              desktop, stacked on a phone, from one auto-fit grid rather
+              than a breakpoint. */}
+          <div className="custprefs">
+            <span className="custprefs__head">Email</span>
+            <div className="custprefs__grid">
+              {/* Only where there's an address. On a customer with no email
+                  this would be a switch that governs nothing. */}
+              {customer.email && (
+                <label
+                  className={
+                    "custpref" + (customer.email_opt_out ? " custpref--on" : "")
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!customer.email_opt_out}
+                    onChange={handleOptOut}
+                    disabled={optBusy}
+                  />
+                  <span className="custpref__body">
+                    <span className="custpref__label">
+                      Don&rsquo;t send follow-up emails
+                    </span>
+                    {/* The hint carries STATE, not instructions. A line
+                        telling you what a tickbox does is read once and then
+                        becomes clutter forever; a date is useful every time. */}
+                    {customer.email_opt_out ? (
+                      <span className="custpref__hint">
+                        Nothing automatic will send
+                      </span>
+                    ) : (
+                      customer.last_review_request_at && (
+                        <span className="custpref__hint">
+                          Last asked{" "}
+                          {new Date(
+                            customer.last_review_request_at
+                          ).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>
+                      )
                     )}
-                  </em>
-                )}
-              </span>
-            </label>
-          )}
-
-          {/* Not conditional on having an email: whether they reviewed is
-              true regardless, and hiding it would mean a customer who
-              reviewed and later lost their address quietly became askable
-              again. */}
-          <label className="custdetail__optout">
-            <input
-              type="checkbox"
-              checked={!!customer.reviewed_at}
-              onChange={handleReviewed}
-              disabled={revBusy}
-            />
-            <span>
-              Already left a Google review
-              {customer.reviewed_at ? (
-                <em className="custdetail__optoutnote">
-                  Recorded{" "}
-                  {new Date(customer.reviewed_at).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}{" "}
-                  — no more review requests
-                </em>
-              ) : (
-                <em className="custdetail__optoutnote">
-                  Tick this when their review comes through, and we&rsquo;ll stop
-                  asking
-                </em>
+                  </span>
+                </label>
               )}
-            </span>
-          </label>
+
+              {/* Not conditional on having an email: whether they reviewed is
+                  true regardless, and hiding it would mean a customer who
+                  reviewed and later lost their address quietly became
+                  askable again. */}
+              <label
+                className={
+                  "custpref" + (customer.reviewed_at ? " custpref--on" : "")
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={!!customer.reviewed_at}
+                  onChange={handleReviewed}
+                  disabled={revBusy}
+                />
+                <span className="custpref__body">
+                  <span className="custpref__label">
+                    Already left a Google review
+                  </span>
+                  {customer.reviewed_at && (
+                    <span className="custpref__hint">
+                      Recorded{" "}
+                      {new Date(customer.reviewed_at).toLocaleDateString(
+                        "en-US",
+                        { month: "short", day: "numeric", year: "numeric" }
+                      )}
+                    </span>
+                  )}
+                </span>
+              </label>
+            </div>
+          </div>
 
           {customer.notes && (
             <div className="custdetail__notes">
