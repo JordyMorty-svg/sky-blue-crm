@@ -8,6 +8,12 @@
 //   RESEND_API_KEY   — from resend.com dashboard
 //   RECEIPT_FROM     — e.g. "Sky Blue Cleaning Co. <receipts@skybluecleaningco.com>"
 //                      (the domain must be verified in Resend)
+//
+// Optional:
+//   REPLY_TO         — where a customer's reply actually lands. Falls back to
+//                      FOLLOW_UP_REPLY_TO, so setting one address covers both
+//                      kinds of email; set REPLY_TO as well only if receipts
+//                      and review requests should go to different inboxes.
 
 async function verifyUser(req) {
   const token = (req.headers.get("authorization") || "").replace("Bearer ", "");
@@ -28,7 +34,6 @@ function money(n) {
 const METHOD_LABEL = {
   cash: "Cash",
   check: "Check",
-  card: "Card",
   square: "Card (Square)",
 };
 
@@ -92,6 +97,13 @@ export default async (req) => {
       },
       body: JSON.stringify({
         from: process.env.RECEIPT_FROM,
+        // This email ends with "Questions? Just reply to this email", and
+        // without this that reply goes to RECEIPT_FROM — a no-reply-ish
+        // receipts@ address nobody opens. A customer querying a charge is
+        // exactly the message you cannot afford to miss, so the invitation
+        // and the destination have to match.
+        reply_to:
+          process.env.REPLY_TO || process.env.FOLLOW_UP_REPLY_TO || undefined,
         to: [customerEmail],
         subject: `Your Sky Blue Cleaning receipt — ${money(amount)}`,
         html: receiptHtml({ customerName, amount, method, description, date, address }),

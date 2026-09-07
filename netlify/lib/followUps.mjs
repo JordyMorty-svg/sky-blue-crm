@@ -15,7 +15,10 @@
 //
 // Optional:
 //   FOLLOW_UP_FROM        — defaults to RECEIPT_FROM
-//   FOLLOW_UP_REPLY_TO    — where "just reply" actually lands
+//   REPLY_TO              — where a customer's reply lands, for every email
+//                           the CRM sends. FOLLOW_UP_REPLY_TO still works and
+//                           wins here, for when review requests should go
+//                           somewhere different from receipts.
 //   REVIEW_URL            — the Google review link
 //   BUSINESS_ADDRESS      — postal address, required on commercial email
 //   UNSUBSCRIBE_SECRET    — any random string; signs the opt-out links
@@ -247,7 +250,11 @@ async function sendOne(row, siteUrl) {
     body: JSON.stringify({
       from: process.env.FOLLOW_UP_FROM || process.env.RECEIPT_FROM,
       to: [row.email],
-      reply_to: process.env.FOLLOW_UP_REPLY_TO || undefined,
+      // FOLLOW_UP_REPLY_TO first, then the general REPLY_TO that receipts
+      // also read. One address set in either place covers both emails; two
+      // only if you want them split.
+      reply_to:
+        process.env.FOLLOW_UP_REPLY_TO || process.env.REPLY_TO || undefined,
       subject,
       html,
       text,
