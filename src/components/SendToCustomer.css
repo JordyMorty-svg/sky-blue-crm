@@ -245,15 +245,27 @@
   }
 }
 
-/* Context, not an obstacle — so it's the calm green of a thing that already
-   went well, rather than the amber of a thing standing in your way. The row
-   stays clickable. */
+/* Context, not an obstacle — never amber, which in this list means "you
+   can't pick this one". The row stays clickable under both of these. */
 .stc__note {
   flex: 0 0 auto;
   font-size: 0.72rem;
   font-weight: 700;
-  color: #15803d;
-  background: #f0fdf4;
   border-radius: 999px;
   padding: 2px 8px;
+  white-space: nowrap;
+}
+
+/* Done. Green, because this is the outcome the whole feature exists for. */
+.stc__note--reviewed {
+  color: #15803d;
+  background: #f0fdf4;
+}
+
+/* Asked, still waiting. Blue — the CRM's "in progress" colour everywhere
+   else — so a glance down the list separates the ones still in play from
+   the ones that have landed, without reading a word. */
+.stc__note--sent {
+  color: #1d4ed8;
+  background: #eff6ff;
 }

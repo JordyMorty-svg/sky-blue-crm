@@ -33,14 +33,42 @@ function reasonBlocked(c) {
   return null;
 }
 
-// Worth knowing before you pick them, but NOT a reason to stop you.
+function shortDate(iso) {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+// Where this customer has got to, but NOT a reason to stop you.
 //
-// "Already reviewed" suppresses the automatic email; a person deliberately
-// choosing this name is the judgement that rule stands in for — they might
-// be asking for a review of a second property, or the tick might be wrong.
-// Shown, not enforced.
+// Neither of these blocks the button: "reviewed" suppresses the AUTOMATIC
+// email, and a person deliberately choosing a name is the judgement that
+// rule stands in for — they might be asking about a second property, or the
+// tick might be wrong. Shown, not enforced.
+//
+// Ordered by finality. Reviewed is the end of the story, so it wins over
+// "we asked" even though both are true of the same customer — otherwise
+// every reviewer would also read as still-waiting.
 function noteFor(c) {
-  if (c.reviewed_at) return "Reviewed";
+  if (c.reviewed_at) {
+    return {
+      tone: "reviewed",
+      text: "Reviewed",
+      title: `Recorded ${shortDate(c.reviewed_at)}`,
+    };
+  }
+  if (c.last_review_request_at) {
+    return {
+      tone: "sent",
+      text: "Email sent",
+      // The date goes in the tooltip rather than the badge: the row already
+      // carries a name and an address, and three pieces of text competing
+      // for the same line is how a scannable list stops being scannable.
+      title: `Review request sent ${shortDate(c.last_review_request_at)} — no review yet`,
+    };
+  }
   return null;
 }
 
@@ -212,7 +240,14 @@ export default function SendToCustomer() {
                       {blocked && (
                         <span className="stc__blocked">{blocked}</span>
                       )}
-                      {note && <span className="stc__note">{note}</span>}
+                      {note && (
+                        <span
+                          className={`stc__note stc__note--${note.tone}`}
+                          title={note.title}
+                        >
+                          {note.text}
+                        </span>
+                      )}
                     </button>
                   </li>
                 );
