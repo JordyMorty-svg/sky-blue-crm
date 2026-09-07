@@ -17,7 +17,7 @@ import "./FollowUpRunner.css";
  * it WOULD do, rather than the traditional method of running the real thing
  * and watching what lands in customers' inboxes.
  */
-export default function FollowUpRunner() {
+export default function FollowUpRunner({ onSent }) {
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -42,7 +42,12 @@ export default function FollowUpRunner() {
     setError("");
     setConfirming(false);
     try {
-      setResult({ kind: "send", ...(await sendFollowUpsNow()) });
+      const res = await sendFollowUpsNow();
+      setResult({ kind: "send", ...res });
+      // Only when something actually went out. A run that found nothing due
+      // changed no customer, and making the sibling list refetch for that
+      // would be a round trip to redraw the same thing.
+      if (res.sent > 0) onSent?.();
     } catch (e) {
       console.error(e);
       setError(e.message);

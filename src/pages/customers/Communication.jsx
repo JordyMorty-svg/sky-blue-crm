@@ -1,3 +1,4 @@
+import { useState } from "react";
 import ViewSwitcher from "../../components/ViewSwitcher";
 import { CUSTOMER_VIEWS } from "../../components/navViews";
 import FollowUpRunner from "../../components/FollowUpRunner";
@@ -18,6 +19,13 @@ import "./Communication.css";
  * only way to see the email without waiting three days for the schedule.
  */
 export default function Communication() {
+  // The two panels read the same customers, and the top one changes them:
+  // a batch send stamps last_review_request_at, which is exactly what the
+  // list below draws its "Email sent" badges from. Bumping a counter is
+  // enough to make the list refetch — cheaper than lifting the customer
+  // list into this page just so two siblings can share it.
+  const [sentTick, setSentTick] = useState(0);
+
   return (
     <div className="comms">
       <ViewSwitcher views={CUSTOMER_VIEWS} section="customers" />
@@ -31,8 +39,8 @@ export default function Communication() {
       </header>
 
       <div className="comms__panels">
-        <FollowUpRunner />
-        <SendToCustomer />
+        <FollowUpRunner onSent={() => setSentTick((n) => n + 1)} />
+        <SendToCustomer refreshKey={sentTick} />
       </div>
     </div>
   );

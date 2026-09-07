@@ -72,7 +72,7 @@ function noteFor(c) {
   return null;
 }
 
-export default function SendToCustomer() {
+export default function SendToCustomer({ refreshKey = 0 }) {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
   const [picked, setPicked] = useState(null);
@@ -81,6 +81,10 @@ export default function SendToCustomer() {
   const [error, setError] = useState("");
   const [done, setDone] = useState(null);
 
+  // Re-runs when refreshKey changes, which is how a batch send from the
+  // panel above gets reflected here — that run stamps last_review_request_at
+  // on several customers at once, and this list would otherwise keep showing
+  // them as never-asked until the page was reloaded.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -97,7 +101,7 @@ export default function SendToCustomer() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   async function handleSend() {
     if (!picked) return;
@@ -117,6 +121,19 @@ export default function SendToCustomer() {
       // a send it didn't make is worse than one that errors, because you
       // stop looking.
       if (res.sent > 0) {
+        // Patch the row in place rather than refetching. The send just
+        // succeeded, and mark_follow_up_sent stamps now() — so this is the
+        // same value the server holds, and the "Email sent" badge appears
+        // the instant you look for it instead of after a reload.
+        //
+        // Only this field: re-reading the whole customer would also
+        // overwrite anything else that changed while the page was open.
+        const stampedAt = new Date().toISOString();
+        setCustomers((cur) =>
+          cur.map((c) =>
+            c.id === picked.id ? { ...c, last_review_request_at: stampedAt } : c
+          )
+        );
         setDone({ name: picked.name, email: picked.email });
         setPicked(null);
         setSearch("");
