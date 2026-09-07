@@ -15,6 +15,7 @@ import PlanPicker from "../../components/PlanPicker";
 import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import TechPicker from "../../components/TechPicker";
+import ServicePicker from "../../components/ServicePicker";
 import JobHistory from "../../components/JobHistory";
 import "./JobDetail.css";
 
@@ -40,6 +41,7 @@ export default function JobDetail() {
   const [duration, setDuration] = useState(3);
   const [price, setPrice] = useState("");
   const [notes, setNotes] = useState("");
+  const [serviceKeys, setServiceKeys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -66,6 +68,11 @@ export default function JobDetail() {
       setDuration(jobData.duration_hours ?? 3);
       setPrice(jobData.price ?? "");
       setNotes(jobData.notes ?? "");
+      // Empty for a job created before db/job-services.sql. The picker shows
+      // nothing selected, which is honest — and the moment anyone picks
+      // something, that job stops describing itself as window cleaning by
+      // default.
+      setServiceKeys(jobData.service_keys ?? []);
       // Plan comes from the customer, which is what drives recurrence.
       setPropertyType(
         jobData.customer?.property_type || jobData.property_type || "residential"
@@ -115,6 +122,11 @@ export default function JobDetail() {
         duration_hours: Number(duration),
         price: Number(price) || 0,
         notes: notes || null,
+        // The jobs_sync_services trigger rewrites `services` from this, and
+        // jobs_log_services puts the change on the job's history — so adding
+        // gutters on the day is recorded rather than silently overwriting
+        // what the job used to say it was.
+        service_keys: serviceKeys,
       });
       await updateJobTechs(id, originalTechs, selectedTechs);
 
@@ -248,6 +260,13 @@ export default function JobDetail() {
           value={price}
           onChange={(e) => setPrice(e.target.value)}
         />
+
+        {/* Editable while the job is still ahead of you: "they asked us to
+            do the gutters too" is a normal thing to hear on the doorstep,
+            and it changes the price and the time. */}
+        <div className="jobDetail__services">
+          <ServicePicker value={serviceKeys} onChange={setServiceKeys} />
+        </div>
 
         <label className="jobDetail__label">Assigned team members</label>
         <TechPicker

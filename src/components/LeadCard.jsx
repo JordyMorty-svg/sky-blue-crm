@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   TEMPERATURES,
   LEADS_SETTABLE_STATUSES,
+  serviceFor,
   telHref,
 } from "../services/leadService";
 
@@ -31,6 +32,17 @@ export default function LeadCard({ lead, onMove, onContact }) {
 
   const temp = TEMPERATURES.find((t) => t.key === lead.temperature);
   const phone = telHref(lead.phone);
+
+  // A number the customer was actually given. 0 is what the CRM writes when
+  // a lead is saved with the field empty, so it means "not quoted" too.
+  const hasEstimate = lead.estimate != null && Number(lead.estimate) > 0;
+
+  // Residential window washing is the house default; showing it on every
+  // card would drown the one that says Gutters.
+  const service =
+    lead.service && lead.service !== "residential-window-washing"
+      ? lead.service
+      : null;
 
   // Stages you can move to from the board: forward pipeline moves, plus
   // Lost — marking a no at the door is the single most common action after
@@ -64,8 +76,26 @@ export default function LeadCard({ lead, onMove, onContact }) {
             )}
             {lead.name}
           </span>
-          <span className="card__estimate">${lead.estimate}</span>
+          {/* The request forms (gutters, screens, pressure washing, solar)
+              don't produce an estimate — only the window calculator does —
+              so this used to render a lone "$" on every one of them. No
+              number means we haven't quoted them yet, and that is worth
+              saying out loud, because it's the next thing to do. */}
+          {hasEstimate ? (
+            <span className="card__estimate">${lead.estimate}</span>
+          ) : (
+            <span className="card__estimate card__estimate--none">
+              No quote
+            </span>
+          )}
         </div>
+
+        {/* Only when it isn't the obvious one. Tagging four out of five
+            cards "Residential windows" is noise that makes the gutter lead
+            harder to spot, not easier. */}
+        {service && (
+          <span className="card__service">{serviceFor(service).short}</span>
+        )}
 
         {lead.notes && <p className="card__notes">{lead.notes}</p>}
       </div>

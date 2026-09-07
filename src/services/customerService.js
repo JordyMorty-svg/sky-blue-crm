@@ -50,7 +50,17 @@ export async function addPastJobs(rows) {
 
     const { error } = await supabase.from("jobs").insert({
       customer_id: customerId,
-      services: row.interior ? "Interior + exterior windows" : "Exterior windows",
+      // This screen imports work Sky Blue had already done, and until the
+      // website started taking gutter and pressure-washing quotes that was
+      // all window cleaning. So the key is safe to assume here in a way it
+      // is not for a job being booked now.
+      //
+      // `services` is left to the jobs_sync_services trigger, which turns
+      // this into "Residential window washing". The interior flag survives
+      // in the note below rather than in the service name — interior is a
+      // detail of a window job, not a different service.
+      service_keys: ["residential-window-washing"],
+      notes: row.interior ? "Interior + exterior" : null,
       price: Number(row.amount) || 0,
       final_price: Number(row.amount) || 0,
       starts_at: startsAt,

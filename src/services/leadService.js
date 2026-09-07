@@ -161,6 +161,91 @@ export function sourceFor(key) {
   return { key: key || "unknown", label: key || "Not recorded", hint: "" };
 }
 
+// What Sky Blue actually does.
+//
+// THE KEYS ARE A CONTRACT WITH THE WEBSITE. skybluecleaningco.com writes
+// leads.service straight into this same Supabase project, using the slugs
+// from its src/data/services.jsx — so these strings have to match that file
+// character for character. A typo here doesn't throw; it just quietly
+// renders "gutter-cleaning" as itself on every gutter lead forever.
+//
+// Adding a service is: the website's services.jsx, this array, and
+// sb_service_label() in db/job-services.sql (which exists so the follow-up
+// email, sent on a schedule with no app running, can still name the work).
+// `label` must also match sb_service_label() in db/job-services.sql word for
+// word. Both end up on screen — the database's copy is written into
+// jobs.services and shown on the job record and the customer profile, while
+// this one drives the pickers. When they drifted ("Residential windows" here,
+// "Residential window washing" there) the same job read two different ways
+// on two halves of the same page.
+//
+// `short` has no counterpart in SQL and is free to be terse: it is only used
+// where space is tight and context makes it obvious, like a board card.
+export const SERVICE_TYPES = [
+  {
+    key: "residential-window-washing",
+    label: "Residential window washing",
+    short: "Windows",
+    hint: "Houses. The default for a door knock.",
+  },
+  {
+    key: "commercial-window-washing",
+    label: "Commercial window washing",
+    short: "Commercial",
+    hint: "Storefronts and offices",
+  },
+  { key: "gutter-cleaning", label: "Gutter cleaning", short: "Gutters", hint: "" },
+  {
+    key: "screen-cleaning-repair",
+    label: "Screen cleaning & repair",
+    short: "Screens",
+    hint: "",
+  },
+  { key: "pressure-washing", label: "Pressure washing", short: "Pressure", hint: "" },
+  {
+    key: "solar-panel-cleaning",
+    label: "Solar panel cleaning",
+    short: "Solar",
+    hint: "",
+  },
+];
+
+// What a door knock is, unless someone says otherwise.
+export const DEFAULT_SERVICE = "residential-window-washing";
+
+// Same honesty rule as sourceFor: an unrecognised slug is shown, not
+// guessed. If the website adds a service before the CRM knows about it, a
+// de-slugified version of its own key is the correct thing to display —
+// wrong-but-plausible ("Residential windows") would be worse than ugly.
+export function serviceFor(key) {
+  const found = SERVICE_TYPES.find((s) => s.key === key);
+  if (found) return found;
+  if (!key) return { key: "unknown", label: "Not recorded", short: "—", hint: "" };
+  const guess = String(key).replace(/-/g, " ");
+  const label = guess.charAt(0).toUpperCase() + guess.slice(1);
+  return { key, label, short: label, hint: "" };
+}
+
+// A job's services as one readable phrase. Mirrors sb_service_sentence() in
+// db/job-services.sql — the database needs its own copy for the follow-up
+// email, and this one exists so the CRM never has to wait for a round trip
+// to render a card.
+export function serviceSentence(keys, { short = false } = {}) {
+  const list = (keys || []).map((k) => serviceFor(k));
+  if (list.length === 0) return "";
+  const pick = (s) => (short ? s.short : s.label);
+  if (list.length === 1) return pick(list[0]);
+  const head = list.slice(0, -1).map(pick);
+  const tail = pick(list[list.length - 1]);
+  // Only the first keeps its capital, so it reads as a sentence fragment:
+  // "Gutter cleaning and residential windows".
+  const rest = head
+    .slice(1)
+    .map((l) => l.toLowerCase())
+    .concat(tail.toLowerCase());
+  return [head[0], ...rest.slice(0, -1)].join(", ") + " and " + rest[rest.length - 1];
+}
+
 // Record that someone tried to reach this lead, and return the updated row.
 //
 // Goes through an RPC rather than a plain update for two reasons, both of
@@ -541,7 +626,18 @@ export async function createLead(lead, createdBy = null) {
     .from("leads")
     // source comes from the form now. Door knock stays the fallback because
     // it's both the commonest case and what every existing row already says.
-    .insert({ ...lead, source: lead.source || "door", created_by: createdBy })
+    //
+    // Service defaults here rather than in each caller, so the map's
+    // add-lead modal gets it too without growing a picker it doesn't need —
+    // a lead added by tapping a house is a window knock until told
+    // otherwise. Only CRM paths reach this function; the website inserts its
+    // own rows and always sends a real service.
+    .insert({
+      ...lead,
+      source: lead.source || "door",
+      service: lead.service || DEFAULT_SERVICE,
+      created_by: createdBy,
+    })
     .select()
     .single();
 

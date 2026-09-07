@@ -1,0 +1,88 @@
+/* Same chip language as the log-a-contact kinds on the history page, so
+   "tap the ones that apply" looks like one idea across the CRM. */
+
+.svcpick {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.svcpick__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.svcpick__label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.svcpick__hint {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.svcpick__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.svcpick__chip {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  border-radius: 999px;
+  padding: 0 15px;
+  /* 40px, not the 44 used for primary actions: there are six of these and
+     they wrap to three rows on a phone as it is. Still comfortably above
+     the tap-target floor. */
+  min-height: 40px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.svcpick__chip--on {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+@media (hover: hover) {
+  .svcpick__chip:hover:not(:disabled) {
+    border-color: #cbd5e1;
+  }
+
+  .svcpick__chip--on:hover:not(:disabled) {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+  }
+}
+
+.svcpick__chip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.svcpick__chip:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.svcpick__preview {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.svcpick__preview--empty {
+  color: #b45309;
+}

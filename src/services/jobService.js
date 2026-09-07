@@ -1,5 +1,5 @@
 import { supabase } from "../supabaseClient";
-import { nextVisitDate, priceForVisit } from "./leadService";
+import { nextVisitDate, priceForVisit, DEFAULT_SERVICE } from "./leadService";
 
 // How far ahead of its due date a recurring visit becomes schedulable.
 // Before this it sits as "upcoming" — visible on the customer, absent from
@@ -112,9 +112,36 @@ export async function fetchTechs() {
   return data;
 }
 
+// What a job should say it covers.
+//
+// An explicit choice wins. Otherwise fall back to the lead's own service,
+// and only then to windows — which is a guess, but the right one for a lead
+// created before the service column existed, and it beats a job that can't
+// say what it's for.
+//
+// The old code decided this from `lead.interior`, which could only ever
+// produce "Exterior windows" or "Interior + exterior windows". Interior is
+// still recorded on the lead and still shows on the scheduling screen; it
+// just isn't the whole answer to "what is this job" any more.
+function serviceKeysFor(lead, explicit) {
+  if (explicit && explicit.length > 0) return explicit;
+  if (lead?.service) return [lead.service];
+  return [DEFAULT_SERVICE];
+}
+
 // Create a scheduled job from a booked lead: find-or-create the customer,
 // create the job, assign techs, flip the lead to 'scheduled'.
-export async function scheduleJob({ lead, startsAt, durationHours, techIds, notes }) {
+export async function scheduleJob({
+  lead,
+  startsAt,
+  durationHours,
+  techIds,
+  notes,
+  // What this visit will actually cover. Defaults to whatever the lead
+  // asked about, but the scheduling screen can add to it — someone who
+  // enquired about gutters often books windows at the same time.
+  serviceKeys,
+}) {
   // 1. Find or create the customer (matched by phone number).
   const customerId = await findOrCreateCustomer(lead);
 
@@ -124,7 +151,11 @@ export async function scheduleJob({ lead, startsAt, durationHours, techIds, note
     .insert({
       lead_id: lead.id,
       customer_id: customerId,
-      services: lead.interior ? "Interior + exterior windows" : "Exterior windows",
+      // `services` — the human sentence — is written by the
+      // jobs_sync_services trigger from these keys, so it isn't set here.
+      // See db/job-services.sql; the trigger leaves it alone when the array
+      // is empty, which is what keeps pre-migration jobs readable.
+      service_keys: serviceKeysFor(lead, serviceKeys),
       price: lead.estimate,
       starts_at: startsAt,
       duration_hours: durationHours,
@@ -446,6 +477,19 @@ export async function createNextVisit(job) {
     .insert({
       lead_id: job.lead_id,
       customer_id: job.customer_id,
+      // Both, and each covers the other's gap.
+      //
+      // The keys are what matters: copying only the sentence would carry the
+      // wording forward but leave the next visit with an empty array — it
+      // would read right, then come up blank the moment anyone opened the
+      // picker, and be invisible to "show me every gutter job". The trigger
+      // regenerates identical text from them, so `services` here is ignored
+      // whenever there are keys.
+      //
+      // But a job predating db/job-services.sql has no keys, and then the
+      // trigger writes nothing — so the sentence has to be carried too, or
+      // the visit it generates would have no description at all.
+      service_keys: job.service_keys ?? [],
       services: job.services,
       price,
       starts_at: startsAt,
@@ -617,7 +661,10 @@ export async function scheduleJobForCustomer({
   techIds,
   notes,
   price,
-  services,
+  // Which services this visit covers. `services` (the free-text sentence)
+  // is no longer passed in — the jobs_sync_services trigger derives it from
+  // these keys, so there is one source of truth instead of two that drift.
+  serviceKeys,
   servicePlan,
   propertyType,
   // A one-off booked outside the recurring cycle: touch-up, callout, extra
@@ -648,7 +695,11 @@ export async function scheduleJobForCustomer({
     .from("jobs")
     .insert({
       customer_id: customer.id,
-      services: services || "Exterior windows",
+      // Falls back to the customer's usual work rather than a hardcoded
+      // "Exterior windows" — a customer whose last three visits were gutters
+      // is not booking windows by default.
+      service_keys:
+        serviceKeys && serviceKeys.length > 0 ? serviceKeys : [DEFAULT_SERVICE],
       price: Number(price) || 0,
       starts_at: startsAt,
       duration_hours: durationHours,

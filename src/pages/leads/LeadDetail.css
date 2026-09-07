@@ -50,7 +50,46 @@
 .detail__title {
   font-size: 1.6rem;
   color: #0f172a;
+  /* Was 20px. The tag row below now carries that gap, so the title sits
+     tight against what the lead is actually asking for. */
+  margin-bottom: 10px;
+}
+
+/* --- what they want ---
+   Service and property type read as one pair, so they share a shape and
+   differ only in colour. Service is the blue one because it is the thing
+   that changes what you do next; residential/commercial is context. */
+.detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 20px;
+}
+
+.detail__service,
+.detail__property {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.detail__service {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.detail__property--residential {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* Commercial is rare enough that it should catch the eye when it appears
+   — a storefront job is priced and staffed differently. */
+.detail__property--commercial {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .detail__error {

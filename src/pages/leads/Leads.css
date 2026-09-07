@@ -349,6 +349,29 @@
   white-space: nowrap;
 }
 
+/* An un-quoted lead. Deliberately quiet — it's a to-do, not an alarm, and
+   it must not out-shout the real numbers on the cards around it. */
+.card__estimate--none {
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+/* Only appears on the services that aren't residential windows, so it can
+   afford to be the loudest thing on the card after the name. */
+.card__service {
+  display: inline-block;
+  margin: 7px 0 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
 /* Clamped to two lines so one chatty note can't make its card three times
    the height of the ones around it. The full text is on the lead page. */
 .card__notes {

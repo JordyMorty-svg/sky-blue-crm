@@ -5,6 +5,8 @@ import {
   MANUAL_ADD_STAGES,
   TEMPERATURES,
   LEAD_SOURCES,
+  SERVICE_TYPES,
+  DEFAULT_SERVICE,
 } from "../../services/leadService";
 import { useAuth } from "../../context/useAuth";
 import AppointmentPicker from "../../components/AppointmentPicker";
@@ -48,6 +50,7 @@ export default function NewLead() {
   // Door knock is the default because it's still how most leads arrive —
   // but it's a choice now, not an assumption baked into createLead.
   const [source, setSource] = useState("door");
+  const [service, setService] = useState(DEFAULT_SERVICE);
   const [propertyType, setPropertyType] = useState("residential");
   const [servicePlan, setServicePlan] = useState("one_time");
   const [notes, setNotes] = useState("");
@@ -105,6 +108,7 @@ export default function NewLead() {
           appointment_at: combineToISO(appointmentDate, appointmentTime),
           temperature: temperature || null,
           source,
+          service,
           property_type: propertyType,
           service_plan: servicePlan,
           notes: notes.trim() || null,
@@ -261,6 +265,23 @@ export default function NewLead() {
                 onChange={(e) => setSource(e.target.value)}
               >
                 {LEAD_SOURCES.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            {/* Defaulted rather than blank: almost every knock is windows,
+                and a required choice you make forty times a day with the
+                same answer is a tax, not a safeguard. */}
+            <Field label="Service" hint="what they want doing">
+              <select
+                className="newlead__input"
+                value={service}
+                onChange={(e) => setService(e.target.value)}
+              >
+                {SERVICE_TYPES.map((s) => (
                   <option key={s.key} value={s.key}>
                     {s.label}
                   </option>

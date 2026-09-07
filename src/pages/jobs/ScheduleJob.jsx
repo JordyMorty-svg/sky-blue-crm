@@ -4,6 +4,8 @@ import { fetchLeadById, fetchTechs, scheduleJob } from "../../services/jobServic
 import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import TechPicker from "../../components/TechPicker";
+import ServicePicker from "../../components/ServicePicker";
+import { serviceFor } from "../../services/leadService";
 import DayPreview from "./DayPreview";
 import "./ScheduleJob.css";
 
@@ -18,6 +20,8 @@ export default function ScheduleJob() {
   const [apptDate, setApptDate] = useState(null);
   const [apptTime, setApptTime] = useState("");
   const [notes, setNotes] = useState("");
+  // Seeded from the lead once it loads, then the crew can add to it.
+  const [serviceKeys, setServiceKeys] = useState([]);
   const [conflicts, setConflicts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -31,6 +35,11 @@ export default function ScheduleJob() {
       ]);
       setLead(leadData);
       setTechs(techData);
+      // Whatever they enquired about is the starting point. A lead with
+      // nothing recorded predates the service column and gets no
+      // pre-selection — better to make someone choose than to have a gutter
+      // job quietly booked as window washing.
+      setServiceKeys(leadData.service ? [leadData.service] : []);
       const { date, time } = splitFromISO(leadData.appointment_at);
       setApptDate(date);
       setApptTime(time);
@@ -65,6 +74,10 @@ export default function ScheduleJob() {
       setError("Assign at least one team member.");
       return;
     }
+    if (serviceKeys.length === 0) {
+      setError("Pick at least one service for this job.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -74,6 +87,7 @@ export default function ScheduleJob() {
         durationHours: Number(duration),
         techIds: selectedTechs,
         notes,
+        serviceKeys,
       });
       // Stays in the Jobs flow — no redirect to the customer profile.
       navigate("/jobs");
@@ -99,7 +113,11 @@ export default function ScheduleJob() {
         <strong>{lead.name}</strong>
         <span>{lead.address || "No address"}</span>
         <span>{lead.phone}</span>
-        <span>${lead.estimate} · {lead.interior ? "Interior + exterior" : "Exterior"}</span>
+        <span>
+          {lead.estimate > 0 ? `$${lead.estimate}` : "No quote yet"}
+          {lead.service ? ` · ${serviceFor(lead.service).label}` : ""}
+          {lead.interior ? " · Interior included" : ""}
+        </span>
       </div>
 
       {error && <p className="scheduleJob__error">{error}</p>}
@@ -112,6 +130,12 @@ export default function ScheduleJob() {
             onDateChange={setApptDate}
             onTimeChange={setApptTime}
           />
+        </div>
+
+        {/* Above duration and crew on purpose: what the job IS decides how
+            long it takes and who should go. */}
+        <div className="scheduleJob__field">
+          <ServicePicker value={serviceKeys} onChange={setServiceKeys} />
         </div>
 
         <div className="scheduleJob__field">

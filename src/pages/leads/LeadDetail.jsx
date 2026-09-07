@@ -10,6 +10,8 @@ import {
   TEMPERATURES,
   LEAD_SOURCES,
   sourceFor,
+  SERVICE_TYPES,
+  serviceFor,
   telHref,
   recordLeadContact,
 } from "../../services/leadService";
@@ -90,6 +92,9 @@ export default function LeadDetail() {
         // here. The picker would have looked like it worked and quietly
         // reverted on reload.
         source: form.source || "door",
+        // No `|| DEFAULT_SERVICE` here on purpose — see the picker below.
+        // Null means nobody recorded it, which is a fact worth keeping.
+        service: form.service || null,
         property_type: form.property_type || "residential",
         service_plan: form.service_plan || "one_time",
         appointment_at: combineToISO(apptDate, apptTime),
@@ -147,6 +152,25 @@ export default function LeadDetail() {
       </div>
 
       <h1 className="detail__title">{form.name || "Lead"}</h1>
+
+      {/* What they want, under the name rather than buried in the form —
+          it's the first thing you need before ringing them back, and on a
+          gutter lead it's the only thing distinguishing this from every
+          other lead on the board. */}
+      <div className="detail__tags">
+        {form.service && (
+          <span className="detail__service">{serviceFor(form.service).label}</span>
+        )}
+        <span
+          className={`detail__property detail__property--${
+            form.property_type || "residential"
+          }`}
+        >
+          {(form.property_type || "residential") === "commercial"
+            ? "Commercial"
+            : "Residential"}
+        </span>
+      </div>
 
       {error && <p className="detail__error">{error}</p>}
 
@@ -263,6 +287,23 @@ export default function LeadDetail() {
               <option value={form.source}>{form.source}</option>
             )}
             {LEAD_SOURCES.map((s) => (
+              <option key={s.key} value={s.key}>{s.label}</option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Service they asked about">
+          {/* No default applied here, unlike source. A website lead carries
+              the service the customer picked; a lead with nothing recorded
+              predates the service column, and quietly relabelling it as
+              window washing would invent an answer it never had. */}
+          <select className="detail__input" value={form.service || ""}
+            onChange={(e) => set("service", e.target.value || null)}>
+            <option value="">— not recorded —</option>
+            {form.service && !SERVICE_TYPES.some((s) => s.key === form.service) && (
+              <option value={form.service}>{serviceFor(form.service).label}</option>
+            )}
+            {SERVICE_TYPES.map((s) => (
               <option key={s.key} value={s.key}>{s.label}</option>
             ))}
           </select>

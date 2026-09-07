@@ -41,11 +41,34 @@ const reviewUrl = () => process.env.REVIEW_URL || DEFAULT_REVIEW_URL;
 
 // --- talking to Supabase ----------------------------------------------------
 
-// The service role key, because this runs on a schedule with no user logged
-// in. It bypasses RLS, which is exactly why nothing here writes to tables
-// directly — every call below is one of the security-definer functions in
-// db/follow-ups.sql, so the rules stay in one place.
-async function rpc(fn, body = {}) {
+// Works with either generation of Supabase key.
+//
+// The legacy `service_role` key is a JWT, and PostgREST reads the role it
+// should act as out of the Authorization header — so that one has to be sent
+// twice, as apikey AND as a bearer token.
+//
+// The newer `sb_secret_...` keys are NOT JWTs, and Supabase's docs are
+// explicit that they go on the apikey header ONLY. Sending one as a bearer
+// token makes the gateway try to parse it as a JWT and reject the request,
+// which would show up as a 401 on every follow-up run with a key that is
+// perfectly valid.
+//
+// Sniffing for the JWT prefix rather than asking which kind it is: there is
+// no third option, the check can't go stale, and the legacy keys are being
+// retired at the end of 2026 — so this file needs to keep working across a
+// swap that happens in the dashboard with no deploy.
+function supabaseHeaders(key) {
+  const headers = { apikey: key, "Content-Type": "application/json" };
+  if (key.startsWith("eyJ")) headers.Authorization = `Bearer ${key}`;
+  return headers;
+}
+
+// Runs on a schedule with no user logged in, so it uses a key that bypasses
+// RLS. That is exactly why nothing here writes to tables directly — every
+// call is one of the security-definer functions in db/follow-ups.sql, so the
+// rules stay in one place rather than being re-implemented by a caller that
+// happens to be able to ignore them.
+export async function rpc(fn, body = {}) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!SUPABASE_URL || !key) {
     throw new Error(
@@ -55,11 +78,7 @@ async function rpc(fn, body = {}) {
 
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: "POST",
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
+    headers: supabaseHeaders(key),
     body: JSON.stringify(body),
   });
 
@@ -143,7 +162,7 @@ export function followUpEmail({ customerName, services, jobDate, customerId, sit
       </p>
 
       <p style="margin:0 0 20px;font-size:1rem;line-height:1.55;">
-        If you thought we did a good job, please leave us a Google review,
+        If you thought we did a good job, please leave us a Google review —
         we're a small family business and reviews are how most people find us.
         It takes about a minute.
       </p>

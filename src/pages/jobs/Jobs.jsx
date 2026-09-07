@@ -9,6 +9,7 @@ import {
   fetchDueVisits,
   RECURRING_LEAD_TIME_DAYS,
 } from "../../services/jobService";
+import { serviceFor } from "../../services/leadService";
 import TechPicker from "../../components/TechPicker";
 import ViewSwitcher from "../../components/ViewSwitcher";
 import JobPlanTag from "../../components/JobPlanTag";
@@ -191,7 +192,15 @@ export default function Jobs() {
                   <div className="jobrow__main">
                     <span className="jobrow__name">{lead.name}</span>
                     <span className="jobrow__meta">
-                      {lead.address || "No address"} · ${lead.estimate}
+                      {lead.address || "No address"}
+                      {/* Same bare-"$" problem the board cards had: a lead
+                          from a request form has no estimate. */}
+                      {lead.estimate > 0 ? ` · $${lead.estimate}` : " · No quote"}
+                      {/* Windows is the assumption, so only the exceptions
+                          are worth a word here — this is a queue you scan. */}
+                      {lead.service &&
+                        lead.service !== "residential-window-washing" &&
+                        ` · ${serviceFor(lead.service).label}`}
                     </span>
                     <span className="jobrow__when">{formatWhen(lead.appointment_at)}</span>
                   </div>

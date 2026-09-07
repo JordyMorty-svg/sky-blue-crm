@@ -17,7 +17,7 @@
 //      (RFC 8058), which is why the email sends List-Unsubscribe-Post.
 
 import crypto from "node:crypto";
-import { unsubToken } from "../lib/followUps.mjs";
+import { unsubToken, rpc } from "../lib/followUps.mjs";
 
 function validToken(customerId, token) {
   const expected = unsubToken(customerId);
@@ -76,18 +76,11 @@ export default async (req) => {
   }
 
   try {
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const base = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const res = await fetch(`${base}/rest/v1/rpc/record_email_opt_out`, {
-      method: "POST",
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ p_customer_id: customerId }),
-    });
-    if (!res.ok) throw new Error(await res.text());
+    // Shares the sender's helper rather than building its own request: it
+    // was hand-rolled here, which meant it also hand-rolled the auth headers
+    // and would have broken on a new-style sb_secret_ key independently of
+    // the rest of the system. One place knows how to talk to Supabase.
+    await rpc("record_email_opt_out", { p_customer_id: customerId });
 
     return page(
       "Done — you're unsubscribed",

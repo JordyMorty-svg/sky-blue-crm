@@ -9,7 +9,8 @@ import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO } from "../../components/appointmentUtils";
 import TechPicker from "../../components/TechPicker";
 import PlanPicker from "../../components/PlanPicker";
-import { planFor } from "../../services/leadService";
+import ServicePicker from "../../components/ServicePicker";
+import { planFor, DEFAULT_SERVICE } from "../../services/leadService";
 import DayPreview from "../jobs/DayPreview";
 import "../jobs/ScheduleJob.css";
 
@@ -29,7 +30,10 @@ export default function ScheduleForCustomer() {
   const [apptDate, setApptDate] = useState(null);
   const [apptTime, setApptTime] = useState("");
   const [price, setPrice] = useState("");
-  const [services, setServices] = useState("Exterior windows");
+  // Was a two-option dropdown of window strings. Now the real list, and a
+  // job can carry several — "windows, and do the gutters while you're up
+  // there" is one visit, not two.
+  const [serviceKeys, setServiceKeys] = useState([DEFAULT_SERVICE]);
   const [notes, setNotes] = useState("");
   const [propertyType, setPropertyType] = useState("residential");
   const [servicePlan, setServicePlan] = useState("one_time");
@@ -120,7 +124,7 @@ export default function ScheduleForCustomer() {
         techIds: selectedTechs,
         notes,
         price: Number(price),
-        services,
+        serviceKeys,
         servicePlan,
         propertyType,
         isExtra: extraBooking,
@@ -167,17 +171,7 @@ export default function ScheduleForCustomer() {
         </div>
 
         <div className="scheduleJob__field">
-          <label className="scheduleJob__label">Service</label>
-          <select
-            className="scheduleJob__input"
-            value={services}
-            onChange={(e) => setServices(e.target.value)}
-          >
-            <option value="Exterior windows">Exterior windows</option>
-            <option value="Interior + exterior windows">
-              Interior + exterior windows
-            </option>
-          </select>
+          <ServicePicker value={serviceKeys} onChange={setServiceKeys} />
         </div>
 
         <div className="scheduleJob__field">

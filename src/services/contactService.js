@@ -64,6 +64,7 @@ const JOB_KINDS = {
   scheduled: "Job booked",
   rescheduled: "Job moved",
   plan: "Plan changed",
+  services: "Services changed",
   property: "Property type changed",
   price: "Quote updated",
   completed: "Job completed",
@@ -130,6 +131,13 @@ export function describeEvent(row, statusLabel = titleCase) {
   // date out ("Moved from Aug 25 to Aug 27").
   if (row.job_date && row.kind !== "scheduled" && row.kind !== "rescheduled") {
     bits.push(jobDate(row.job_date));
+  }
+
+  // A services change carries its before/after in the status columns, the
+  // same way a plan change does. Without this the row would say "Services
+  // changed" and nothing else, which is the least useful sentence available.
+  if (row.kind === "services" && row.to_status) {
+    bits.push(`${row.from_status || "Not recorded"} → ${row.to_status}`);
   }
 
   if (row.amount != null) bits.push(money(row.amount));

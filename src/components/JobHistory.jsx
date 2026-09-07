@@ -30,6 +30,7 @@ const EVENT_LABELS = {
   scheduled: "Booked",
   rescheduled: "Rescheduled",
   plan: "Plan changed",
+  services: "Services changed",
   property: "Property type changed",
   price: "Quote updated",
   completed: "Job submitted",
@@ -73,6 +74,11 @@ function eventTitle(ev) {
 
   if (ev.kind === "plan" && ev.to_status) {
     return `${planFor(ev.from_status).label} → ${planFor(ev.to_status).label}`;
+  }
+  // services reuses from_status/to_status as before/after sentences, the
+  // same way plan reuses them for plan keys.
+  if (ev.kind === "services" && ev.to_status) {
+    return `${ev.from_status || "Not recorded"} → ${ev.to_status}`;
   }
   if (ev.kind === "property" && ev.to_status) {
     return `${titleCase(ev.from_status)} → ${titleCase(ev.to_status)}`;

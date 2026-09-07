@@ -377,3 +377,10 @@
   flex: 1;
   min-height: 44px;
 }
+
+/* --- what this visit covers ---
+   The picker brings its own styling; this only gives it the vertical room
+   the label/input pairs around it get for free from their own margins. */
+.jobDetail__services {
+  margin: 6px 0 18px;
+}
