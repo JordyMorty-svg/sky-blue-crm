@@ -244,3 +244,16 @@
     overflow-wrap: anywhere;
   }
 }
+
+/* Context, not an obstacle — so it's the calm green of a thing that already
+   went well, rather than the amber of a thing standing in your way. The row
+   stays clickable. */
+.stc__note {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #15803d;
+  background: #f0fdf4;
+  border-radius: 999px;
+  padding: 2px 8px;
+}

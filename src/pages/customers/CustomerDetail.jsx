@@ -19,7 +19,7 @@ import {
   telHref,
 } from "../../services/leadService";
 import { recordContact } from "../../services/contactService";
-import { setEmailOptOut } from "../../services/followUpService";
+import { setEmailOptOut, setCustomerReviewed } from "../../services/followUpService";
 import AddressPicker from "../../components/AddressPicker";
 import JobPlanTag from "../../components/JobPlanTag";
 import "./Customers.css";
@@ -68,6 +68,7 @@ export default function CustomerDetail() {
   const [forceText, setForceText] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [optBusy, setOptBusy] = useState(false);
+  const [revBusy, setRevBusy] = useState(false);
 
   async function load() {
     try {
@@ -225,6 +226,23 @@ export default function CustomerDetail() {
       setError("Couldn't change the email setting.");
     } finally {
       setOptBusy(false);
+    }
+  }
+
+  // "They already left us a review." Same immediate save as the opt-out
+  // above, and for the same reason: this gets ticked while looking at a
+  // Google notification on your phone, not while filling in a form.
+  async function handleReviewed(e) {
+    const next = e.target.checked;
+    setRevBusy(true);
+    try {
+      await setCustomerReviewed(id, next);
+      await load();
+    } catch (err) {
+      console.error(err);
+      setError("Couldn't change the review setting.");
+    } finally {
+      setRevBusy(false);
     }
   }
 
@@ -462,6 +480,38 @@ export default function CustomerDetail() {
               </span>
             </label>
           )}
+
+          {/* Not conditional on having an email: whether they reviewed is
+              true regardless, and hiding it would mean a customer who
+              reviewed and later lost their address quietly became askable
+              again. */}
+          <label className="custdetail__optout">
+            <input
+              type="checkbox"
+              checked={!!customer.reviewed_at}
+              onChange={handleReviewed}
+              disabled={revBusy}
+            />
+            <span>
+              Already left a Google review
+              {customer.reviewed_at ? (
+                <em className="custdetail__optoutnote">
+                  Recorded{" "}
+                  {new Date(customer.reviewed_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}{" "}
+                  — no more review requests
+                </em>
+              ) : (
+                <em className="custdetail__optoutnote">
+                  Tick this when their review comes through, and we&rsquo;ll stop
+                  asking
+                </em>
+              )}
+            </span>
+          </label>
 
           {customer.notes && (
             <div className="custdetail__notes">

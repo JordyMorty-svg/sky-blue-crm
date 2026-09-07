@@ -24,9 +24,23 @@ import "./SendToCustomer.css";
 // doesn't render 400 rows before you've typed anything.
 const SHOW_LIMIT = 40;
 
+// Why this customer cannot be emailed at all. These match the refusals in
+// claim_manual_follow_up, so the button never offers something the database
+// will reject.
 function reasonBlocked(c) {
   if (c.email_opt_out) return "Unsubscribed";
   if (!c.email || !c.email.trim()) return "No email";
+  return null;
+}
+
+// Worth knowing before you pick them, but NOT a reason to stop you.
+//
+// "Already reviewed" suppresses the automatic email; a person deliberately
+// choosing this name is the judgement that rule stands in for — they might
+// be asking for a review of a second property, or the tick might be wrong.
+// Shown, not enforced.
+function noteFor(c) {
+  if (c.reviewed_at) return "Reviewed";
   return null;
 }
 
@@ -178,6 +192,7 @@ export default function SendToCustomer() {
             <ul className="stc__list">
               {shown.map((c) => {
                 const blocked = reasonBlocked(c);
+                const note = blocked ? null : noteFor(c);
                 return (
                   <li className="stc__row" key={c.id}>
                     <button
@@ -197,6 +212,7 @@ export default function SendToCustomer() {
                       {blocked && (
                         <span className="stc__blocked">{blocked}</span>
                       )}
+                      {note && <span className="stc__note">{note}</span>}
                     </button>
                   </li>
                 );

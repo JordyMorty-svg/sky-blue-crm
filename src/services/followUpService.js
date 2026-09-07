@@ -59,6 +59,20 @@ export async function setEmailOptOut(customerId, optOut) {
   if (error) throw error;
 }
 
+// "They've already left a review." Stops future review requests without
+// touching email_opt_out, which means something different and stronger.
+//
+// A timestamp rather than a boolean: the profile can then say WHEN, which is
+// the difference between a fact and a vague recollection — and if the review
+// ask ever becomes "ask again after two years", the date is already there.
+export async function setCustomerReviewed(customerId, reviewed) {
+  const { error } = await supabase
+    .from("customers")
+    .update({ reviewed_at: reviewed ? new Date().toISOString() : null })
+    .eq("id", customerId);
+  if (error) throw error;
+}
+
 // --- running the sender by hand ---------------------------------------------
 //
 // /api/run-follow-ups is behind a login, so it can't be poked by visiting the

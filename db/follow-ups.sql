@@ -84,6 +84,25 @@ comment on column public.customers.last_review_request_at is
    in sb_follow_up_quiet_months() — this is what stops a recurring customer
    being asked after every visit.';
 
+-- They already left one. Ticked by hand on the customer profile, because
+-- nothing can work this out reliably: Google's Business Profile API returns
+-- a reviewer's DISPLAY NAME and nothing else — no email, no phone — so
+-- matching "Dana W." to a customer record is guesswork, and a wrong guess
+-- fails silently in the expensive direction (you stop asking someone who
+-- never reviewed, and never find out).
+--
+-- DELIBERATELY NOT email_opt_out. An unsubscribe is a request from the
+-- customer with legal weight behind it; this is a fact about the business.
+-- Folding them together would mean that adding any second kind of email
+-- later — an appointment reminder, say — would silently withhold it from
+-- everyone who was kind enough to leave a review.
+alter table public.customers
+  add column if not exists reviewed_at timestamptz;
+
+comment on column public.customers.reviewed_at is
+  'When this customer left a Google review, as far as we know. Set by hand.
+   Suppresses further review requests; does not affect any other email.';
+
 -- ---------------------------------------------------------------------------
 -- 2. The outbox
 -- ---------------------------------------------------------------------------
@@ -247,6 +266,8 @@ begin
             then 'No email address on file'
           when coalesce(c.email_opt_out, false)
             then 'Customer unsubscribed'
+          when c.reviewed_at is not null
+            then 'Already left a review'
           when c.last_review_request_at is not null
                and c.last_review_request_at >= now()
                    - (public.sb_follow_up_quiet_months() || ' months')::interval
@@ -333,6 +354,9 @@ begin
       and c.email is not null
       and btrim(c.email) <> ''
       and coalesce(c.email_opt_out, false) = false
+      -- Already left one. Asking again is the one thing guaranteed to
+      -- annoy the customers who have been most generous.
+      and c.reviewed_at is null
       and (
         c.last_review_request_at is null
         or c.last_review_request_at < now()
@@ -524,6 +548,9 @@ as $$
       and c.email is not null
       and btrim(c.email) <> ''
       and coalesce(c.email_opt_out, false) = false
+      -- Already left one. Asking again is the one thing guaranteed to
+      -- annoy the customers who have been most generous.
+      and c.reviewed_at is null
       and (
         c.last_review_request_at is null
         or c.last_review_request_at < now()
