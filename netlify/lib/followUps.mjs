@@ -83,7 +83,23 @@ export async function rpc(fn, body = {}) {
   });
 
   const text = await res.text();
-  if (!res.ok) throw new Error(`${fn}: ${res.status} ${text}`);
+
+  if (!res.ok) {
+    // PostgREST wraps a `raise exception` as
+    // {"code":"P0001","message":"Dana has unsubscribed…","details":null}.
+    // Those messages are written as sentences for whoever pressed the
+    // button, so pull the message out rather than throwing the envelope —
+    // otherwise the CRM shows the customer's own name buried in JSON next
+    // to an error code that means nothing to anyone.
+    let message = "";
+    try {
+      message = JSON.parse(text)?.message || "";
+    } catch {
+      message = "";
+    }
+    throw new Error(message || `${fn}: ${res.status} ${text}`);
+  }
+
   return text ? JSON.parse(text) : null;
 }
 
@@ -289,12 +305,49 @@ export async function runFollowUps({ mode, limit = 25, siteUrl } = {}) {
 
   const rows = (await rpc("claim_follow_ups", { p_limit: limit })) || [];
 
+  const outcome = await deliver(rows, siteUrl);
+  return { mode: chosen, swept, claimed: rows.length, ...outcome };
+}
+
+/**
+ * Send a review request to ONE named customer, right now.
+ *
+ * Deliberately shares deliver() with the scheduled run rather than having a
+ * send path of its own — this is the button people will actually use to
+ * check the emails are working, and a test that exercises different code
+ * from the thing it is testing is worse than no test.
+ *
+ * FOLLOW_UPS_MODE is not consulted. "Off" means the automation shouldn't act
+ * unprompted; it was never meant to stop a person sending an email on
+ * purpose. The database still refuses an unsubscribed customer.
+ */
+export async function sendFollowUpToCustomer(customerId, { siteUrl } = {}) {
+  const rows = (await rpc("claim_manual_follow_up", {
+    p_customer_id: customerId,
+  })) || [];
+
+  // claim_manual_follow_up raises rather than returning nothing when it
+  // refuses, so an empty result here means the customer vanished between
+  // the page loading and the button being pressed.
+  if (rows.length === 0) {
+    throw new Error("That customer couldn't be found any more.");
+  }
+
+  const outcome = await deliver(rows, siteUrl);
+  return { mode: "manual", claimed: rows.length, ...outcome };
+}
+
+/**
+ * Put the claimed rows in the post.
+ *
+ * Serial, not Promise.all. The volume is a handful a day, Resend rate
+ * limits, and one bad address shouldn't take a batch down with it.
+ */
+async function deliver(rows, siteUrl) {
   let sent = 0;
   let failed = 0;
   const results = [];
 
-  // Serial, not Promise.all. The volume is a handful a day, Resend rate
-  // limits, and one bad address shouldn't take a batch down with it.
   for (const row of rows) {
     try {
       const providerId = await sendOne(row, siteUrl);
@@ -304,7 +357,7 @@ export async function runFollowUps({ mode, limit = 25, siteUrl } = {}) {
         p_email: row.email,
       });
       sent += 1;
-      results.push({ to: row.email, ok: true });
+      results.push({ to: row.email, name: row.customer_name, ok: true });
     } catch (err) {
       // Never rethrow: one failure must not abandon the rest of the batch,
       // and the row is already claimed — it has to be released or it sits
@@ -314,9 +367,14 @@ export async function runFollowUps({ mode, limit = 25, siteUrl } = {}) {
         p_error: String(err?.message || err),
       }).catch(() => {});
       failed += 1;
-      results.push({ to: row.email, ok: false, error: String(err?.message || err) });
+      results.push({
+        to: row.email,
+        name: row.customer_name,
+        ok: false,
+        error: String(err?.message || err),
+      });
     }
   }
 
-  return { mode: chosen, swept, claimed: rows.length, sent, failed, results };
+  return { sent, failed, results };
 }

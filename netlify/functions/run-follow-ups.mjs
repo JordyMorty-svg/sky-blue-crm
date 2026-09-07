@@ -10,7 +10,7 @@
 // The preview exists so "who is this about to email?" is never answered by
 // running the real thing and watching what happens.
 
-import { runFollowUps } from "../lib/followUps.mjs";
+import { runFollowUps, sendFollowUpToCustomer } from "../lib/followUps.mjs";
 
 // Same check the receipt endpoint uses: a real Supabase session, verified
 // against Supabase rather than trusted from the request.
@@ -33,15 +33,33 @@ export default async (req) => {
 
   const preview = req.method === "GET";
 
+  // A POST carrying a customerId means "send to this one now" — the button
+  // on the Communication page, and the way the whole thing gets tested
+  // against a test customer. A POST with no body is the batch run.
+  //
+  // Body parsed leniently: a plain POST from the batch button sends nothing
+  // at all, and that must not read as a malformed request.
+  let customerId = null;
+  if (!preview) {
+    try {
+      const body = await req.json();
+      customerId = body?.customerId || null;
+    } catch {
+      customerId = null;
+    }
+  }
+
   // A manual send ignores FOLLOW_UPS_MODE — a person pressed the button, so
   // "off" isn't the answer. The database rules still apply in full, which
-  // is the point of keeping them there: this shortcut can't email someone
-  // who opted out, is inside their quiet period, or whose job was cancelled.
+  // is the point of keeping them there: neither shortcut can email someone
+  // who has unsubscribed.
   try {
-    const summary = await runFollowUps({
-      mode: preview ? "preview" : "send",
-      siteUrl: process.env.URL,
-    });
+    const summary = customerId
+      ? await sendFollowUpToCustomer(customerId, { siteUrl: process.env.URL })
+      : await runFollowUps({
+          mode: preview ? "preview" : "send",
+          siteUrl: process.env.URL,
+        });
 
     // `summary.mode` is what THIS run did, which is always preview or send —
     // a person pressed a button. `configured_mode` is what the daily

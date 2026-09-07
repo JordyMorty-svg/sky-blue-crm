@@ -28,10 +28,21 @@ export const JOB_VIEWS = [
   { to: "/jobs/scheduled", label: "Scheduled" },
 ];
 
+// The customer list, versus what the CRM sends them. Communication is a
+// different job from looking someone up — you arrive wanting to check what
+// went out, not wanting a customer — so it earns its own view rather than
+// sitting at the bottom of a page about something else. It was on Income
+// first, which was worse: nobody goes to Income to think about email.
+export const CUSTOMER_VIEWS = [
+  { to: "/customers", label: "Customers", end: true },
+  { to: "/customers/communication", label: "Communication" },
+];
+
 // Sections whose last-used view is remembered across visits. `key` is the
 // storage key; `root` is what the top nav highlights against.
 export const REMEMBERED_SECTIONS = {
   leads: { root: "/leads", views: LEAD_VIEWS },
   jobs: { root: "/jobs", views: JOB_VIEWS },
   schedule: { root: "/schedule", views: SCHEDULE_VIEWS },
+  customers: { root: "/customers", views: CUSTOMER_VIEWS },
 };

@@ -1,0 +1,41 @@
+/* 720px and centred to match .customers exactly, not because 720 is special
+   but because this is the other half of one section — a switcher that also
+   changed the column's width and alignment would make the two tabs feel
+   like different pages. */
+.comms {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.comms__head {
+  margin: 18px 0 20px;
+}
+
+.comms__title {
+  font-size: 1.5rem;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.comms__blurb {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+/* The two panels bring their own card styling, so this only spaces them.
+   Stacked rather than side by side even on wide screens: they're read in
+   order, not compared, and a 380px-wide customer search is worse than a
+   full-width one. */
+.comms__panels {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* FollowUpRunner sets its own top margin for sitting under the Income
+   figures. Here it's the first thing on the page. */
+.comms__panels > .fuprun {
+  margin-top: 0;
+}

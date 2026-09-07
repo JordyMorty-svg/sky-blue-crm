@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchCustomers } from "../../services/customerService";
 import { planFor } from "../../services/leadService";
+import ViewSwitcher from "../../components/ViewSwitcher";
+import { CUSTOMER_VIEWS } from "../../components/navViews";
 import "./Customers.css";
 
 
@@ -48,6 +50,8 @@ export default function Customers() {
 
   return (
     <div className="customers">
+      <ViewSwitcher views={CUSTOMER_VIEWS} section="customers" />
+
       <div className="customers__head">
         <h1 className="customers__title">Customers</h1>
         <span className="customers__count">{customers.length}</span>

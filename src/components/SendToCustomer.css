@@ -1,0 +1,246 @@
+.stc {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.stc__head {
+  margin-bottom: 14px;
+}
+
+.stc__title {
+  font-size: 1.05rem;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.stc__blurb {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.stc__loading,
+.stc__empty,
+.stc__more {
+  margin: 12px 0 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.stc__error {
+  margin: 0 0 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 10px 13px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.stc__done {
+  margin: 0 0 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+  border-radius: 10px;
+  padding: 10px 13px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.stc__search {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 11px 13px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #0f172a;
+}
+
+.stc__search:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+.stc__list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  /* Long lists scroll inside the card rather than pushing the page down —
+     this sits under the queue panel and shouldn't bury it. */
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.stc__row + .stc__row .stc__pick {
+  border-top: 1px solid #f1f5f9;
+}
+
+.stc__pick {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 11px 13px;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .stc__pick:not(:disabled):hover {
+    background: #f8fafc;
+  }
+}
+
+.stc__pick:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+/* Not greyed into illegibility: you still need to read the name to know
+   whose email is missing and go and add it. */
+.stc__pick:disabled {
+  cursor: default;
+  background: #fcfcfd;
+}
+
+.stc__pick:disabled .stc__name {
+  color: #94a3b8;
+}
+
+.stc__name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #0f172a;
+  flex: 0 0 auto;
+}
+
+.stc__mail {
+  font-size: 0.82rem;
+  color: #64748b;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stc__blocked {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+/* --- the confirm step --- */
+
+.stc__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.stc__confirmwho {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stc__confirmname {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.stc__confirmmail {
+  font-size: 0.83rem;
+  color: #475569;
+  overflow-wrap: anywhere;
+}
+
+.stc__confirmactions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.stc__send {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 0 20px;
+  min-height: 42px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .stc__send:hover:not(:disabled) {
+    background: #1d4ed8;
+  }
+}
+
+.stc__send:disabled {
+  background: #93c5fd;
+  cursor: default;
+}
+
+.stc__cancel {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 0 18px;
+  min-height: 42px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stc__send:focus-visible,
+.stc__cancel:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .stc__pick {
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .stc__mail {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}

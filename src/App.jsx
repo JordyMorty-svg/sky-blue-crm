@@ -18,6 +18,7 @@ import CompleteJob from "./pages/schedule/CompleteJob";
 import PosReturn from "./pages/schedule/PosReturn";
 import Income from "./pages/income/Income";
 import Customers from "./pages/customers/Customers";
+import Communication from "./pages/customers/Communication";
 import CustomerDetail from "./pages/customers/CustomerDetail";
 import AddPastJobs from "./pages/customers/AddPastJobs";
 import MapView from "./pages/map/MapView";
@@ -54,7 +55,7 @@ function Shell({ children }) {
     sectionTab("jobs", "Jobs"),
     sectionTab("schedule", "Schedule"),
     { to: "/income", root: "/income", label: "Income" },
-    { to: "/customers", root: "/customers", label: "Customers" },
+    sectionTab("customers", "Customers"),
     { to: "/map", root: "/map", label: "Map" },
   ];
 
@@ -141,6 +142,9 @@ export default function App() {
       <Route path="/pos-return" element={<Page><PosReturn /></Page>} />
       <Route path="/income" element={<Page><Income /></Page>} />
       <Route path="/customers" element={<Page><Customers /></Page>} />
+      {/* Static segment, so React Router ranks it above /customers/:id —
+          same reason /customers/add-past already works. */}
+      <Route path="/customers/communication" element={<Page><Communication /></Page>} />
       <Route path="/customers/add-past" element={<Page><AddPastJobs /></Page>} />
       <Route path="/customers/:id/schedule" element={<Page><ScheduleForCustomer /></Page>} />
       <Route path="/customers/:id" element={<Page><CustomerDetail /></Page>} />

@@ -69,17 +69,25 @@ export async function setEmailOptOut(customerId, optOut) {
 //
 // GET  = preview. Works out who is due and changes nothing.
 // POST = send, for real.
-async function callRunner(method) {
+async function callRunner(method, body = null) {
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
   const res = await fetch("/api/run-follow-ups", {
     method,
-    headers: { Authorization: `Bearer ${session?.access_token || ""}` },
+    headers: {
+      Authorization: `Bearer ${session?.access_token || ""}`,
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
   });
 
   const data = await res.json().catch(() => ({}));
+  // The server passes the database's own refusal through as `error`, and
+  // those are written as sentences for a person ("Dana Whitfield has
+  // unsubscribed from follow-up emails"). Surface it rather than replacing
+  // it with something generic.
   if (!res.ok) throw new Error(data.error || `Run failed (${res.status})`);
   return data;
 }
@@ -94,6 +102,16 @@ export function previewFollowUps() {
 // out or is inside their quiet period.
 export function sendFollowUpsNow() {
   return callRunner("POST");
+}
+
+// Send a review request to one named customer, now. Skips the due date and
+// the quiet period, because those rules exist to keep the AUTOMATION
+// thoughtful and a person choosing a name is the judgement they stand in
+// for. Still refused for an unsubscribed customer — see
+// claim_manual_follow_up in db/follow-ups.sql, which raises a message
+// written to be shown to whoever pressed the button.
+export function sendFollowUpToCustomer(customerId) {
+  return callRunner("POST", { customerId });
 }
 
 // --- wording ---------------------------------------------------------------

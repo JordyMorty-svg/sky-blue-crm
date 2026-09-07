@@ -305,8 +305,21 @@ set search_path = public
 as $$
 begin
   return query
-  with candidates as (
-    select f.id
+  with eligible as (
+    -- DISTINCT ON customer: at most one email per person per run.
+    --
+    -- The quiet period below can't do this on its own, because
+    -- last_review_request_at is stamped by mark_follow_up_sent — which runs
+    -- AFTER the whole batch is claimed. So a customer with two jobs
+    -- completing in the same window (two properties done the same day, or a
+    -- one-off extra alongside a plan visit) passed the check twice and got
+    -- two identical emails minutes apart.
+    --
+    -- The loser stays pending rather than being dropped. It can never send
+    -- afterwards, because by then last_review_request_at is set and the
+    -- quiet period excludes it; the sweep closes it out as "already asked
+    -- for a review recently" when its window lapses. Which is the truth.
+    select distinct on (f.customer_id) f.id, f.due_at
     from public.follow_ups f
     join public.jobs j      on j.id = f.job_id
     join public.customers c on c.id = f.customer_id
@@ -325,7 +338,23 @@ begin
         or c.last_review_request_at < now()
              - (public.sb_follow_up_quiet_months() || ' months')::interval
       )
-    order by f.due_at
+      -- Nothing already in flight for this person. DISTINCT ON only
+      -- deduplicates WITHIN one run; this closes the gap BETWEEN two
+      -- overlapping ones, where run A has claimed a customer's first row
+      -- but not yet marked it sent — so the quiet period isn't stamped and
+      -- run B would happily take their second row.
+      and not exists (
+        select 1 from public.follow_ups f2
+        where f2.customer_id = f.customer_id
+          and f2.status = 'sending'
+      )
+    -- The oldest due date wins the tie: the job they've been waiting on
+    -- longest is the one the email should be about.
+    order by f.customer_id, f.due_at
+  ),
+  candidates as (
+    select id from eligible
+    order by due_at
     limit greatest(p_limit, 0)
   ),
   claimed as (
@@ -351,6 +380,116 @@ comment on function public.claim_follow_ups(int) is
   'Take the follow-ups that are due, marking them claimed atomically.
    Every suppression rule is applied here, at send time.';
 
+-- ---------------------------------------------------------------------------
+-- 5b. Sending one, to one customer, on purpose
+-- ---------------------------------------------------------------------------
+
+-- For "ask this one for a review now" and for testing against a test
+-- customer. Returns the same shape as claim_follow_ups so the sender treats
+-- a batch of one no differently from a batch of ten.
+--
+-- WHICH RULES THIS SKIPS, AND WHY.
+--
+-- Skipped: the due date, and the quiet period. Both exist to stop the
+-- AUTOMATION being thoughtless — sending too early, or asking a quarterly
+-- customer four times a year. A person clicking a button for one named
+-- customer is the judgement those rules stand in for, so they'd only be in
+-- the way. Skipping the quiet period is also what makes this testable: you
+-- can send to the same test customer twice in a row.
+--
+-- NOT skipped: the opt-out, and needing an address. An unsubscribe is a
+-- request from the customer, not a scheduling rule — honouring it only when
+-- convenient is how a business ends up in front of the FTC. Refused loudly
+-- with a message the CRM can show, rather than returning no rows, because
+-- "nothing happened" is the worst possible answer to a button press.
+create or replace function public.claim_manual_follow_up(p_customer_id uuid)
+returns table (
+  follow_up_id  bigint,
+  job_id        uuid,
+  customer_id   uuid,
+  customer_name text,
+  email         text,
+  services      text,
+  amount        numeric,
+  job_date      timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  cust public.customers;
+  jb   public.jobs;
+  fid  bigint;
+begin
+  select * into cust from public.customers where id = p_customer_id;
+
+  if cust.id is null then
+    raise exception 'No customer with that id';
+  end if;
+
+  if cust.email is null or btrim(cust.email) = '' then
+    raise exception 'No email address on file for %', coalesce(cust.name, 'this customer');
+  end if;
+
+  if coalesce(cust.email_opt_out, false) then
+    raise exception '% has unsubscribed from follow-up emails', coalesce(cust.name, 'This customer');
+  end if;
+
+  -- The email says what we did and when, so it needs a job to point at.
+  -- A completed one first; failing that the most recent of any status, which
+  -- is what a test customer with a scheduled job will have.
+  select * into jb
+  from public.jobs j
+  where j.customer_id = cust.id
+  order by
+    (j.status = 'completed') desc,
+    coalesce(j.completed_at, j.starts_at) desc nulls last
+  limit 1;
+
+  if jb.id is null then
+    raise exception '% has no jobs yet, and the email refers to work we did', coalesce(cust.name, 'This customer');
+  end if;
+
+  -- Reuse the row for that job rather than adding a second. follow_ups holds
+  -- the STATE of a job's follow-up, and a job has one; contact_log is where
+  -- each individual send is recorded, so re-sending doesn't lose the fact
+  -- that an earlier one went. That's also why the unique constraint on
+  -- job_id can stay exactly as strict as it is.
+  --
+  -- Written as update-then-insert rather than INSERT ... ON CONFLICT because
+  -- this function's RETURNS TABLE puts `job_id` and `customer_id` in scope as
+  -- variables, and a conflict target is an expression context — so
+  -- `on conflict (job_id)` is genuinely ambiguous and Postgres rejects it.
+  -- Renaming the output columns would have fixed it too, but they are the
+  -- field names the sender reads.
+  update public.follow_ups f
+  set status   = 'sending',
+      attempts = f.attempts + 1,
+      note     = null
+  where f.job_id = jb.id
+  returning f.id into fid;
+
+  if fid is null then
+    insert into public.follow_ups (job_id, customer_id, kind, due_at, status, attempts)
+    values (jb.id, cust.id, 'review', now(), 'sending', 1)
+    returning id into fid;
+  end if;
+
+  return query
+  select fid, jb.id, cust.id, cust.name, cust.email,
+         jb.services,
+         coalesce(jb.final_price, jb.price),
+         coalesce(jb.completed_at, jb.starts_at);
+end;
+$$;
+
+comment on function public.claim_manual_follow_up(uuid) is
+  'Queue and claim a review request for one named customer, now. Ignores the
+   due date and quiet period; still refuses an opt-out or a missing address.';
+
+grant execute on function public.claim_manual_follow_up(uuid) to service_role;
+
 -- What WOULD go out, changing nothing. This is what the dry-run mode reads,
 -- and what the "who is this about to email?" question should be answered
 -- with — never by running the real thing and watching.
@@ -366,25 +505,35 @@ language sql
 security definer
 set search_path = public
 as $$
-  select f.id, c.name, c.email, f.due_at,
-         coalesce(j.completed_at, j.starts_at)
-  from public.follow_ups f
-  join public.jobs j      on j.id = f.job_id
-  join public.customers c on c.id = f.customer_id
-  where f.status = 'pending'
-    and f.due_at <= now()
-    and j.status = 'completed'
-    and j.completed_at > now()
-          - (public.sb_follow_up_window_days() || ' days')::interval
-    and c.email is not null
-    and btrim(c.email) <> ''
-    and coalesce(c.email_opt_out, false) = false
-    and (
-      c.last_review_request_at is null
-      or c.last_review_request_at < now()
-           - (public.sb_follow_up_quiet_months() || ' months')::interval
-    )
-  order by f.due_at
+  -- DISTINCT ON customer, exactly as claim_follow_ups does. A preview that
+  -- listed two emails where the real run sends one would be worse than no
+  -- preview: the whole value of this function is that it tells the truth
+  -- about what is about to happen.
+  with eligible as (
+    select distinct on (f.customer_id)
+           f.id, c.name, c.email, f.due_at,
+           coalesce(j.completed_at, j.starts_at) as job_date
+    from public.follow_ups f
+    join public.jobs j      on j.id = f.job_id
+    join public.customers c on c.id = f.customer_id
+    where f.status = 'pending'
+      and f.due_at <= now()
+      and j.status = 'completed'
+      and j.completed_at > now()
+            - (public.sb_follow_up_window_days() || ' days')::interval
+      and c.email is not null
+      and btrim(c.email) <> ''
+      and coalesce(c.email_opt_out, false) = false
+      and (
+        c.last_review_request_at is null
+        or c.last_review_request_at < now()
+             - (public.sb_follow_up_quiet_months() || ' months')::interval
+      )
+    order by f.customer_id, f.due_at
+  )
+  select id, name, email, due_at, job_date
+  from eligible
+  order by due_at
   limit greatest(p_limit, 0);
 $$;
 
