@@ -64,15 +64,32 @@ export default function SendToCustomer() {
     setDone(null);
     try {
       const res = await sendFollowUpToCustomer(picked.id);
-      if (res.failed > 0) {
-        // The row was claimed and the send failed — the provider rejected
-        // it. Say so plainly rather than reporting success because the
-        // request itself returned 200.
-        setError(res.results?.[0]?.error || "The email didn't send.");
-      } else {
+
+      // Success is `sent > 0`, and nothing weaker.
+      //
+      // This used to be `failed === 0`, which is not the same thing and was
+      // wrong in the one way that matters: a response of
+      // { sent: 0, failed: 0 } — the server accepted the request and mailed
+      // nobody — has no failures in it, so the CRM cheerfully said "Sent to
+      // Jordan Mortensen" while the inbox stayed empty. A tool that reports
+      // a send it didn't make is worse than one that errors, because you
+      // stop looking.
+      if (res.sent > 0) {
         setDone({ name: picked.name, email: picked.email });
         setPicked(null);
         setSearch("");
+      } else if (res.failed > 0) {
+        // Claimed, then the provider rejected it.
+        setError(res.results?.[0]?.error || "The email didn't send.");
+      } else {
+        // Accepted, nothing sent, nothing failed. Nearly always a version
+        // skew: an older deployed function that ignores customerId and runs
+        // the batch instead, finding nothing due. Name the likely cause —
+        // "nothing happened" on its own is impossible to act on.
+        setError(
+          "Nothing was sent. The request went through but no email went out — " +
+            "check that db/follow-ups.sql has been re-run and that the deploy finished."
+        );
       }
     } catch (e) {
       console.error(e);
