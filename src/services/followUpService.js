@@ -59,6 +59,43 @@ export async function setEmailOptOut(customerId, optOut) {
   if (error) throw error;
 }
 
+// --- running the sender by hand ---------------------------------------------
+//
+// /api/run-follow-ups is behind a login, so it can't be poked by visiting the
+// URL — a browser won't send the bearer token and gets a 401. That's the
+// right call for an endpoint that emails customers, but it does mean the
+// only way to reach it is from in here, with a session in hand. Same shape
+// as every other Netlify function this app calls (see paymentService).
+//
+// GET  = preview. Works out who is due and changes nothing.
+// POST = send, for real.
+async function callRunner(method) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const res = await fetch("/api/run-follow-ups", {
+    method,
+    headers: { Authorization: `Bearer ${session?.access_token || ""}` },
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Run failed (${res.status})`);
+  return data;
+}
+
+// Who would be emailed if it ran right now. Sends nothing.
+export function previewFollowUps() {
+  return callRunner("GET");
+}
+
+// Actually send. Ignores FOLLOW_UPS_MODE — a person pressed the button — but
+// every database rule still applies, so this can't reach someone who opted
+// out or is inside their quiet period.
+export function sendFollowUpsNow() {
+  return callRunner("POST");
+}
+
 // --- wording ---------------------------------------------------------------
 
 export function followUpDate(iso) {

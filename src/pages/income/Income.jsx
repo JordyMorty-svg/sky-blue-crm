@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { fetchCompletedJobs } from "../../services/customerService";
+import FollowUpRunner from "../../components/FollowUpRunner";
 import "./Income.css";
 
 const PERIODS = [
@@ -203,6 +204,10 @@ export default function Income() {
           ))}
         </div>
       )}
+
+      {/* Below the numbers, not among them. Income is what the business
+          took; this is a tool for the thing that helps it take more. */}
+      <FollowUpRunner />
     </div>
   );
 }

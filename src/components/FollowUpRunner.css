@@ -1,0 +1,173 @@
+/* Sits at the bottom of the Income page as its own card — this is a tool,
+   not a number, and it shouldn't read as part of the takings. */
+
+.fuprun {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px;
+  margin-top: 28px;
+}
+
+.fuprun__head {
+  margin-bottom: 16px;
+}
+
+.fuprun__title {
+  font-size: 1.05rem;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.fuprun__blurb {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.fuprun__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.fuprun__btn {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 0 18px;
+  min-height: 42px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .fuprun__btn:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+}
+
+/* The one that actually mails people. Red, and only reachable after a
+   first tap — the confirm step is in the component. */
+.fuprun__btn--danger {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+@media (hover: hover) {
+  .fuprun__btn--danger:hover:not(:disabled) {
+    background: #b91c1c;
+    border-color: #b91c1c;
+  }
+}
+
+.fuprun__btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.fuprun__btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.fuprun__error {
+  margin: 14px 0 0;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 10px 13px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.fuprun__count {
+  margin: 16px 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.fuprun__none {
+  margin: 16px 0 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.fuprun__list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.fuprun__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 13px;
+  font-size: 0.86rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.fuprun__row:last-child {
+  border-bottom: none;
+}
+
+.fuprun__who {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.fuprun__addr {
+  color: #64748b;
+  font-size: 0.82rem;
+  /* The address is the part that proves it's going to the right person, so
+     it truncates rather than wrapping the row into two lines. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fuprun__off {
+  margin: 14px 0 0;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  border-radius: 10px;
+  padding: 10px 13px;
+  font-size: 0.83rem;
+  line-height: 1.55;
+}
+
+.fuprun__off code {
+  background: #fef3c7;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.95em;
+}
+
+@media (max-width: 560px) {
+  .fuprun__row {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .fuprun__addr {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}

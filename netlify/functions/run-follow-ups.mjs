@@ -42,8 +42,19 @@ export default async (req) => {
       mode: preview ? "preview" : "send",
       siteUrl: process.env.URL,
     });
-    console.log("[follow-ups:manual]", JSON.stringify(summary));
-    return Response.json(summary);
+
+    // `summary.mode` is what THIS run did, which is always preview or send —
+    // a person pressed a button. `configured_mode` is what the daily
+    // schedule will do tomorrow, and they are different questions. Without
+    // this the CRM could show a healthy preview while the automation behind
+    // it is switched off, and nothing on screen would say so.
+    const body = {
+      ...summary,
+      configured_mode: process.env.FOLLOW_UPS_MODE || "off",
+    };
+
+    console.log("[follow-ups:manual]", JSON.stringify(body));
+    return Response.json(body);
   } catch (err) {
     console.error("[follow-ups:manual] failed", err);
     return Response.json({ error: String(err?.message || err) }, { status: 500 });
