@@ -37,8 +37,8 @@ export default function NewLead() {
   // Which source earns this person a finder's fee, and how much. Both null
   // for anyone who isn't on commission for sourcing — an owner sees a plain
   // list with no percentages in it.
-  const myFindSource = defaultSourceFor(profile?.role);
-  const myFindRate = myFindSource ? findRateFor(profile) : null;
+  const myFindSource = defaultSourceFor(profile);
+  const myFindRate = findRateFor(profile, myFindSource);
 
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
@@ -61,7 +61,7 @@ export default function NewLead() {
   // "Partner referral" out of nine options every time is a tax with one
   // right answer. Still a dropdown, because he might knock a door too.
   const [source, setSource] = useState(
-    () => defaultSourceFor(profile?.role) || "door"
+    () => defaultSourceFor(profile) || "door"
   );
   const [service, setService] = useState(DEFAULT_SERVICE);
   const [propertyType, setPropertyType] = useState("residential");
@@ -285,7 +285,7 @@ export default function NewLead() {
                         than hardcoded, so it can never disagree with what
                         the database will actually pay. */}
                     {s.key === myFindSource && myFindRate !== null
-                      ? ` - you earn ${myFindRate}%`
+                      ? ` — you earn ${myFindRate}%`
                       : ""}
                   </option>
                 ))}

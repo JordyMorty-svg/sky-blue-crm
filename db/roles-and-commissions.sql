@@ -70,12 +70,25 @@ $$;
 
 alter table public.profiles
   add column if not exists commission_find_rate numeric(5,2),
+  -- Restricts the find override to ONE lead source.
+  --
+  -- Trenton's 15% was negotiated for the work he sees inside a house he is
+  -- already in for Home Depot — it is the price of a warm, pre-qualified
+  -- lead, not a blanket rate for anything he types into the CRM. Without
+  -- this he earned 15% on a door knock too, which is a better rate than a
+  -- tech gets for identical work.
+  --
+  -- NULL means the override applies to every source, which is the right
+  -- default for an ordinary rep and preserves how this behaved before.
+  add column if not exists commission_find_source text,
   add column if not exists commission_book_rate numeric(5,2),
   add column if not exists commission_work_rate numeric(5,2),
   add column if not exists commission_eligible boolean not null default true;
 
 comment on column public.profiles.commission_find_rate is
   'Percent of the job earned for sourcing the lead. NULL = use sb_commission_find_rate().';
+comment on column public.profiles.commission_find_source is
+  'Restricts commission_find_rate to leads with this source. NULL = applies to every source.';
 comment on column public.profiles.commission_book_rate is
   'Percent earned for moving the lead to booked. NULL = use sb_commission_book_rate().';
 comment on column public.profiles.commission_work_rate is
@@ -127,28 +140,48 @@ returns numeric language sql immutable as $$ select 20::numeric $$;
 -- Phase 2 will call this once per earning and then SNAPSHOT the answer onto
 -- the ledger row — never read it live at report time, or raising someone's
 -- rate would silently rewrite what they were owed last quarter.
-create or replace function public.sb_commission_rate(p_profile_id uuid, p_kind text)
+-- Dropped and recreated rather than replaced: the signature gains a third
+-- argument. The default keeps every existing two-argument call working —
+-- book and work don't care what source a lead came from.
+drop function if exists public.sb_commission_rate(uuid, text);
+
+create or replace function public.sb_commission_rate(
+  p_profile_id uuid,
+  p_kind       text,
+  p_source     text default null
+)
 returns numeric
 language plpgsql
 stable
 as $$
 declare
-  eligible boolean;
-  override numeric;
+  eligible    boolean;
+  override    numeric;
+  only_source text;
 begin
   select commission_eligible,
          case p_kind
            when 'find' then commission_find_rate
            when 'book' then commission_book_rate
            when 'work' then commission_work_rate
-         end
-    into eligible, override
+         end,
+         commission_find_source
+    into eligible, override, only_source
     from public.profiles
    where id = p_profile_id;
 
   -- No such profile, or an owner. Either way nothing is earned.
   if eligible is null or eligible = false then
     return 0;
+  end if;
+
+  -- A find override tied to one source only applies on that source.
+  -- Everything else falls through to the house rate, so Trenton earns his
+  -- negotiated 15% on a partner referral and the same 10% as anyone else
+  -- on a door he knocked himself.
+  if p_kind = 'find' and only_source is not null
+     and p_source is distinct from only_source then
+    override := null;
   end if;
 
   if override is not null then
@@ -219,7 +252,8 @@ $$;
 --        full_name = 'Test Partner',
 --        active = true,
 --        commission_eligible = true,
---        commission_find_rate = 15
+--        commission_find_rate = 15,
+--        commission_find_source = 'partner'
 --  where id = (select id from auth.users where email = 'skybluecleaninggco@gmail.com');
 
 -- (b) Trenton himself. 15% on finding, house rates on the rest — he works
@@ -232,6 +266,9 @@ $$;
 --        active = true,
 --        commission_eligible = true,
 --        commission_find_rate = 15,
+--        -- The 15% is for leads he spots on a Home Depot job. Anything else
+--        -- he adds earns the house 10%, same as anyone.
+--        commission_find_source = 'partner',
 --        commission_book_rate = null,
 --        commission_work_rate = null
 --  where id = (select id from auth.users where email = '<trenton@example.com>');

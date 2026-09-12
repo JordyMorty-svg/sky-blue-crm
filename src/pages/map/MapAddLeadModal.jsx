@@ -63,7 +63,7 @@ export default function MapAddLeadModal({ location, onClose, onCreated }) {
           // already inside quoting floors, so his pins are partner leads
           // and that is what earns him the finder's fee. Passing null lets
           // createLead's own default stand for everyone else.
-          source: defaultSourceFor(profile?.role) || undefined,
+          source: defaultSourceFor(profile) || undefined,
         },
         user?.id ?? null
       );

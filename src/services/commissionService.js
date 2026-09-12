@@ -89,6 +89,11 @@ export async function fetchMyRates() {
   if (!r) return null;
   return {
     find: Number(r.find_rate),
+    // Present only for someone whose find override is tied to one source —
+    // Trenton's 15% on partner referrals. Null for everyone else, whose
+    // find rate is a single number.
+    findBonus: r.find_bonus_rate == null ? null : Number(r.find_bonus_rate),
+    findBonusSource: r.find_bonus_source || null,
     book: Number(r.book_rate),
     work: Number(r.work_rate),
   };

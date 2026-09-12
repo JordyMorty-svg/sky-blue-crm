@@ -291,7 +291,10 @@ begin
     return new;
   end if;
 
-  v_rate := public.sb_commission_rate(new.created_by, 'find');
+  -- Source passed: a find override can be tied to one source, so the
+  -- same rep earns a different rate on a partner referral than on a
+  -- door they knocked themselves.
+  v_rate := public.sb_commission_rate(new.created_by, 'find', new.source);
   if v_rate <= 0 then
     return new; -- an owner, or a rep explicitly set to zero
   end if;
@@ -388,13 +391,14 @@ declare
   v_estimate numeric;
   v_created  timestamptz;
   v_moved_at timestamptz;
+  v_source   text;
 begin
   if new.to_status is null then
     return new;
   end if;
 
-  select l.estimate, l.created_at
-    into v_estimate, v_created
+  select l.estimate, l.created_at, l.source
+    into v_estimate, v_created, v_source
     from public.leads l
    where l.id = new.lead_id;
 
@@ -444,7 +448,7 @@ begin
 
   -- --- back among the living -------------------------------------------
   if new.to_status in ('contacted', 'quoted', 'booked') then
-    v_rate := public.sb_commission_rate(new.changed_by, 'find');
+    v_rate := public.sb_commission_rate(new.changed_by, 'find', v_source);
     if v_rate > 0 then
       -- Conflicts against the live finder's fee on every ordinary move
       -- (contacted -> quoted and so on), which is exactly right: moving a
@@ -692,16 +696,35 @@ $$;
 -- page that recites the house rates in its header while listing 15% in the
 -- rows below contradicts itself about money — which is the one subject it
 -- cannot afford to be vague on.
+-- Returns the source-conditional case too, because "what do I earn for
+-- finding a lead" now has two answers for anyone on a targeted override.
+-- Telling Trenton a flat 10% would understate his deal; telling him a flat
+-- 15% would overstate it on every door he knocks.
+drop function if exists public.sb_my_commission_rates();
+
 create or replace function public.sb_my_commission_rates()
-returns table (find_rate numeric, book_rate numeric, work_rate numeric)
+returns table (
+  find_rate        numeric,
+  find_bonus_rate  numeric,
+  find_bonus_source text,
+  book_rate        numeric,
+  work_rate        numeric
+)
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select public.sb_commission_rate(auth.uid(), 'find'),
-         public.sb_commission_rate(auth.uid(), 'book'),
-         public.sb_commission_rate(auth.uid(), 'work')
+  select
+    -- The rate on an ordinary lead: pass a source the override can't match.
+    public.sb_commission_rate(auth.uid(), 'find', '__none__'),
+    (select case when p.commission_find_source is null then null
+                 else public.sb_commission_rate(auth.uid(), 'find',
+                                                p.commission_find_source) end
+       from public.profiles p where p.id = auth.uid()),
+    (select p.commission_find_source from public.profiles p where p.id = auth.uid()),
+    public.sb_commission_rate(auth.uid(), 'book'),
+    public.sb_commission_rate(auth.uid(), 'work')
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -743,14 +766,15 @@ declare
   v_old_owner uuid;
   v_rate      numeric;
   v_base      numeric;
+  v_source    text;
   v_existing  public.commissions%rowtype;
 begin
   if not public.sb_is_admin() then
     raise exception 'Only an owner can reassign a lead.' using errcode = '42501';
   end if;
 
-  select created_by, coalesce(estimate, 0)
-    into v_old_owner, v_base
+  select created_by, coalesce(estimate, 0), source
+    into v_old_owner, v_base, v_source
     from public.leads
    where id = p_lead_id;
 
@@ -791,7 +815,7 @@ begin
 
   v_rate := case
               when p_new_owner is null then 0
-              else public.sb_commission_rate(p_new_owner, 'find')
+              else public.sb_commission_rate(p_new_owner, 'find', v_source)
             end;
 
   if found and v_existing.status = 'paid' then

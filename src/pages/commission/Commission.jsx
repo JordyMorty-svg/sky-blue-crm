@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/useAuth";
+import { sourceFor } from "../../services/leadService";
 import ViewSwitcher from "../../components/ViewSwitcher";
 import { INCOME_VIEWS } from "../../components/navViews";
 import {
@@ -29,6 +30,22 @@ import "./Commission.css";
  * a lead nobody has priced yet shows a percentage and no figure at all —
  * because there is no figure, and making one up would be worse than a blank.
  */
+
+// What this person earns, in a sentence.
+//
+// Two shapes, because a targeted override gives "find" two answers.
+// Trenton's 15% applies to partner referrals only, so a flat "you earn 15%
+// for finding a lead" would promise him money on every door he knocks, and
+// a flat 10% would understate the deal he actually negotiated.
+function rateSentence(rates) {
+  const tail = `${rates.book}% for booking it, and ${rates.work}% for working the job. Nothing is payable until the customer has paid.`;
+
+  if (rates.findBonus != null && rates.findBonusSource) {
+    const label = sourceFor(rates.findBonusSource).label.toLowerCase();
+    return `You earn ${rates.findBonus}% for finding a lead through ${label}, ${rates.find}% for finding one any other way, ${tail}`;
+  }
+  return `You earn ${rates.find}% for finding a lead, ${tail}`;
+}
 
 function StateBadge({ state }) {
   return (
@@ -383,7 +400,7 @@ export default function Commission() {
           <h1 className="comm__title">Your commission</h1>
           <p className="comm__blurb">
             {rates
-              ? `You earn ${rates.find}% for finding a lead, ${rates.book}% for booking it, and ${rates.work}% for working the job. Nothing is payable until the customer has paid.`
+              ? rateSentence(rates)
               : "Nothing is payable until the customer has paid."}
           </p>
         </header>

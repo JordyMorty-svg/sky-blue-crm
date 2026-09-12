@@ -170,27 +170,44 @@ export function navSectionsFor(role) {
   );
 }
 
-// The lead source to preselect for this role.
+// The lead source to preselect for this person.
 //
-// A partner's leads all arrive the same way — he saw the windows while he
-// was in the house quoting floors — so making him pick "Partner referral"
-// out of a list of nine every single time is a tax with one right answer.
-// It stays a dropdown, because he might genuinely knock a door.
+// A partner's leads mostly arrive the same way — he saw the windows while
+// he was in the house quoting floors — so making him pick "Partner
+// referral" out of a list of ten every time is a tax with one right
+// answer. It stays a dropdown, because he might genuinely knock a door.
 //
-// Returns null for everyone else, which lets createLead's own "door"
-// fallback stand rather than duplicating that default in two places.
-export function defaultSourceFor(role) {
-  return role === "partner" ? "partner" : null;
+// Prefers the source his commission is actually tied to over a guess from
+// his role, so the preselected option and the rate badge can never point at
+// different things. Null for everyone else, which lets createLead's own
+// "door" fallback stand rather than duplicating that default here.
+export function defaultSourceFor(profile) {
+  if (!profile) return null;
+  if (profile.commission_find_source) return profile.commission_find_source;
+  return profile.role === "partner" ? "partner" : null;
 }
 
-// The commission a rep earns on a lead they source, as a percent, or null
-// if they earn nothing for finding. Read straight off the profile so the
-// number a rep sees is the number the database will pay — a hardcoded 15
-// here would go stale the day a rate changes.
-export function findRateFor(profile) {
+// What this person earns for sourcing a lead FROM THIS SOURCE, as a
+// percent, or null if there is nothing worth singling out.
+//
+// The source argument is the whole point. Trenton's 15% was negotiated for
+// work he spots on a Home Depot job, not for anything he types into the
+// CRM — the database applies it only on that source, and a badge that said
+// "you earn 15%" against a door knock would be promising him money the
+// ledger will not pay.
+//
+// Read off the profile rather than hardcoded, so it cannot go stale the day
+// a rate changes.
+export function findRateFor(profile, source) {
   if (!profile || profile.commission_eligible === false) return null;
   const rate = profile.commission_find_rate;
-  return rate === null || rate === undefined ? null : Number(rate);
+  if (rate === null || rate === undefined) return null;
+
+  // An override tied to one source is only worth showing on that source.
+  const only = profile.commission_find_source;
+  if (only && only !== source) return null;
+
+  return Number(rate);
 }
 
 // Where to send someone who aimed at a section they can't have — their first
