@@ -387,6 +387,39 @@ export async function fetchLead(id) {
   return data;
 }
 
+// Everyone a lead can be attributed to. Owners included — "Hayden added
+// this, not me" is as common a correction as "that was Trenton's".
+export async function fetchAssignableOwners() {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, role, commission_eligible")
+    .eq("active", true)
+    .order("full_name");
+  if (error) throw error;
+  return data || [];
+}
+
+// Change who found a lead.
+//
+// An RPC rather than an update to leads.created_by, because the finder's fee
+// is a separate row that has to move — and be RE-RATED — with it. Trenton is
+// on 15% and a tech on 10%, so the same lead is worth a different amount
+// depending on whose it is, and an owner is worth nothing at all. Doing it
+// in one database function keeps the credit and the money from disagreeing.
+//
+// Returns a sentence describing what actually happened, which the page shows
+// verbatim: the outcomes differ enough (moved, removed, created, left alone
+// because it was already paid) that a generic "Saved" would hide the
+// important ones.
+export async function reassignLead(leadId, newOwnerId) {
+  const { data, error } = await supabase.rpc("sb_reassign_lead", {
+    p_lead_id: leadId,
+    p_new_owner: newOwnerId || null,
+  });
+  if (error) throw error;
+  return data;
+}
+
 // Permanently delete a lead from the database.
 export async function deleteLead(id) {
   const { error } = await supabase.from("leads").delete().eq("id", id);

@@ -117,6 +117,12 @@ const ACTIONS = {
   // trade was made deliberately.
   retire_leads: ["admin"],
 
+  // Changing who a lead is attributed to. That moves the finder's fee with
+  // it — and re-rates it, since Trenton is on 15% and a tech on 10% — so it
+  // is a payroll edit wearing a dropdown. Owners only, and the database
+  // refuses anyone else regardless of what the UI shows.
+  reassign_leads: ["admin"],
+
   // "Archive all 12" on the stale bar. Every lead it touches is by
   // definition past the 30-day gate, so one press can void several reps'
   // pending fees at once with no confirmation. The largest single lever in

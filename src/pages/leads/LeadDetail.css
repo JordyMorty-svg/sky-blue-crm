@@ -412,3 +412,13 @@
   line-height: 1.45;
   color: #94a3b8;
 }
+
+/* What the database did with the finder's fee. Green because every outcome
+   it reports is a completed action, and the wording differs enough between
+   them (moved, removed, created, left alone) that it's worth reading. */
+.detail__reassigned {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #15803d;
+}

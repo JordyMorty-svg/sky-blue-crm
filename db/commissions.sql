@@ -705,6 +705,132 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------------------
+-- 7c. Reassigning who found a lead
+-- ---------------------------------------------------------------------------
+--
+-- Changing leads.created_by by hand is a trap, which is why this exists as a
+-- function rather than a column the app can just update. The finder's fee is
+-- a SEPARATE row that was written when the lead was created and attributed
+-- to whoever created it — so editing the column alone moves the credit on
+-- screen while the money stays with the wrong person, silently, until
+-- payday.
+--
+-- Four cases, all of which happen:
+--
+--   rep -> rep     move the row, and RE-RATE it. Trenton is on 15% and a
+--                  tech is on 10%, so the same lead is worth a different
+--                  amount depending on whose it is.
+--   rep -> owner   delete the pending fee. Members are not on commission,
+--                  so there is nobody to pay.
+--   owner -> rep   create one. No row existed, because owners earn nothing.
+--   already paid   leave it completely alone and say so. Money that has
+--                  gone out is not rewritten by an admin fixing an
+--                  attribution six weeks later.
+--
+-- The BOOKING fee is deliberately untouched. Who booked a lead is a
+-- historical fact recorded in lead_events — reassigning who *found* it
+-- says nothing about who closed it.
+create or replace function public.sb_reassign_lead(
+  p_lead_id   uuid,
+  p_new_owner uuid
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_old_owner uuid;
+  v_rate      numeric;
+  v_base      numeric;
+  v_existing  public.commissions%rowtype;
+begin
+  if not public.sb_is_admin() then
+    raise exception 'Only an owner can reassign a lead.' using errcode = '42501';
+  end if;
+
+  select created_by, coalesce(estimate, 0)
+    into v_old_owner, v_base
+    from public.leads
+   where id = p_lead_id;
+
+  if not found then
+    raise exception 'No such lead.';
+  end if;
+
+  if v_old_owner is not distinct from p_new_owner then
+    return 'No change.';
+  end if;
+
+  -- A job's real price beats the lead's estimate once one exists, same rule
+  -- the rest of the ledger follows.
+  --
+  -- A scalar subquery, NOT `select ... into`. INTO sets its target to NULL
+  -- when the query matches no rows, so on a lead with no job yet — the
+  -- common case — it silently erased the estimate read a moment ago and
+  -- every reassignment produced a $0 fee. The subquery yields NULL the same
+  -- way, but the coalesce around it can then fall back.
+  v_base := coalesce(
+    (select coalesce(j.final_price, j.price)
+       from public.jobs j
+      where j.lead_id = p_lead_id
+      order by j.visit_number nulls last
+      limit 1),
+    v_base,
+    0);
+
+  update public.leads set created_by = p_new_owner where id = p_lead_id;
+
+  select * into v_existing
+    from public.commissions
+   where lead_id = p_lead_id
+     and kind = 'find'
+     and reversal_of is null
+     and status <> 'void'
+   limit 1;
+
+  v_rate := case
+              when p_new_owner is null then 0
+              else public.sb_commission_rate(p_new_owner, 'find')
+            end;
+
+  if found and v_existing.status = 'paid' then
+    return 'Lead reassigned. The finder''s fee was already paid out and has '
+           || 'been left with the original rep — settle any correction by hand.';
+  end if;
+
+  if found then
+    if v_rate > 0 then
+      update public.commissions
+         set profile_id = p_new_owner,
+             rate = v_rate,
+             base_amount = v_base,
+             amount = round(v_base * v_rate / 100, 2)
+       where id = v_existing.id;
+      return 'Lead reassigned, and the finder''s fee moved with it at '
+             || v_rate || '%.';
+    else
+      delete from public.commissions where id = v_existing.id;
+      return 'Lead reassigned. The finder''s fee was removed — the new owner '
+             || 'is not on commission.';
+    end if;
+  end if;
+
+  if v_rate > 0 then
+    insert into public.commissions
+      (lead_id, profile_id, kind, rate, base_amount, amount, status)
+    values
+      (p_lead_id, p_new_owner, 'find', v_rate, v_base,
+       round(v_base * v_rate / 100, 2), 'pending')
+    on conflict do nothing;
+    return 'Lead reassigned, and a finder''s fee created at ' || v_rate || '%.';
+  end if;
+
+  return 'Lead reassigned. No commission either way.';
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- 8. Paying out
 -- ---------------------------------------------------------------------------
 

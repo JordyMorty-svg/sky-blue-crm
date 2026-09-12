@@ -14,6 +14,8 @@ import {
   serviceFor,
   telHref,
   recordLeadContact,
+  fetchAssignableOwners,
+  reassignLead,
 } from "../../services/leadService";
 import { useAuth } from "../../context/useAuth";
 import { can } from "../../components/capabilities";
@@ -37,6 +39,9 @@ export default function LeadDetail() {
   const { role, user } = useAuth();
   const canDelete = can(role, "delete_leads");
   const [events, setEvents] = useState([]);
+  const [owners, setOwners] = useState([]);
+  const [reassigning, setReassigning] = useState(false);
+  const [reassignNote, setReassignNote] = useState("");
 
   async function load() {
     try {
@@ -71,6 +76,43 @@ export default function LeadDetail() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Only an owner can reattribute a lead, so only an owner needs the list of
+  // people to attribute it to.
+  useEffect(() => {
+    if (!can(role, "reassign_leads")) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const list = await fetchAssignableOwners();
+        if (!cancelled) setOwners(list);
+      } catch (e) {
+        console.error("Couldn't load the rep list:", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
+
+  async function handleReassign(newOwnerId) {
+    setReassigning(true);
+    setReassignNote("");
+    setError("");
+    try {
+      // The database decides what happened to the money and says so; this
+      // just relays it. Then reload, because the fee may have been created,
+      // deleted, or re-rated and the page shouldn't be guessing.
+      const note = await reassignLead(id, newOwnerId || null);
+      setReassignNote(note);
+      await load();
+    } catch (e) {
+      console.error(e);
+      setError(e.message || "Couldn't reassign that lead.");
+    } finally {
+      setReassigning(false);
+    }
+  }
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -325,6 +367,47 @@ export default function LeadDetail() {
             ))}
           </select>
         </Field>
+
+        {/* Attribution, right next to how the lead arrived, because the two
+            corrections tend to happen in the same breath: "that was
+            Trenton's, from a job site" is one thought.
+
+            Saves immediately rather than waiting for Save changes. It isn't
+            a form field — it moves money — so it goes through its own
+            database function and reports back what happened to the fee. */}
+        {can(role, "reassign_leads") && (
+        <Field label="Added by">
+          <select
+            className="detail__input"
+            value={form.created_by || ""}
+            disabled={reassigning}
+            onChange={(e) => handleReassign(e.target.value)}
+          >
+            <option value="">Nobody / website</option>
+            {/* An attribution to someone no longer active still has to
+                render, or the select would silently jump to the first name
+                on the list. */}
+            {form.created_by &&
+              !owners.some((o) => o.id === form.created_by) && (
+                <option value={form.created_by}>
+                  {form.creator?.full_name || "(former rep)"}
+                </option>
+              )}
+            {owners.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.full_name || "(unnamed)"}
+                {o.commission_eligible === false ? " — no commission" : ""}
+              </option>
+            ))}
+          </select>
+          {reassigning && (
+            <p className="detail__statushint">Moving the finder&rsquo;s fee…</p>
+          )}
+          {reassignNote && !reassigning && (
+            <p className="detail__reassigned">{reassignNote}</p>
+          )}
+        </Field>
+        )}
 
         <Field label="Service they asked about">
           {/* No default applied here, unlike source. A website lead carries
