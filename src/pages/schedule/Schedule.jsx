@@ -17,6 +17,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { useAuth } from "../../context/useAuth";
 import { fetchMyJobs } from "../../services/jobService";
 import { fetchCalendarJobs } from "../../services/calendarService";
+import { can } from "../../components/capabilities";
 import JobPlanTag from "../../components/JobPlanTag";
 import ViewSwitcher from "../../components/ViewSwitcher";
 import {
@@ -255,7 +256,10 @@ function CalendarToolbar({ label, onNavigate, onView, view }) {
 }
 
 export default function Schedule() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  // Owners see the whole team's calendar; everyone else sees only the
+  // jobs they're assigned to.
+  const seeAllJobs = can(role, "see_all_jobs");
   const navigate = useNavigate();
   // Mode comes from the route rather than local state, so the view is
   // linkable, survives a refresh, and can be remembered between visits.
@@ -331,17 +335,21 @@ export default function Schedule() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // `seeAllJobs` is in the deps, not just user.id. The profile (and so the
+  // role) resolves a beat after the session does, and without this the first
+  // load would run as the default role and hand a tech the whole team's
+  // calendar until something else happened to refetch.
   useEffect(() => {
     if (user?.id) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, seeAllJobs]);
 
   async function load() {
     try {
       setLoading(true);
       const [mine, all] = await Promise.all([
         fetchMyJobs(user.id),
-        fetchCalendarJobs(),
+        fetchCalendarJobs(seeAllJobs ? null : user.id),
       ]);
       setJobs(mine);
       setCalJobs(all);

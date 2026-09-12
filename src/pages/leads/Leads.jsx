@@ -11,6 +11,9 @@ import {
 } from "../../services/leadService";
 import LeadColumn from "../../components/LeadColumn";
 import ViewSwitcher from "../../components/ViewSwitcher";
+import ScopeToggle from "../../components/ScopeToggle";
+import { initialScope } from "../../components/scopeMemory";
+import { useAuth } from "../../context/useAuth";
 import { LEAD_VIEWS } from "../../components/navViews";
 import DragPromptModal from "../../components/DragPromptModal";
 import "./Leads.css";
@@ -31,6 +34,10 @@ function loadCollapsed() {
 
 export default function Leads() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  // Seeded from storage rather than defaulted then corrected, so the board
+  // never flashes the whole team's leads before narrowing to yours.
+  const [scope, setScope] = useState(initialScope);
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -43,7 +50,7 @@ export default function Leads() {
 
   async function loadLeads() {
     try {
-      const data = await fetchActiveLeads();
+      const data = await fetchActiveLeads(scope === "mine" ? user?.id : null);
       setLeads(data);
       setError("");
     } catch (e) {
@@ -61,7 +68,11 @@ export default function Leads() {
     void (async () => {
       await loadLeads();
     })();
-  }, []);
+    // loadLeads is redefined every render and reads `scope` from the
+    // closure, so listing it here would refetch on every render. The two
+    // values it actually depends on are named instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, user?.id]);
 
   // Persist collapse state whenever it changes.
   useEffect(() => {
@@ -182,7 +193,13 @@ export default function Leads() {
       <h1 className="visually-hidden">Pipeline</h1>
 
       <div className="leads__bar">
-        <p className="leads__count">{leads.length} active</p>
+        {/* Grouped so the count and the filter that produces it stay
+            together when the bar wraps on a narrow screen — otherwise the
+            number ends up on one line and what it counts on another. */}
+        <div className="leads__barleft">
+          <p className="leads__count">{leads.length} active</p>
+          <ScopeToggle scope={scope} onChange={setScope} />
+        </div>
         {/* One button rather than a "+" on every stage. Three blue chips
             competed with the cards for attention, and the stage they added
             to is now chosen on the form itself — where it can also be

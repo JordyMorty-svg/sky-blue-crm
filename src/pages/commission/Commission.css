@@ -1,0 +1,458 @@
+.comm {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 4px 0 40px;
+}
+
+.comm__state,
+.comm__empty {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  margin: 20px 0;
+}
+
+.comm__head {
+  margin-bottom: 18px;
+}
+
+.comm__title {
+  font-size: 1.5rem;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.comm__blurb {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  max-width: 62ch;
+}
+
+.comm__error,
+.comm__notice {
+  margin: 0 0 14px;
+  border-radius: 10px;
+  padding: 10px 13px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.comm__error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.comm__notice {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
+/* --- a rep's three totals --- */
+
+.comm__totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.comm__total {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.comm__totallabel {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+.comm__totalvalue {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.15;
+  /* Tabular figures so the three cards line up their decimal points
+     instead of jittering as the numbers change. */
+  font-variant-numeric: tabular-nums;
+}
+
+.comm__totalvalue--pending {
+  color: #64748b;
+}
+.comm__totalvalue--payable {
+  color: #1d4ed8;
+}
+.comm__totalvalue--paid {
+  color: #15803d;
+}
+
+.comm__totalhint {
+  font-size: 0.76rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.comm__unpriced {
+  margin: 0 0 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 11px 13px;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+/* --- the rows --- */
+
+.comm__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.comm__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 15px;
+}
+
+.comm__row + .comm__row {
+  border-top: 1px solid #f1f5f9;
+}
+
+.comm__row--void {
+  background: #fcfcfd;
+}
+
+.comm__row--void .comm__subject {
+  text-decoration: line-through;
+  color: #94a3b8;
+}
+
+.comm__check {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  accent-color: #2563eb;
+}
+
+.comm__rowmain {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.comm__rowtop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.comm__subject {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+.comm__rowsub {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+  font-size: 0.79rem;
+  color: #64748b;
+}
+
+.comm__dot {
+  color: #cbd5e1;
+}
+
+.comm__rate {
+  font-weight: 700;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+}
+
+.comm__amountwrap {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  text-align: right;
+}
+
+.comm__amount {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.comm__est {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* No price behind it yet. Deliberately quiet and deliberately not a
+   number — a grey "$0.00" would read as "you earned nothing", which is the
+   opposite of what an unquoted lead means. */
+.comm__pctonly {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+/* --- badges --- */
+
+.comm__badge {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.comm__badge--pending {
+  color: #64748b;
+  background: #f1f5f9;
+}
+.comm__badge--payable {
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+.comm__badge--paid {
+  color: #15803d;
+  background: #f0fdf4;
+}
+.comm__badge--void {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+/* --- the owner's view --- */
+
+.comm__rep {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.comm__rephead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 15px;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .comm__rephead:hover {
+    background: #f8fafc;
+  }
+}
+
+.comm__rephead:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.comm__repname {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: #0f172a;
+}
+
+.comm__reprole {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+.comm__repsums {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.comm__repsum--pending {
+  color: #94a3b8;
+}
+.comm__repsum--payable {
+  color: #1d4ed8;
+  font-weight: 700;
+}
+.comm__repsum--paid {
+  color: #15803d;
+}
+
+.comm__repchev {
+  flex: 0 0 auto;
+  color: #94a3b8;
+  font-size: 0.7rem;
+}
+
+.comm__selectall {
+  border-top: 1px solid #f1f5f9;
+  background: #f8fafc;
+  padding: 10px 15px;
+  font-size: 0.83rem;
+  color: #475569;
+}
+
+.comm__selectall label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.comm__selectall input {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+}
+
+.comm__rep .comm__rows {
+  border: none;
+  border-top: 1px solid #f1f5f9;
+  border-radius: 0;
+}
+
+/* --- the pay-out bar --- */
+
+.comm__bar {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #0f172a;
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 11px 14px;
+  margin-bottom: 14px;
+}
+
+.comm__barcount {
+  flex: 1 1 auto;
+  font-size: 0.87rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.comm__pay {
+  background: #22c55e;
+  color: #052e16;
+  border: none;
+  border-radius: 999px;
+  padding: 0 18px;
+  min-height: 38px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.comm__pay:disabled {
+  background: #86efac;
+  cursor: default;
+}
+
+.comm__clear {
+  background: transparent;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+  border-radius: 999px;
+  padding: 0 15px;
+  min-height: 38px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.comm__foot {
+  margin: 18px 0 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  /* The amount drops UNDER the description rather than fighting it for
+     width — a long customer name and a right-aligned figure on one 360px
+     line leaves neither readable.
+     Done by letting the row wrap and giving both children a full-width
+     basis. An earlier attempt used `order` on one child alone, which
+     reorders without rewrapping: the figure simply moved to the LEFT of
+     the name and stayed on the same line. */
+  .comm__row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    row-gap: 4px;
+  }
+
+  .comm__rowmain {
+    flex: 1 1 60%;
+  }
+
+  .comm__amountwrap {
+    flex: 1 1 100%;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 7px;
+    text-align: left;
+  }
+
+  .comm__rephead {
+    flex-wrap: wrap;
+  }
+
+  .comm__repsums {
+    width: 100%;
+    gap: 10px;
+  }
+}

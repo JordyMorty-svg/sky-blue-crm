@@ -1,0 +1,54 @@
+/* Deliberately NOT another ViewSwitcher.
+ *
+ * The switcher above it is the loud control: a grey track with a white
+ * raised pill, centred, 0.88rem. Repeating that shape immediately below
+ * gave the page two identical-looking rows of pills and no way to tell at
+ * a glance which one you were reading — especially when both offered an
+ * option called "All leads".
+ *
+ * So this one is quiet and inline: no track, a hairline border, smaller
+ * text, and a tinted rather than raised active state. It reads as a filter
+ * on the list, which is what it is, instead of a second navigation.
+ */
+
+.scope {
+  display: inline-flex;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  border-radius: 999px;
+  padding: 2px;
+  gap: 1px;
+}
+
+.scope__btn {
+  background: none;
+  border: none;
+  border-radius: 999px;
+  padding: 0 12px;
+  min-height: 26px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #94a3b8;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .scope__btn:not(.scope__btn--on):hover {
+    color: #475569;
+  }
+}
+
+.scope__btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Tinted, not raised. The switcher owns the white-pill-on-grey look. */
+.scope__btn--on {
+  background: #eff6ff;
+  color: #1d4ed8;
+}

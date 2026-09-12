@@ -13,6 +13,7 @@ import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO } from "../../components/appointmentUtils";
 import AddressPicker from "../../components/AddressPicker";
 import PlanPicker from "../../components/PlanPicker";
+import { defaultSourceFor, findRateFor } from "../../components/capabilities";
 import "./NewLead.css";
 
 const STAGE_LABELS = {
@@ -32,7 +33,12 @@ const STAGE_BLURBS = {
 export default function NewLead() {
   const { stage } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  // Which source earns this person a finder's fee, and how much. Both null
+  // for anyone who isn't on commission for sourcing — an owner sees a plain
+  // list with no percentages in it.
+  const myFindSource = defaultSourceFor(profile?.role);
+  const myFindRate = myFindSource ? findRateFor(profile) : null;
 
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
@@ -49,7 +55,14 @@ export default function NewLead() {
   const [temperature, setTemperature] = useState("");
   // Door knock is the default because it's still how most leads arrive —
   // but it's a choice now, not an assumption baked into createLead.
-  const [source, setSource] = useState("door");
+  //
+  // Except for a partner, whose leads all arrive the same way: he saw the
+  // windows while he was already in the house quoting floors. Picking
+  // "Partner referral" out of nine options every time is a tax with one
+  // right answer. Still a dropdown, because he might knock a door too.
+  const [source, setSource] = useState(
+    () => defaultSourceFor(profile?.role) || "door"
+  );
   const [service, setService] = useState(DEFAULT_SERVICE);
   const [propertyType, setPropertyType] = useState("residential");
   const [servicePlan, setServicePlan] = useState("one_time");
@@ -267,6 +280,13 @@ export default function NewLead() {
                 {LEAD_SOURCES.map((s) => (
                   <option key={s.key} value={s.key}>
                     {s.label}
+                    {/* Their own finder's fee, shown against the option
+                        that would earn it — read off the profile rather
+                        than hardcoded, so it can never disagree with what
+                        the database will actually pay. */}
+                    {s.key === myFindSource && myFindRate !== null
+                      ? ` - you earn ${myFindRate}%`
+                      : ""}
                   </option>
                 ))}
               </select>

@@ -15,6 +15,8 @@ import {
   telHref,
   recordLeadContact,
 } from "../../services/leadService";
+import { useAuth } from "../../context/useAuth";
+import { can } from "../../components/capabilities";
 import PlanPicker from "../../components/PlanPicker";
 import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
@@ -32,6 +34,8 @@ export default function LeadDetail() {
   const [calling, setCalling] = useState(false);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const { role } = useAuth();
+  const canDelete = can(role, "delete_leads");
   const [events, setEvents] = useState([]);
 
   async function load() {
@@ -393,6 +397,12 @@ export default function LeadDetail() {
           Cancel
         </button>
 
+        {/* Owners only. A deleted lead is a row gone from the database
+            along with its event history, and there is no undo anywhere in
+            the CRM — so the button isn't dimmed for a tech, it's absent.
+            A disabled control invites a support conversation; a missing one
+            doesn't raise the question. */}
+        {canDelete && (
         <div className="detail__delete-wrap">
           {confirmDelete ? (
             <>
@@ -410,6 +420,7 @@ export default function LeadDetail() {
             </button>
           )}
         </div>
+        )}
       </div>
     </div>
   );

@@ -6,7 +6,11 @@ import {
   bulkUpdateLeadStatus,
   bulkDeleteLeads,
 } from "../../services/leadService";
+import { useAuth } from "../../context/useAuth";
+import { can } from "../../components/capabilities";
 import ViewSwitcher from "../../components/ViewSwitcher";
+import ScopeToggle from "../../components/ScopeToggle";
+import { initialScope } from "../../components/scopeMemory";
 import { LEAD_VIEWS } from "../../components/navViews";
 import "./AllLeads.css";
 
@@ -38,6 +42,14 @@ export default function AllLeads() {
   const [busy, setBusy] = useState(false);
   // Holds the pending destructive action until it's confirmed.
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const { role, user } = useAuth();
+  // Shares its remembered value with the pipeline board, so switching
+  // to All on one and hopping to the other does not silently revert.
+  const [scope, setScope] = useState(initialScope);
+  // Bulk delete is the most destructive control in the CRM: with force
+  // unlocked it removes the leads, their jobs, and their customers in one
+  // press. Owners only.
+  const canDelete = can(role, "delete_leads");
   const [alsoDeleteCustomers, setAlsoDeleteCustomers] = useState(false);
   // Force mode deletes jobs too. Gated behind typing DELETE, because it
   // destroys payment history rather than just pipeline clutter.
@@ -52,7 +64,7 @@ export default function AllLeads() {
 
     (async () => {
       try {
-        const data = await fetchAllLeads();
+        const data = await fetchAllLeads(scope === "mine" ? user?.id : null);
         if (cancelled) return;
         setLeads(data);
         setError("");
@@ -67,7 +79,10 @@ export default function AllLeads() {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // Refetches when the scope changes, and when the user id arrives — the
+    // session resolves a beat before it, so a `[]` here would run the first
+    // load with an undefined id and quietly return the whole company.
+  }, [scope, user?.id]);
 
   // How many leads sit in each status — drives the filter chip counts.
   const counts = useMemo(() => {
@@ -267,6 +282,7 @@ export default function AllLeads() {
       {notice && <p className="allleads__notice">{notice}</p>}
 
       <div className="allleads__filters">
+        <ScopeToggle scope={scope} onChange={setScope} />
         <button
           className={`allleads__chip ${
             statusFilter === "all" ? "allleads__chip--active" : ""
@@ -341,13 +357,15 @@ export default function AllLeads() {
 
           {/* Always reachable while something is selected — the dialog is
               where job history gets explained and force is unlocked. */}
-          <button
-            className="allleads__delete"
-            disabled={busy}
-            onClick={() => setConfirmDelete(true)}
-          >
-            Delete {deletableCount > 0 ? deletableCount : ""}
-          </button>
+          {canDelete && (
+            <button
+              className="allleads__delete"
+              disabled={busy}
+              onClick={() => setConfirmDelete(true)}
+            >
+              Delete {deletableCount > 0 ? deletableCount : ""}
+            </button>
+          )}
 
           <button className="allleads__clear" onClick={clearSelection}>
             Clear

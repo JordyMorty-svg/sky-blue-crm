@@ -5,6 +5,8 @@ import { Circle } from "./Circle.jsx";
 import UserLocation from "./UserLocation";
 import { fetchMapLeads, fetchMapCustomers } from "../../services/mapService";
 import MapAddLeadModal from "./MapAddLeadModal";
+import { useAuth } from "../../context/useAuth";
+import { canSee } from "../../components/capabilities";
 import "./MapView.css";
 
 // Evaluated once at module load — geolocation support never changes at
@@ -97,6 +99,11 @@ function ClickToAdd({ active, onPicked }) {
 
 export default function MapView() {
   const navigate = useNavigate();
+  // A partner has no customer pages, so a customer pin would be a marker
+  // that bounces them back to Leads when tapped. The map they get is the
+  // lead map, which is the one they came for anyway.
+  const { role } = useAuth();
+  const showCustomers = canSee(role, "customer-detail");
   const [pins, setPins] = useState([]);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -110,9 +117,15 @@ export default function MapView() {
   const [tracking, setTracking] = useState(false);
   const [recenterSignal, setRecenterSignal] = useState(0); // bump to recenter
 
+  // `showCustomers` is in the deps rather than an empty array. The profile —
+  // and so the role — resolves a beat after the session does, so the first
+  // load runs under the default role. Without a refetch when the real role
+  // lands, a partner would see the whole customer base plotted until
+  // something else happened to reload the map.
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCustomers]);
 
   async function load() {
     try {
@@ -142,7 +155,7 @@ export default function MapView() {
         position: { lat: Number(c.latitude), lng: Number(c.longitude) },
       }));
 
-      setPins([...leadPins, ...customerPins]);
+      setPins(showCustomers ? [...leadPins, ...customerPins] : leadPins);
       setError("");
     } catch (e) {
       console.error(e);

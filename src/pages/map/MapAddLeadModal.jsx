@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createLead, TEMPERATURES } from "../../services/leadService";
 import { useAuth } from "../../context/useAuth";
+import { defaultSourceFor } from "../../components/capabilities";
 import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO } from "../../components/appointmentUtils";
 import "../../components/AddLeadModal.css";
@@ -8,7 +9,7 @@ import "../../components/AddLeadModal.css";
 // Create a lead from a location clicked on the map. Address + coordinates
 // come pre-filled from the reverse-geocoded click; the rep fills the rest.
 export default function MapAddLeadModal({ location, onClose, onCreated }) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [name, setName] = useState("");
   const [address, setAddress] = useState(location.address || "");
   const [phone, setPhone] = useState("");
@@ -55,6 +56,14 @@ export default function MapAddLeadModal({ location, onClose, onCreated }) {
           appointment_at: combineToISO(apptDate, apptTime),
           temperature: temperature || null,
           notes: notes.trim() || null,
+          // No source picker here, by design — this flow is someone
+          // standing at a door, and createLead defaults to "door" for
+          // exactly that reason (see crm-lead-sources.md). A partner is the
+          // exception: he is standing at a door too, but it's a door he was
+          // already inside quoting floors, so his pins are partner leads
+          // and that is what earns him the finder's fee. Passing null lets
+          // createLead's own default stand for everyone else.
+          source: defaultSourceFor(profile?.role) || undefined,
         },
         user?.id ?? null
       );

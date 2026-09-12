@@ -146,7 +146,18 @@ export const LEAD_SOURCES = [
   { key: "website", label: "Website", hint: "Contact form on skybluecleaningco.com" },
   { key: "referral", label: "Referral", hint: "An existing customer sent them" },
   { key: "social", label: "Social media", hint: "Facebook, Instagram, Nextdoor" },
-  { key: "google", label: "Google", hint: "Search or the Business Profile" },
+  { key: "google", label: "Google", hint: "Free search result or the Business Profile" },
+  // Split out from `google` on purpose, and the split is the whole point:
+  // Local Services Ads are charged per lead whether or not the customer
+  // ever replies, and organic Google is free. Averaged together, "revenue
+  // by lead source" cannot answer the only question worth asking of a paid
+  // channel — whether it earns back what it costs.
+  { key: "lsa", label: "Google Ads (LSA)", hint: "Local Services Ads — paid, charged per lead" },
+  // A trade contact who passes on work they see in someone's house. Not
+  // `referral`: that means a happy customer sent a friend and costs
+  // nothing, whereas this is a commercial arrangement with a finder's fee
+  // attached, and lumping the two together hides what the leads cost.
+  { key: "partner", label: "Partner referral", hint: "A trade partner who sends us work for a finder's fee" },
   { key: "signage", label: "Sign or truck", hint: "Yard sign, decal, or flyer" },
   { key: "other", label: "Other", hint: "" },
 ];
@@ -298,15 +309,23 @@ export function isStale(lead) {
 // Filtering by an allowlist derived from PIPELINE_STAGES rather than a
 // blocklist of terminal statuses: add a terminal status later and this
 // keeps working on its own.
-export async function fetchActiveLeads() {
-  const { data, error } = await supabase
+// `ownerId` narrows the board to leads that person added. "Mine" means
+// created_by, because that is the only ownership a lead has — there is no
+// assignment on a lead, only on the job it becomes.
+export async function fetchActiveLeads(ownerId = null) {
+  let query = supabase
     .from("leads")
     .select("*")
     .in(
       "status",
       PIPELINE_STAGES.map((s) => s.key)
-    )
-    .order("created_at", { ascending: false });
+    );
+
+  if (ownerId) query = query.eq("created_by", ownerId);
+
+  const { data, error } = await query.order("created_at", {
+    ascending: false,
+  });
 
   if (error) throw error;
 
@@ -388,11 +407,16 @@ export async function deleteLead(id) {
 //               so one customer may serve several leads. It's only safe to
 //               remove alongside its lead when it has no jobs of its own and
 //               no other lead depends on it.
-export async function fetchAllLeads() {
-  const { data: leads, error } = await supabase
+export async function fetchAllLeads(ownerId = null) {
+  let leadQuery = supabase
     .from("leads")
-    .select("*, creator:created_by ( full_name )")
-    .order("created_at", { ascending: false });
+    .select("*, creator:created_by ( full_name )");
+
+  if (ownerId) leadQuery = leadQuery.eq("created_by", ownerId);
+
+  const { data: leads, error } = await leadQuery.order("created_at", {
+    ascending: false,
+  });
   if (error) throw error;
 
   const ages = await fetchStatusAges();

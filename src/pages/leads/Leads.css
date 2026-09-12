@@ -102,6 +102,14 @@
   margin-bottom: 14px;
 }
 
+.leads__barleft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
 /* The count was centred with its own bottom margin when it stood alone.
    Inside the bar it's the left-hand item and the bar owns the spacing. */
 .leads__bar .leads__count {
