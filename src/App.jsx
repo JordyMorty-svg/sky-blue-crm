@@ -61,7 +61,11 @@ function Shell({ children }) {
     leads: () => sectionTab("leads", "Leads"),
     jobs: () => sectionTab("jobs", "Jobs"),
     schedule: () => sectionTab("schedule", "Schedule"),
-    income: () => ({ to: "/income", root: "/income", label: "Income" }),
+    // sectionTab, not a fixed "/income": Income has two views now, and a
+    // hardcoded target means tapping the nav always dumps you back on the
+    // books even when you were last looking at Commission. Same treatment
+    // every other multi-view section already gets.
+    income: () => sectionTab("income", "Income"),
     commission: () => ({
       to: "/commission",
       root: "/commission",
@@ -113,6 +117,18 @@ function Shell({ children }) {
       <main className="shell__main">{children}</main>
     </div>
   );
+}
+
+// Commission lives in two places, and this decides which one you get.
+//
+// An owner reaches it as a view of Income; a rep reaches it as a tab. Anyone
+// arriving at the bare /commission — a bookmark, a remembered view, a typed
+// URL, a link from an older build — is sent to whichever is canonical for
+// them rather than shown a page with no way back to its sibling.
+function CommissionEntry() {
+  const { isAdmin } = useAuth();
+  if (isAdmin) return <Navigate to="/income/commission" replace />;
+  return <Commission />;
 }
 
 // Bounce a role that can't have this section to somewhere it can.
@@ -198,7 +214,11 @@ export default function App() {
           owner sees every rep. The component branches on isAdmin, and
           the database enforces it — RLS on `commissions` returns a rep
           only their own rows however the request is made. */}
-      <Route path="/commission" element={<Page section="commission"><Commission /></Page>} />
+      <Route path="/commission" element={<Page section="commission"><CommissionEntry /></Page>} />
+      {/* Section "income", not "commission": as a view of Income it is
+          gated by whatever gates Income, which keeps the switcher's two
+          halves reachable by exactly the same people. */}
+      <Route path="/income/commission" element={<Page section="income"><Commission /></Page>} />
       <Route path="/customers" element={<Page section="customers"><Customers /></Page>} />
       {/* Static segment, so React Router ranks it above /customers/:id —
           same reason /customers/add-past already works. */}

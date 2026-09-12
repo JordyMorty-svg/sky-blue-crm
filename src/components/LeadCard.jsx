@@ -6,6 +6,8 @@ import {
   serviceFor,
   telHref,
 } from "../services/leadService";
+import { useAuth } from "../context/useAuth";
+import { can } from "./capabilities";
 
 function formatDate(iso) {
   const d = new Date(iso);
@@ -28,6 +30,7 @@ function formatDate(iso) {
  */
 export default function LeadCard({ lead, onMove, onContact }) {
   const navigate = useNavigate();
+  const { role } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const temp = TEMPERATURES.find((t) => t.key === lead.temperature);
@@ -44,12 +47,26 @@ export default function LeadCard({ lead, onMove, onContact }) {
       ? lead.service
       : null;
 
-  // Stages you can move to from the board: forward pipeline moves, plus
-  // Lost — marking a no at the door is the single most common action after
-  // a knock, so it shouldn't need a trip to the detail page. Archived stays
-  // excluded; it's a deliberate cleanup action, not a field decision.
+  // Stages you can move to from the board.
+  //
+  // Archived is never here — it's a deliberate cleanup action, not a field
+  // decision. Lost used to be, for everyone, and the reason was good:
+  // marking a no at the door is the single most common thing that happens
+  // after a knock, and making it cost a trip to the detail page taxes the
+  // motion a rep makes twenty times a day.
+  //
+  // It's now owners-only, and that is a real trade rather than a free win.
+  // What bought it: Lost and Archived are the two transitions that can
+  // release a commission, the board is shared, and the fee at stake may
+  // belong to somebody else. A rep opens the lead first — where they can
+  // see whose it is and when it was last touched — and everything else on
+  // the card stays one tap.
+  const canRetire = can(role, "retire_leads");
   const otherStages = LEADS_SETTABLE_STATUSES.filter(
-    (s) => s.key !== lead.status && s.key !== "archived"
+    (s) =>
+      s.key !== lead.status &&
+      s.key !== "archived" &&
+      (canRetire || s.key !== "lost")
   );
 
   function handleMove(stageKey) {

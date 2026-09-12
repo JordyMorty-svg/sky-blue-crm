@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { fetchCompletedJobs } from "../../services/customerService";
+import ViewSwitcher from "../../components/ViewSwitcher";
+import { INCOME_VIEWS } from "../../components/navViews";
 import "./Income.css";
 
 const PERIODS = [
@@ -138,9 +140,13 @@ export default function Income() {
 
   return (
     <div className="income">
-      <div className="income__head">
-        <h1 className="income__title">Income</h1>
-      </div>
+      <ViewSwitcher views={INCOME_VIEWS} section="income" />
+
+      {/* The switcher is the visible heading — an "Income" title directly
+          under a tab reading Income is pure duplication, the same one the
+          Leads board removed. The h1 stays for screen readers and document
+          structure, just hidden visually. */}
+      <h1 className="visually-hidden">Income</h1>
 
       <div className="income__periods">
         {PERIODS.map((p) => (

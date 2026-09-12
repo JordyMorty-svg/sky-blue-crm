@@ -14,6 +14,7 @@ import ViewSwitcher from "../../components/ViewSwitcher";
 import ScopeToggle from "../../components/ScopeToggle";
 import { initialScope } from "../../components/scopeMemory";
 import { useAuth } from "../../context/useAuth";
+import { can } from "../../components/capabilities";
 import { LEAD_VIEWS } from "../../components/navViews";
 import DragPromptModal from "../../components/DragPromptModal";
 import "./Leads.css";
@@ -34,7 +35,11 @@ function loadCollapsed() {
 
 export default function Leads() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  // One press archives every stale lead at once. All of them are past
+  // the 30-day gate by definition, so it can void several reps' pending
+  // commissions in a single action — the largest lever on this page.
+  const canBulkArchive = can(role, "bulk_archive_leads");
   // Seeded from storage rather than defaulted then corrected, so the board
   // never flashes the whole team's leads before narrowing to yours.
   const [scope, setScope] = useState(initialScope);
@@ -226,13 +231,15 @@ export default function Leads() {
           >
             {staleOnly ? "Show all" : "Show only these"}
           </button>
-          <button
-            className="leads__archivebtn"
-            onClick={handleArchiveStale}
-            disabled={archiving}
-          >
-            {archiving ? "Archiving…" : `Archive all ${staleLeads.length}`}
-          </button>
+          {canBulkArchive && (
+            <button
+              className="leads__archivebtn"
+              onClick={handleArchiveStale}
+              disabled={archiving}
+            >
+              {archiving ? "Archiving…" : `Archive all ${staleLeads.length}`}
+            </button>
+          )}
         </div>
       )}
 

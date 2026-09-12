@@ -38,6 +38,19 @@ export const CUSTOMER_VIEWS = [
   { to: "/customers/communication", label: "Communication" },
 ];
 
+// The books, and who is owed out of them. Two views rather than two tabs
+// because an owner arrives at both asking the same sort of question —
+// "where did the money go" — and because Commission as a top-level tab
+// alongside Income read as a second, competing money page.
+//
+// Reps still reach Commission at /commission as a tab of its own: they have
+// no Income view to switch between, so a switcher with one usable half
+// would be furniture.
+export const INCOME_VIEWS = [
+  { to: "/income", label: "Income", end: true },
+  { to: "/income/commission", label: "Commission" },
+];
+
 // Sections whose last-used view is remembered across visits. `key` is the
 // storage key; `root` is what the top nav highlights against.
 export const REMEMBERED_SECTIONS = {
@@ -45,4 +58,5 @@ export const REMEMBERED_SECTIONS = {
   jobs: { root: "/jobs", views: JOB_VIEWS },
   schedule: { root: "/schedule", views: SCHEDULE_VIEWS },
   customers: { root: "/customers", views: CUSTOMER_VIEWS },
+  income: { root: "/income", views: INCOME_VIEWS },
 };

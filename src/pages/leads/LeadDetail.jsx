@@ -34,7 +34,7 @@ export default function LeadDetail() {
   const [calling, setCalling] = useState(false);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const canDelete = can(role, "delete_leads");
   const [events, setEvents] = useState([]);
 
@@ -143,6 +143,23 @@ export default function LeadDetail() {
   if (loading) return <div className="detail__state">Loading…</div>;
   if (!form) return <div className="detail__state">{error || "Not found."}</div>;
 
+  // Who may close a lead out.
+  //
+  // Lost and Archived are the two transitions that can release a
+  // commission: a lead 30+ quiet days old gives up its pending fees when it
+  // is killed, and on a shared board that fee may belong to someone else.
+  // Owners may close anything. Everyone else may close their own — which is
+  // the case that actually matters in the field, because the lead you just
+  // knocked and got a no on is yours.
+  //
+  // A lead with no creator (the website's own inserts) is nobody's, so only
+  // an owner retires it.
+  const isMine = !!form.created_by && form.created_by === user?.id;
+  const mayRetire = can(role, "retire_leads") || isMine;
+  const settableStatuses = LEADS_SETTABLE_STATUSES.filter(
+    (s) => mayRetire || (s.key !== "lost" && s.key !== "archived")
+  );
+
   return (
     <div className="detail">
       <div className="detail__top">
@@ -188,14 +205,27 @@ export default function LeadDetail() {
           <select className="detail__input" value={form.status}
             onChange={(e) => set("status", e.target.value)}>
             {/* Always show the lead's current status, even if it isn't
-                normally settable here (e.g. a scheduled lead viewed directly). */}
-            {!LEADS_SETTABLE_STATUSES.some((s) => s.key === form.status) && (
+                normally settable here — a scheduled lead viewed directly,
+                or a lead already Lost being read by someone who couldn't
+                set it. Checked against the FILTERED list, not the full one,
+                or a tech opening a lost lead would see the select snap to
+                Contacted and silently reopen it on save. */}
+            {!settableStatuses.some((s) => s.key === form.status) && (
               <option value={form.status}>{form.status}</option>
             )}
-            {LEADS_SETTABLE_STATUSES.map((s) => (
+            {settableStatuses.map((s) => (
               <option key={s.key} value={s.key}>{s.label}</option>
             ))}
           </select>
+          {/* Said out loud rather than left as a gap. Two options quietly
+              missing from a dropdown reads as a bug; a sentence reads as a
+              rule. */}
+          {!mayRetire && (
+            <p className="detail__statushint">
+              Only an owner can mark someone else&rsquo;s lead lost or
+              archived.
+            </p>
+          )}
         </Field>
 
         <Field label="Phone">

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/useAuth";
+import ViewSwitcher from "../../components/ViewSwitcher";
+import { INCOME_VIEWS } from "../../components/navViews";
 import {
   fetchCommissions,
   fetchMyRates,
@@ -316,16 +318,30 @@ export default function Commission() {
 
   return (
     <div className="comm">
-      <header className="comm__head">
-        <h1 className="comm__title">{isAdmin ? "Commission" : "Your commission"}</h1>
-        <p className="comm__blurb">
-          {isAdmin
-            ? "What every rep has earned, and what's waiting to be paid out."
-            : rates
+      {/* Only for an owner. A rep reaches this page as a tab of its own and
+          has no Income view to switch to, so the switcher would be a
+          two-option control with one option they cannot use. */}
+      {isAdmin && <ViewSwitcher views={INCOME_VIEWS} section="income" />}
+
+      {isAdmin ? (
+        // The switcher directly above already says Commission, so the
+        // title and its one-line summary were both restating the tab you
+        // just pressed. Hidden visually, kept for screen readers.
+        //
+        // Only for an owner: a rep has no switcher, so for them the header
+        // is the only thing naming the page — and its blurb carries their
+        // own rates, which is the most useful sentence on it.
+        <h1 className="visually-hidden">Commission</h1>
+      ) : (
+        <header className="comm__head">
+          <h1 className="comm__title">Your commission</h1>
+          <p className="comm__blurb">
+            {rates
               ? `You earn ${rates.find}% for finding a lead, ${rates.book}% for booking it, and ${rates.work}% for working the job. Nothing is payable until the customer has paid.`
               : "Nothing is payable until the customer has paid."}
-        </p>
-      </header>
+          </p>
+        </header>
+      )}
 
       {error && <p className="comm__error">{error}</p>}
       {notice && <p className="comm__notice">{notice}</p>}

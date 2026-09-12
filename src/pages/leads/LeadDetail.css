@@ -402,3 +402,13 @@
   font-size: 0.8rem;
   color: #64748b;
 }
+
+/* Why two options are missing from the status dropdown. Quiet — it's an
+   explanation, not a warning, and it sits under a control most people can
+   use fully. */
+.detail__statushint {
+  margin: 6px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: #94a3b8;
+}

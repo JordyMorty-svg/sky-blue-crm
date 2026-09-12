@@ -81,6 +81,17 @@ const ALLOWED = {
   partner: ["leads", "schedule", "map", "commission", "job-detail"],
 };
 
+// Sections a role may reach but should NOT get a top-level tab for, because
+// that role reaches them somewhere better.
+//
+// An owner gets to Commission through the Income switcher — the two are the
+// same question from different angles, and side-by-side tabs made the nav
+// look like there were two separate money pages. A rep has no Income view
+// to switch between, so for them Commission stays a tab of its own.
+const NAV_EXCLUDE = {
+  admin: ["commission"],
+};
+
 // Actions that are not places. Kept in the same file because "what may this
 // role do" is one question, and splitting it across two modules is how the
 // nav and the buttons drift apart.
@@ -92,6 +103,25 @@ const ACTIONS = {
   // The calendar shows the whole team by default. Anyone without this sees
   // only the jobs they are assigned to.
   see_all_jobs: ["admin"],
+
+  // Marking a lead Lost or Archived from the BOARD, in one tap on a card.
+  //
+  // Both are the transitions that can release a commission — a lead 30+
+  // quiet days old gives up its pending fees when it is killed, and on a
+  // shared board that fee may not be yours. Owners keep the one-tap
+  // version; everyone else opens the lead first, where they can see whose
+  // it is and what was last said before writing it off.
+  //
+  // Costed, not free: the card comment notes that marking a no at the door
+  // is the commonest action after a knock, and this adds a tap to it. The
+  // trade was made deliberately.
+  retire_leads: ["admin"],
+
+  // "Archive all 12" on the stale bar. Every lead it touches is by
+  // definition past the 30-day gate, so one press can void several reps'
+  // pending fees at once with no confirmation. The largest single lever in
+  // the CRM; owners only.
+  bulk_archive_leads: ["admin"],
 };
 
 // What an unrecognised or missing role gets.
@@ -128,7 +158,10 @@ export function can(role, action) {
 
 // The nav tabs this role should see, as section keys in display order.
 export function navSectionsFor(role) {
-  return NAV_SECTIONS.filter((section) => canSee(role, section));
+  const hidden = NAV_EXCLUDE[role || FALLBACK_ROLE] || [];
+  return NAV_SECTIONS.filter(
+    (section) => canSee(role, section) && !hidden.includes(section)
+  );
 }
 
 // The lead source to preselect for this role.
