@@ -4,6 +4,7 @@ import ViewSwitcher from "../../components/ViewSwitcher";
 import { INCOME_VIEWS } from "../../components/navViews";
 import {
   fetchCommissions,
+  fetchCommissionReps,
   fetchMyRates,
   markCommissionsPaid,
   stateFor,
@@ -145,6 +146,22 @@ function RepCard({ rep, rows, open, onToggleOpen, selected, onToggleRow, onSelec
         <span className="comm__repname">
           {rep.full_name || "(unnamed)"}
           <span className="comm__reprole">{rep.role}</span>
+          {/* Two things worth spotting from the roster without opening
+              anyone: someone who has left but may still be owed, and
+              someone set up with a rep role who was never made eligible —
+              which looks identical to "hasn't sold anything yet" until you
+              notice they can't earn at all. */}
+          {rep.active === false && (
+            <span className="comm__repflag comm__repflag--off">Inactive</span>
+          )}
+          {rep.commission_eligible === false && (
+            <span
+              className="comm__repflag comm__repflag--noearn"
+              title="Set commission_eligible on their profile to start accruing"
+            >
+              Not on commission
+            </span>
+          )}
         </span>
         <span className="comm__repsums">
           <span className="comm__repsum comm__repsum--pending">
@@ -160,7 +177,13 @@ function RepCard({ rep, rows, open, onToggleOpen, selected, onToggleRow, onSelec
         <span className="comm__repchev">{open ? "▲" : "▼"}</span>
       </button>
 
-      {open && (
+      {open && rows.length === 0 && (
+        <p className="comm__repempty">
+          Nothing yet. This will fill in as they add leads and work jobs.
+        </p>
+      )}
+
+      {open && rows.length > 0 && (
         <>
           {payableIds.length > 0 && (
             <div className="comm__selectall">
@@ -199,6 +222,7 @@ export default function Commission() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [rates, setRates] = useState(null);
+  const [reps, setReps] = useState([]);
   const [openRep, setOpenRep] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
 
@@ -215,8 +239,10 @@ export default function Commission() {
         // is for an ADMIN looking at their own page — without it an owner
         // would see the whole company's ledger under "your earnings",
         // which is a different question.
-        const [data, myRates] = await Promise.all([
+        const [data, roster, myRates] = await Promise.all([
           fetchCommissions(isAdmin ? {} : { profileId: user?.id }),
+          // Owners only: a rep has no business enumerating their colleagues.
+          isAdmin ? fetchCommissionReps() : Promise.resolve([]),
           // Only a rep needs these: an owner is commission_eligible = false,
           // so their own rates are all zero and the owner header never
           // quotes them. Nice-to-have either way — if it fails, the header
@@ -225,6 +251,7 @@ export default function Commission() {
         ]);
         if (!cancelled) {
           setRows(data);
+          setReps(roster);
           setRates(myRates);
           setError("");
         }
@@ -243,19 +270,38 @@ export default function Commission() {
   // An owner's own rows, if they somehow have any. Owners are
   // commission_eligible = false so this is normally empty, and the page
   // says so rather than showing three zeroes with no explanation.
+  // Seeded from the roster, THEN filled from the ledger — not the other way
+  // round. Building it from the rows alone meant a rep who had not earned
+  // anything yet was invisible, so a new hire and a profile nobody ever set
+  // up looked exactly the same.
+  //
+  // Anyone holding commission rows but missing from the roster is appended
+  // rather than dropped: an owner who somehow has rows, or a profile whose
+  // role changed after earning. Money on the page always beats a tidy list.
   const byRep = useMemo(() => {
     const map = new Map();
+    for (const rep of reps) map.set(rep.id, { rep, rows: [] });
+
     for (const row of rows) {
       const id = row.profile?.id || "unknown";
       if (!map.has(id)) {
-        map.set(id, { rep: row.profile || { full_name: "Unknown" }, rows: [] });
+        map.set(id, {
+          rep: row.profile || { id, full_name: "Unknown", role: "—" },
+          rows: [],
+        });
       }
       map.get(id).rows.push(row);
     }
-    return [...map.values()].sort((a, b) =>
-      (a.rep.full_name || "").localeCompare(b.rep.full_name || "")
-    );
-  }, [rows]);
+
+    // Active first, then by name. Someone who has left drops to the bottom
+    // but stays visible, because they may still be owed.
+    return [...map.values()].sort((a, b) => {
+      const aOff = a.rep.active === false;
+      const bOff = b.rep.active === false;
+      if (aOff !== bOff) return aOff ? 1 : -1;
+      return (a.rep.full_name || "").localeCompare(b.rep.full_name || "");
+    });
+  }, [rows, reps]);
 
   const mySum = useMemo(() => summarise(rows), [rows]);
 
@@ -374,8 +420,8 @@ export default function Commission() {
 
           {byRep.length === 0 ? (
             <p className="comm__empty">
-              Nobody has earned anything yet. Commission starts accruing the
-              moment a rep adds a lead.
+              No reps yet. Anyone set up with the tech or partner role shows
+              up here, earning or not.
             </p>
           ) : (
             byRep.map(({ rep, rows: repRows }) => (

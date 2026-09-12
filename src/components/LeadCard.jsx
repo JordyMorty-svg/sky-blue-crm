@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TEMPERATURES,
@@ -31,6 +31,7 @@ function formatDate(iso) {
 export default function LeadCard({ lead, onMove, onContact }) {
   const navigate = useNavigate();
   const { role } = useAuth();
+  const menuRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const temp = TEMPERATURES.find((t) => t.key === lead.temperature);
@@ -68,6 +69,41 @@ export default function LeadCard({ lead, onMove, onContact }) {
       s.key !== "archived" &&
       (canRetire || s.key !== "lost")
   );
+
+  // Close the menu when anything outside it is touched.
+  //
+  // Each card owns its own open state and nothing coordinates them, so
+  // without this every Move you tapped stayed open and the board ended up
+  // with three overlapping menus stacked down the column. Closing on
+  // outside interaction fixes that without a shared "which one is open"
+  // living up in the board: tapping another card's Move fires mousedown
+  // first, which closes this one, and the click that follows opens that
+  // one. Same approach as TechPicker.
+  //
+  // touchstart as well as mousedown because iOS Safari delays the
+  // synthesised mouse events, and on a phone the menu would visibly linger
+  // for a beat after you'd tapped elsewhere.
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function handleOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    }
+    function handleKey(e) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("touchstart", handleOutside);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("touchstart", handleOutside);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [menuOpen]);
 
   function handleMove(stageKey) {
     setMenuOpen(false);
@@ -150,9 +186,11 @@ export default function LeadCard({ lead, onMove, onContact }) {
           </span>
         )}
 
-        <div className="card__actions">
+        <div className="card__actions" ref={menuRef}>
           <button
             className="card__move-btn"
+            aria-expanded={menuOpen}
+            aria-haspopup="true"
             onClick={() => setMenuOpen((o) => !o)}
           >
             Move ▾

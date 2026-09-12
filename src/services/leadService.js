@@ -636,10 +636,31 @@ export async function bulkDeleteLeads(
 
 // Given a target stage and a lead, return which required field is still
 // missing ('price' | 'appointment' | null). Used to prompt on drag.
+// What a stage needs that this lead hasn't got.
+//
+// Returns an ARRAY, and that is the fix rather than a refactor for its own
+// sake. It used to return one field and stop at the first match, so a lead
+// dragged straight from Contacted to Booked was asked for an appointment
+// and never for a price — it landed on the board as Booked at $0.
+//
+// That was always untidy and is now expensive: leads.estimate becomes
+// jobs.price when the job is scheduled, and it is the base the finder's and
+// booking fees are estimated from. A $0 booking shows the rep "no quote
+// yet" against work they have actually closed.
+//
+// Booked needs a price for the same reason Quoted does — NewLead has always
+// required one for both ("A price is required for quoted or booked"), so
+// this brings the board in line with the form rather than inventing a rule.
 export function missingFieldFor(stage, lead) {
-  if (stage === "quoted" && !lead.estimate) return "price";
-  if (stage === "booked" && !lead.appointment_at) return "appointment";
-  return null;
+  const missing = [];
+  if (
+    (stage === "quoted" || stage === "booked") &&
+    !(Number(lead.estimate) > 0)
+  ) {
+    missing.push("price");
+  }
+  if (stage === "booked" && !lead.appointment_at) missing.push("appointment");
+  return missing;
 }
 
 // Create a manual lead at a given stage.

@@ -2,17 +2,34 @@ import { useState } from "react";
 import PlanPicker from "./PlanPicker";
 import "./AddLeadModal.css"; // reuse the same modal styling
 
-// Shown when a lead is dragged to a stage that needs info it doesn't have.
-// `field` is 'price' or 'appointment'. Calls onConfirm(value) or onCancel().
+/**
+ * Shown when a lead is moved to a stage that needs information it hasn't got.
+ *
+ * `fields` is an array — 'price', 'appointment', or both — because a lead
+ * dragged straight from Contacted to Booked is short of both at once. It
+ * used to be a single field, and the effect was that such a move asked for
+ * the appointment, never the price, and the lead landed on the board as
+ * Booked at $0. That matters beyond tidiness: leads.estimate becomes
+ * jobs.price at scheduling and is what the finder's and booking fees are
+ * estimated from, so a $0 booking shows the rep nothing against work they
+ * have actually closed.
+ *
+ * Calls onConfirm({ price, appointment }, extras) with only the fields it
+ * asked for.
+ */
 export default function DragPromptModal({
-  field,
+  fields = [],
   stageLabel,
   lead,
   askPlan = false,
   onConfirm,
   onCancel,
 }) {
-  const [value, setValue] = useState("");
+  const needsPrice = fields.includes("price");
+  const needsAppointment = fields.includes("appointment");
+
+  const [price, setPrice] = useState("");
+  const [appointment, setAppointment] = useState("");
   const [error, setError] = useState("");
   const [propertyType, setPropertyType] = useState(
     lead?.property_type || "residential"
@@ -21,15 +38,25 @@ export default function DragPromptModal({
     lead?.service_plan || "one_time"
   );
 
-  const isPrice = field === "price";
-
   function handleConfirm() {
-    if (!value) {
-      setError(isPrice ? "Enter a price to continue." : "Pick a time to continue.");
+    // Named individually rather than "fill in both fields": with two inputs
+    // on screen, being told which one is still empty is the difference
+    // between a one-second fix and re-reading the form.
+    if (needsPrice && !(Number(price) > 0)) {
+      setError("Enter a price to continue.");
       return;
     }
+    if (needsAppointment && !appointment) {
+      setError("Pick a time to continue.");
+      return;
+    }
+
+    const values = {};
+    if (needsPrice) values.price = price;
+    if (needsAppointment) values.appointment = appointment;
+
     onConfirm(
-      value,
+      values,
       askPlan
         ? { property_type: propertyType, service_plan: servicePlan }
         : undefined
@@ -49,28 +76,33 @@ export default function DragPromptModal({
         </div>
 
         <div className="modal__form">
-          {isPrice ? (
+          {/* Price first when both are asked: what you quoted is what you
+              agreed before you agreed a time, and it's the field the rest
+              of the form reacts to — the plan picker prices off it. */}
+          {needsPrice && (
             <>
               <label className="modal__label">Quoted price ($)</label>
               <input
                 className="modal__input"
                 type="number"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
                 placeholder="300"
                 min="0"
                 autoFocus
               />
             </>
-          ) : (
+          )}
+
+          {needsAppointment && (
             <>
               <label className="modal__label">Appointment</label>
               <input
                 className="modal__input"
                 type="datetime-local"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                autoFocus
+                value={appointment}
+                onChange={(e) => setAppointment(e.target.value)}
+                autoFocus={!needsPrice}
               />
             </>
           )}
@@ -81,7 +113,10 @@ export default function DragPromptModal({
               plan={servicePlan}
               onPropertyTypeChange={setPropertyType}
               onPlanChange={setServicePlan}
-              basePrice={isPrice ? value : lead?.estimate}
+              // The price being typed above wins over whatever the lead
+              // already had, so the discount preview tracks what you're
+              // entering rather than a stale figure.
+              basePrice={needsPrice ? price : lead?.estimate}
             />
           )}
 

@@ -47,6 +47,26 @@ export async function fetchCommissions({ profileId = null } = {}) {
   return data || [];
 }
 
+// Everyone who can earn commission, whether or not they have yet.
+//
+// The admin view used to be built purely from the ledger, so a rep with no
+// rows simply did not exist on the page — which is exactly the person you
+// want to see. A new hire looks identical to someone you forgot to
+// onboard, and there is no way to check the payroll roster against reality.
+//
+// Inactive profiles are included rather than filtered. Someone who has left
+// may still be owed for their last week, and a page that hides them hides
+// the debt; they are marked instead.
+export async function fetchCommissionReps() {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, role, active, commission_eligible")
+    .in("role", ["tech", "partner"])
+    .order("full_name");
+  if (error) throw error;
+  return data || [];
+}
+
 // Mark payable rows paid. Owners only — the database refuses anyone else,
 // so this cannot be worked around by calling it from a console.
 export async function markCommissionsPaid(ids) {

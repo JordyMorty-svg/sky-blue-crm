@@ -4,6 +4,7 @@
   padding: 4px 0 40px;
 }
 
+
 .comm__state,
 .comm__empty {
   color: #94a3b8;
@@ -455,4 +456,37 @@
     width: 100%;
     gap: 10px;
   }
+}
+
+/* Roster flags. Quiet — these are facts about a person's setup, not
+   warnings, and they sit on a row you scan rather than read. */
+.comm__repflag {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+.comm__repflag--off {
+  color: #64748b;
+  background: #f1f5f9;
+}
+
+/* Amber rather than grey: a rep role with commission switched off is
+   usually a setup mistake, and it reads the same as "hasn't earned yet"
+   unless something says otherwise. */
+.comm__repflag--noearn {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.comm__repempty {
+  margin: 0;
+  border-top: 1px solid #f1f5f9;
+  padding: 14px 15px;
+  font-size: 0.83rem;
+  color: #94a3b8;
 }

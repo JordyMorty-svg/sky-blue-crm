@@ -138,18 +138,20 @@ export default function Leads() {
     if (lead.status === newStatus) return;
 
     const missing = missingFieldFor(newStatus, lead);
-    if (missing) {
+    if (missing.length > 0) {
       setPendingMove({ lead, newStatus, missing, previousLeads: leads });
     } else {
       commitMove(lead.id, { status: newStatus }, leads);
     }
   }
 
-  function handlePromptConfirm(value, extras) {
-    const { lead, newStatus, missing, previousLeads } = pendingMove;
+  // `values` is keyed by field name now that a move can be short of more
+  // than one thing at a time.
+  function handlePromptConfirm(values, extras) {
+    const { lead, newStatus, previousLeads } = pendingMove;
     const changes = { status: newStatus, ...(extras || {}) };
-    if (missing === "price") changes.estimate = Number(value);
-    if (missing === "appointment") changes.appointment_at = value;
+    if (values.price != null) changes.estimate = Number(values.price);
+    if (values.appointment) changes.appointment_at = values.appointment;
     commitMove(lead.id, changes, previousLeads);
     setPendingMove(null);
   }
@@ -259,7 +261,7 @@ export default function Leads() {
 
       {pendingMove && (
         <DragPromptModal
-          field={pendingMove.missing}
+          fields={pendingMove.missing}
           stageLabel={stageLabel(pendingMove.newStatus)}
           lead={pendingMove.lead}
           askPlan={pendingMove.newStatus === "booked"}
