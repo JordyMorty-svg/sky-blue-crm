@@ -117,7 +117,7 @@ export async function fetchCompletedJobsForTax() {
     .select(
       `
       id, starts_at, status, paid, price, final_price, payment_method,
-      visit_number, service_plan, property_type, address,
+      visit_number, service_plan, property_type,
       lead:lead_id ( name, address ),
       customer:customer_id ( name, address )
     `
@@ -136,7 +136,10 @@ export function incomeRows(jobs, year) {
     .map((j) => ({
       date: isoDate(j.starts_at),
       customer: j.customer?.name || j.lead?.name || "Unnamed",
-      address: j.address || j.customer?.address || j.lead?.address || "",
+      // The address lives on the customer or the lead, never on the job
+      // itself — jobs has no address column. Asking for one returns a 400
+      // from PostgREST and takes the whole page down with it.
+      address: j.customer?.address || j.lead?.address || "",
       plan: j.service_plan || "",
       property: j.property_type || "",
       visit: j.visit_number ?? "",

@@ -16,11 +16,78 @@ const stub = {
     b.onLoad({ filter: /.*/, namespace: "sb" }, () => ({
       contents: `
         const state = { jobs: [], commissions: [], calls: [] };
+
+        // The real schema. PostgREST returns a 400 for a column that does
+        // not exist, and the page turns that into "Couldn't load the year's
+        // figures" — so a stub that cheerfully ignores the select string
+        // lets a typo'd or imagined column pass every test and fail in
+        // production. It did exactly that once: taxService asked for
+        // jobs.address, which lives on leads and customers instead.
+        const SCHEMA = {
+          jobs: {
+            cols: ["id","lead_id","customer_id","price","final_price","paid",
+                   "payment_method","starts_at","duration_hours","notes","status",
+                   "service_plan","property_type","visit_number","is_extra",
+                   "service_keys"],
+            rels: { lead: "leads", customer: "customers" },
+          },
+          commissions: {
+            cols: ["id","profile_id","lead_id","job_id","kind","rate","base_amount",
+                   "amount","status","earned_at","payable_at","paid_at","note",
+                   "reversal_of"],
+            rels: { profile: "profiles", lead: "leads", job: "jobs" },
+          },
+          leads: { cols: ["id","name","address","phone","email","status","estimate"], rels: {} },
+          customers: { cols: ["id","name","address","phone","email"], rels: {} },
+          profiles: { cols: ["id","full_name","role","active","commission_eligible"], rels: {} },
+        };
+
+        // Split a select list on commas that are not inside parentheses.
+        function topLevel(sel) {
+          const out = []; let depth = 0, cur = "";
+          for (const ch of sel) {
+            if (ch === "(") depth++;
+            if (ch === ")") depth--;
+            if (ch === "," && depth === 0) { out.push(cur); cur = ""; continue; }
+            cur += ch;
+          }
+          if (cur.trim()) out.push(cur);
+          return out.map((s) => s.trim()).filter(Boolean);
+        }
+
+        function validate(table, sel) {
+          const spec = SCHEMA[table];
+          if (!spec) throw new Error("fake supabase: no schema for table " + table);
+          for (const part of topLevel(sel)) {
+            const open = part.indexOf("(");
+            if (open === -1) {
+              const col = part.split(":").pop().trim();
+              if (col !== "*" && !spec.cols.includes(col)) {
+                throw new Error(
+                  'column "' + col + '" does not exist on ' + table +
+                  ' — PostgREST would return 400 here'
+                );
+              }
+              continue;
+            }
+            // An embed: "alias:fk ( inner, cols )" or "relation ( inner )".
+            const head = part.slice(0, open).trim();
+            const alias = head.split(":")[0].trim();
+            const target = spec.rels[alias];
+            if (!target) {
+              throw new Error(
+                'no relationship "' + alias + '" from ' + table + " — PostgREST would return 400"
+              );
+            }
+            validate(target, part.slice(open + 1, part.lastIndexOf(")")));
+          }
+        }
+
         function builder(table) {
           const q = {
             _table: table,
             _eq: {},
-            select(sel) { state.calls.push({ table, sel }); return q; },
+            select(sel) { validate(table, sel); state.calls.push({ table, sel }); return q; },
             order() { return q; },
             in() { return q; },
             eq(col, val) { q._eq[col] = val; return q; },
