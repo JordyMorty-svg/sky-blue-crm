@@ -8,6 +8,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sentTo, setSentTo] = useState("");
   const navigate = useNavigate();
   const { state } = useLocation();
 
@@ -42,6 +43,35 @@ export default function Login() {
     // Success — resume whatever they were doing, or the leads board if
     // they came to /login directly.
     navigate(from, { replace: true });
+  }
+
+  async function handleForgot() {
+    const address = email.trim();
+    if (!address) {
+      setError("Type your email address first, then tap this again.");
+      return;
+    }
+    setError("");
+    setBusy(true);
+
+    // redirectTo must also be listed under Redirect URLs in Supabase, or it
+    // is ignored and the mail falls back to the project's Site URL — which
+    // is exactly how these links ended up pointing at localhost.
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      address,
+      { redirectTo: `${window.location.origin}/reset-password` }
+    );
+    setBusy(false);
+
+    if (resetError) {
+      console.error(resetError);
+      setError("Couldn't send that. Try again in a minute.");
+      return;
+    }
+    // Deliberately the same message whether or not the address exists.
+    // "No account with that email" turns a login form into a way of
+    // checking who has one.
+    setSentTo(address);
   }
 
   return (
@@ -89,8 +119,27 @@ export default function Login() {
 
           {error && <p className="login__error">{error}</p>}
 
+          {sentTo && (
+            <p className="login__sent">
+              If {sentTo} has an account, a reset link is on its way. It only
+              works once, and not for long — open it on the device you want
+              to stay signed in on.
+            </p>
+          )}
+
           <button type="submit" className="login__button" disabled={busy}>
             {busy ? "Signing in…" : "Sign in"}
+          </button>
+
+          {/* A link rather than a second big button: it is the rarer of the
+              two actions and shouldn't compete with signing in. */}
+          <button
+            type="button"
+            className="login__forgot"
+            onClick={handleForgot}
+            disabled={busy}
+          >
+            Forgot your password?
           </button>
         </form>
       </div>

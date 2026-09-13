@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, NavLink, useLocation } from "react-router-dom"
 import { useAuth } from "./context/useAuth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/login/Login";
+import ResetPassword from "./pages/login/ResetPassword";
 import Leads from "./pages/leads/Leads";
 import AllLeads from "./pages/leads/AllLeads";
 import NewLead from "./pages/leads/NewLead";
@@ -170,6 +171,12 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      {/* Public, and not wrapped in Page. A recovery link does create a
+          session, so ProtectedRoute would let it through — but an expired
+          or already-used one would not, and bouncing someone to a sign-in
+          form they cannot get past is the least useful answer to "my reset
+          link didn't work". The page explains it instead. */}
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Every Page carries the section it belongs to, and that string is
           the same one the nav filters on — so a tab and its routes can't
