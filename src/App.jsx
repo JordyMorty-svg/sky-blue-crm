@@ -167,8 +167,30 @@ function Page({ children, section }) {
   );
 }
 
+// A password-reset link that lands anywhere else gets sent here.
+//
+// Supabase's dashboard "send recovery" button doesn't attach a redirect, so
+// the mail falls back to the project's Site URL — the site root — and the
+// catch-all route below forwards that to the leads board. The person ends
+// up signed in, on the wrong page, still using the password they were
+// trying to change.
+//
+// Catching it on the session rather than on the URL means it works however
+// the link was sent: from the app's own Forgot link, from the dashboard, or
+// from anything added later.
+function RecoveryGate({ children }) {
+  const { recovery } = useAuth();
+  const { pathname } = useLocation();
+
+  if (recovery && pathname !== "/reset-password") {
+    return <Navigate to="/reset-password" replace />;
+  }
+  return children;
+}
+
 export default function App() {
   return (
+    <RecoveryGate>
     <Routes>
       <Route path="/login" element={<Login />} />
       {/* Public, and not wrapped in Page. A recovery link does create a
@@ -242,5 +264,6 @@ export default function App() {
           than looping — /leads redirects to that role's own landing. */}
       <Route path="*" element={<Navigate to="/leads" replace />} />
     </Routes>
+    </RecoveryGate>
   );
 }

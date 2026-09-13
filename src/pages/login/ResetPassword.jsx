@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../context/useAuth";
 import "./Login.css";
 
 /**
@@ -24,6 +25,7 @@ const MIN_LENGTH = 8;
 
 export default function ResetPassword() {
   const navigate = useNavigate();
+  const { recovery, endRecovery } = useAuth();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [ready, setReady] = useState(null); // null = still checking
@@ -51,13 +53,17 @@ export default function ResetPassword() {
       if (cancelled) return;
       // Only conclude "no link" when there is genuinely no session —
       // setReady(true) from the listener must not be undone by this.
-      setReady((cur) => (cur === true ? true : !!data.session));
+      setReady((cur) => (cur === true ? true : recovery || !!data.session));
     })();
 
     return () => {
       cancelled = true;
       subscription.unsubscribe();
     };
+    // `recovery` is read once, to answer "did a reset link bring me here"
+    // at mount. Re-running the effect when it changes would tear down and
+    // rebuild the auth listener mid-flow for no gain.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSubmit(e) {
@@ -82,6 +88,9 @@ export default function ResetPassword() {
       setError(updateError.message || "Couldn't set that password.");
       return;
     }
+    // Releases the gate in App — otherwise every route keeps redirecting
+    // back here and "Go to the CRM" does nothing.
+    endRecovery();
     setDone(true);
   }
 

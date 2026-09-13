@@ -6,6 +6,19 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null); // { full_name, role, ... }
   const [loading, setLoading] = useState(true);
+  // True from the moment a password-reset link is opened until a new
+  // password is actually set.
+  //
+  // A recovery link is a real session, so without this the app treats it
+  // as an ordinary sign-in and drops the person on the leads board —
+  // logged in, but with no way to reach the page that sets a password, and
+  // still using whatever password they were trying to replace. Which is
+  // exactly what happened.
+  //
+  // Deliberately in memory only. It should not survive a refresh: being
+  // permanently trapped on the reset page is a worse failure than needing
+  // to request a second link.
+  const [recovery, setRecovery] = useState(false);
 
   // Fetch the profile row for a given user id.
   async function loadProfile(userId) {
@@ -37,7 +50,9 @@ export function AuthProvider({ children }) {
     // React to future logins/logouts.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (event === "PASSWORD_RECOVERY") setRecovery(true);
+      if (event === "SIGNED_OUT") setRecovery(false);
       setSession(newSession);
       await loadProfile(newSession?.user?.id);
     });
@@ -53,6 +68,10 @@ export function AuthProvider({ children }) {
     isAdmin: profile?.role === "admin",
     isTech: profile?.role === "tech",
     loading,
+    recovery,
+    // Called once the new password is saved, which is the only thing that
+    // ends a recovery.
+    endRecovery: () => setRecovery(false),
     signOut: () => supabase.auth.signOut(),
   };
 
