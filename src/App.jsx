@@ -19,6 +19,7 @@ import CompleteJob from "./pages/schedule/CompleteJob";
 import PosReturn from "./pages/schedule/PosReturn";
 import Income from "./pages/income/Income";
 import Commission from "./pages/commission/Commission";
+import TaxExport from "./pages/income/TaxExport";
 import Customers from "./pages/customers/Customers";
 import Communication from "./pages/customers/Communication";
 import CustomerDetail from "./pages/customers/CustomerDetail";
@@ -248,6 +249,11 @@ export default function App() {
           gated by whatever gates Income, which keeps the switcher's two
           halves reachable by exactly the same people. */}
       <Route path="/income/commission" element={<Page section="income"><Commission /></Page>} />
+      {/* Section "income" for the same reason as its sibling above: it is a
+          view of the books, gated by whatever gates the books. It reads
+          every job's price and every rep's pay, so it must never be
+          reachable by a rep — and it isn't, because Income isn't. */}
+      <Route path="/income/tax" element={<Page section="income"><TaxExport /></Page>} />
       <Route path="/customers" element={<Page section="customers"><Customers /></Page>} />
       {/* Static segment, so React Router ranks it above /customers/:id —
           same reason /customers/add-past already works. */}

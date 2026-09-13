@@ -46,9 +46,14 @@ export const CUSTOMER_VIEWS = [
 // Reps still reach Commission at /commission as a tab of its own: they have
 // no Income view to switch between, so a switcher with one usable half
 // would be furniture.
+// Tax export is the third: same money, but the question is "what does the
+// accountant need" rather than "how are we doing". It sits last because it
+// is the one you open twice a year, and putting a March page between the two
+// you read weekly would be backwards.
 export const INCOME_VIEWS = [
   { to: "/income", label: "Income", end: true },
   { to: "/income/commission", label: "Commission" },
+  { to: "/income/tax", label: "Tax export" },
 ];
 
 // Sections whose last-used view is remembered across visits. `key` is the
