@@ -38,6 +38,18 @@ export default function Pin({
   }, [onClick]);
 
   // Create once.
+  //
+  // Every visual property is applied HERE as well as in its own effect below,
+  // and that duplication is the whole point. `markerLib` is null on the first
+  // render or two while the maps library loads, so this effect bails out and
+  // `dotRef` stays null. The style effects run, find no node, and skip. When
+  // the library finally resolves, THIS effect re-runs and builds the node —
+  // but the style effects don't, because their own dependencies never
+  // changed.
+  //
+  // That is exactly what shipped: every pin was created with no background,
+  // so they rendered as transparent circles with a faint white ring. Present
+  // on the map, and invisible on it.
   useEffect(() => {
     if (!map || !markerLib) return;
 
@@ -46,6 +58,10 @@ export default function Pin({
 
     const dot = document.createElement("div");
     dot.className = "mappin__dot";
+    // The line whose absence caused the bug.
+    dot.style.background = color;
+    if (selected) dot.classList.add("mappin__dot--selected");
+    hit.style.pointerEvents = clickable ? "auto" : "none";
     hit.appendChild(dot);
     dotRef.current = dot;
 
@@ -55,6 +71,8 @@ export default function Pin({
       content: hit,
       title: title || "",
     });
+    marker.gmpClickable = clickable;
+    marker.zIndex = selected ? 900 : 1;
     markerRef.current = marker;
 
     const listener = marker.addListener("gmp-click", () => {
@@ -67,8 +85,10 @@ export default function Pin({
       markerRef.current = null;
       dotRef.current = null;
     };
-    // Position is handled by its own effect below; rebuilding the marker when
-    // a lead moves would drop the click listener with it.
+    // Deliberately only [map, markerLib]. The other props are read above to
+    // seed the initial state and are then kept current by the effects below;
+    // listing them here would tear down and rebuild the marker — losing the
+    // click listener — every time a lead changed colour.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, markerLib]);
 
