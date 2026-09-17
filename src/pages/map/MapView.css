@@ -15,6 +15,38 @@
   margin-bottom: 12px;
 }
 
+/* A configuration problem, not a user error — so it reads as something to
+   go and fix rather than something that just went wrong. */
+.mapview__warn {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.mapview__note {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  border-radius: 10px;
+  padding: 9px 13px;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  margin: 0 0 12px;
+}
+
+.mapview__warn code,
+.mapview__note code {
+  background: rgba(15, 23, 42, 0.07);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.95em;
+}
+
 .mapview__legend {
   display: flex;
   flex-wrap: wrap;
@@ -194,3 +226,97 @@
     height: 500px;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Lead / customer pins
+   ---------------------------------------------------------------------------
+
+   Sized in PIXELS, from the --pin-size custom property that PinScale writes
+   onto the map container as the zoom changes. The previous implementation
+   used google.maps.Circle with a 7-METRE radius, which rendered at about half
+   a pixel at the map's own default zoom — see mapGeometry.js.
+
+   The fallbacks here are load-bearing: AdvancedMarker content is injected
+   into the map's DOM, and there is a frame or two before PinScale's first
+   write lands. Without a default the pins would briefly have no size at all.
+--------------------------------------------------------------------------- */
+
+.mappin {
+  width: var(--pin-hit, 28px);
+  height: var(--pin-hit, 28px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  /* Transparent padding around the dot so a thumb has something to hit
+     without the visible dot having to be finger-sized. */
+  background: transparent;
+}
+
+.mappin__dot {
+  width: var(--pin-size, 16px);
+  height: var(--pin-size, 16px);
+  border-radius: 50%;
+  /* White ring, so a pale pin still reads against pale ground and a dark one
+     against satellite imagery. Cheaper and sharper than a drop shadow. */
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.45);
+  box-sizing: border-box;
+  /* Only the size animates. Transitioning `all` here would also animate the
+     background on every status change and make the map feel laggy. */
+  transition: width 0.12s ease, height 0.12s ease;
+}
+
+.mappin__dot--selected {
+  /* The open InfoWindow's pin. A ring rather than a size change, so the pin
+     doesn't jump out from under the window that's anchored to it. */
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.45), 0 1px 3px rgba(15, 23, 42, 0.45);
+}
+
+/* ---------------------------------------------------------------------------
+   You are here
+--------------------------------------------------------------------------- */
+
+.userloc {
+  position: relative;
+  width: 18px;
+  height: 18px;
+}
+
+.userloc__dot {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #4285f4;
+  border: 3px solid #ffffff;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 1px rgba(66, 133, 244, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* The heading cone: a triangle whose tip sits on the dot and which fans out
+   in the direction you're facing. Rotation happens about that tip — hence
+   the transform-origin at the bottom centre and the translate in the
+   transform itself, which UserLocation rewrites on every compass reading. */
+.userloc__cone {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 34px;
+  transform-origin: 50% 100%;
+  transform: translate(-50%, -100%) rotate(0deg);
+  background: linear-gradient(
+    to top,
+    rgba(66, 133, 244, 0.45),
+    rgba(66, 133, 244, 0)
+  );
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
+  pointer-events: none;
+  opacity: 0;
+  /* Opacity fades, rotation does not — a transition on the transform would
+     make the arrow lag behind the phone by a noticeable beat when you turn.
+     The smoothing in mapGeometry handles jitter instead. */
+  transition: opacity 0.2s ease;
+}
+

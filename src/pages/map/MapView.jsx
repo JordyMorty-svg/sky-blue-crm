@@ -1,8 +1,11 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Map, InfoWindow, useMap, useMapsLibrary, MapControl, ControlPosition } from "@vis.gl/react-google-maps";
-import { Circle } from "./Circle.jsx";
+import Pin from "./Pin";
+import PinScale from "./PinScale";
+import MapCapabilityCheck from "./MapCapabilityCheck";
 import UserLocation from "./UserLocation";
+import useHeading from "./useHeading";
 import { fetchMapLeads, fetchMapCustomers } from "../../services/mapService";
 import MapAddLeadModal from "./MapAddLeadModal";
 import { useAuth } from "../../context/useAuth";
@@ -15,6 +18,25 @@ const GEO_SUPPORTED =
   typeof navigator !== "undefined" && "geolocation" in navigator;
 
 const DEFAULT_CENTER = { lat: 44.5646, lng: -123.262 };
+
+/**
+ * The Map ID, which is not optional.
+ *
+ * Every marker on this page — the lead pins and the blue "you are here" dot —
+ * is an AdvancedMarkerElement, and those require a Map ID that really exists
+ * in Google Cloud Console. Without one they don't render at all: no error, no
+ * warning in the UI, just an empty map.
+ *
+ * This used to be the string "skyblue_crm_map" hardcoded here. If that was
+ * never registered, nothing was ever going to appear.
+ *
+ * DEMO_MAP_ID is Google's own public testing ID. It keeps the map working
+ * out of the box, but it is explicitly for development — hence the notice
+ * the page shows while it's in use. Set VITE_GOOGLE_MAPS_MAP_ID to a real
+ * one and the notice goes away.
+ */
+const DEMO_MAP_ID = "DEMO_MAP_ID";
+const MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || DEMO_MAP_ID;
 
 const STATUS_COLORS = {
   new: "#94a3b8",
@@ -116,6 +138,17 @@ export default function MapView() {
   const [accuracy, setAccuracy] = useState(null);
   const [tracking, setTracking] = useState(false);
   const [recenterSignal, setRecenterSignal] = useState(0); // bump to recenter
+  // Null until the map reports back. Distinguished from `true`/`false` so the
+  // warning doesn't flash on screen during the moment before we know.
+  const [markersOk, setMarkersOk] = useState(null);
+  // Course over ground, straight off the GPS fix. Null whenever you aren't
+  // moving — useHeading prefers the compass and only falls back to this.
+  const [gpsHeading, setGpsHeading] = useState(null);
+
+  const { heading, request: requestCompass } = useHeading({
+    enabled: tracking,
+    fallbackHeading: gpsHeading,
+  });
 
   // `showCustomers` is in the deps rather than an empty array. The profile —
   // and so the role — resolves a beat after the session does, so the first
@@ -215,6 +248,7 @@ export default function MapView() {
         setError("");
         setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         setAccuracy(pos.coords.accuracy);
+        setGpsHeading(pos.coords.heading);
         setRecenterSignal((n) => n + 1); // follow me
       },
       (err) => {
@@ -238,7 +272,16 @@ export default function MapView() {
     }
     setTracking((t) => {
       const next = !t;
-      if (next) setRecenterSignal((n) => n + 1); // center when turning on
+      if (next) {
+        setRecenterSignal((n) => n + 1); // center when turning on
+        // iOS only emits compass events after an explicit grant, and that
+        // request has to originate in a user gesture — this tap is one. Doing
+        // it here rather than behind its own button means the arrow just
+        // works from the moment tracking starts, with no second prompt
+        // appearing out of nowhere. Deliberately not awaited: a denial is
+        // fine, the arrow falls back to course over ground.
+        void requestCompass();
+      }
       return next;
     });
   }
@@ -258,6 +301,27 @@ export default function MapView() {
     <div className="mapview">
       {error && <p className="mapview__error">{error}</p>}
 
+      {/* The silent-failure guard. An unregistered Map ID draws a perfectly
+          healthy-looking map with nothing on it, so the page has to say so
+          itself — there is nothing in the UI to notice otherwise. */}
+      {markersOk === false && (
+        <p className="mapview__warn">
+          <b>Pins can&rsquo;t render.</b> Google needs a valid Map ID for map
+          markers, and <code>{MAP_ID}</code> isn&rsquo;t registered to this
+          project. Create one in Google Cloud Console under{" "}
+          <b>Google Maps Platform → Map Management</b>, then set{" "}
+          <code>VITE_GOOGLE_MAPS_MAP_ID</code> and redeploy.
+        </p>
+      )}
+
+      {markersOk !== false && MAP_ID === DEMO_MAP_ID && (
+        <p className="mapview__note">
+          Running on Google&rsquo;s shared demo Map ID. Fine for now — create
+          your own in Cloud Console and set{" "}
+          <code>VITE_GOOGLE_MAPS_MAP_ID</code> before this matters.
+        </p>
+      )}
+
       <div className="mapview__legend">
         {Object.keys(STATUS_LABELS).map((key) => (
           <span className="mapview__legend-item" key={key}>
@@ -269,33 +333,37 @@ export default function MapView() {
 
       <div className={`mapview__map ${addMode ? "mapview__map--adding" : ""}`}>
         <Map
-          mapId="skyblue_crm_map"
+          mapId={MAP_ID}
           defaultCenter={DEFAULT_CENTER}
           defaultZoom={13}
           gestureHandling="greedy"
           disableDefaultUI={false}
         >
+          <MapCapabilityCheck onChange={setMarkersOk} />
           {pins.map((pin) => {
             const color = STATUS_COLORS[pin.status] || STATUS_COLORS.none;
             return (
-              <Circle
+              <Pin
                 key={pin.key}
-                center={pin.position}
-                radius={7}
-                strokeColor={color}
-                strokeOpacity={0.9}
-                strokeWeight={2}
-                fillColor={color}
-                fillOpacity={0.55}
+                position={pin.position}
+                color={color}
+                title={pin.name}
+                selected={selected?.key === pin.key}
                 clickable={!addMode}
                 onClick={() => !addMode && setSelected(pin)}
               />
             );
           })}
 
+          {/* Publishes --pin-size to the map container. Must be inside <Map>
+              so it can reach the map instance. Renders nothing. */}
+          <PinScale />
+
           <ClickToAdd active={addMode} onPicked={handlePicked} />
 
-          {userPos && <UserLocation position={userPos} accuracy={accuracy} />}
+          {userPos && (
+            <UserLocation position={userPos} accuracy={accuracy} heading={heading} />
+          )}
           <RecenterOnUser position={userPos} signal={recenterSignal} />
 
           <MapControl position={ControlPosition.TOP_RIGHT}>
