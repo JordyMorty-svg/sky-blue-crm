@@ -8,6 +8,8 @@ import UserLocation from "./UserLocation";
 import useHeading from "./useHeading";
 import { fetchMapLeads, fetchMapCustomers } from "../../services/mapService";
 import MapAddLeadModal from "./MapAddLeadModal";
+import QuoteAfterCreate from "../../components/QuoteAfterCreate";
+import { quotable } from "../../services/quoteService";
 import { useAuth } from "../../context/useAuth";
 import { canSee } from "../../components/capabilities";
 import "./MapView.css";
@@ -133,6 +135,9 @@ export default function MapView() {
 
   const [addMode, setAddMode] = useState(false);
   const [newLeadLocation, setNewLeadLocation] = useState(null); // {lat,lng,address}
+  // The lead just created from a pin, held so the quote can be offered
+  // against it. Null the rest of the time.
+  const [quoting, setQuoting] = useState(null);
 
   const [userPos, setUserPos] = useState(null); // {lat,lng}
   const [accuracy, setAccuracy] = useState(null);
@@ -290,9 +295,15 @@ export default function MapView() {
     navigate(pin.kind === "lead" ? `/leads/${pin.id}` : `/customers/${pin.id}`);
   }
 
-  function handleCreated() {
+  function handleCreated(lead) {
     setNewLeadLocation(null);
     load(); // refresh pins to show the new lead
+
+    // The map is where this matters most. A pin dropped at a door, quoted on
+    // the spot, is the whole reason the map has an Add lead form — and until
+    // now it was the one path that saved the price and then left the quote
+    // unsent. Same offer as the New lead page, same component.
+    if (quotable(lead)) setQuoting(lead);
   }
 
   if (loading) return <div className="mapview__state">Loading map…</div>;
@@ -428,6 +439,10 @@ export default function MapView() {
           onCreated={handleCreated}
         />
       )}
+
+      {/* Closing returns to the map rather than navigating anywhere: the pin
+          is already on it, and the lead is saved either way. */}
+      <QuoteAfterCreate lead={quoting} onDone={() => setQuoting(null)} />
     </div>
   );
 }

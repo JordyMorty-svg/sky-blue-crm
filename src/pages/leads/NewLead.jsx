@@ -11,7 +11,8 @@ import {
 import { useAuth } from "../../context/useAuth";
 import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO } from "../../components/appointmentUtils";
-import QuoteModal from "../../components/QuoteModal";
+import QuoteAfterCreate from "../../components/QuoteAfterCreate";
+import { quotable } from "../../services/quoteService";
 import AddressPicker from "../../components/AddressPicker";
 import PlanPicker from "../../components/PlanPicker";
 import { defaultSourceFor, findRateFor } from "../../components/capabilities";
@@ -143,10 +144,10 @@ export default function NewLead() {
       // the lead's page later, which is the step that gets skipped standing
       // on a driveway.
       //
-      // Only offered when there is somewhere to send it. With neither an
-      // email nor a phone the modal would open only to say it can't do
-      // anything, which is worse than not offering.
-      if (stage === "quoted" && lead?.id && (email.trim() || phone.trim())) {
+      // `quotable` rather than a condition written out here: the map has its
+      // own Add lead form and asks the same question, and two copies of it
+      // would eventually answer differently.
+      if (quotable(lead)) {
         setQuoting(lead);
         setBusy(false);
         return;
@@ -163,22 +164,8 @@ export default function NewLead() {
   return (
     <div className="newlead">
       {/* Opened after the lead is saved, not before: the quote hangs off a
-          lead id, and there is no id until the row exists. Closing it — sent
-          or not — returns to the board, because the lead is created either
-          way and nothing here is unsaved. */}
-      {quoting && (
-        <QuoteModal
-          leadId={quoting.id}
-          customerName={quoting.name || name.trim()}
-          customerEmail={email.trim() || null}
-          customerPhone={phone.trim() || null}
-          address={address.trim() || null}
-          suggestedAmount={Number(estimate) || null}
-          suggestedServices={service ? [service] : null}
-          onClose={() => navigate("/leads")}
-          onSent={() => {}}
-        />
-      )}
+          lead id, and there is no id until the row exists. */}
+      <QuoteAfterCreate lead={quoting} onDone={() => navigate("/leads")} />
       <button className="newlead__back" onClick={() => navigate("/leads")}>
         ← Back to pipeline
       </button>

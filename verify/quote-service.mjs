@@ -49,6 +49,7 @@ const {
   SERVICE_OPTIONS,
   describeLoadError,
   fetchQuotes,
+  quotable,
   quoteState,
   smsHref,
   smsText,
@@ -289,6 +290,40 @@ chk(
     !/undefined/.test(describeLoadError({})) && !/undefined/.test(describeLoadError(null)),
     `${describeLoadError({})} / ${describeLoadError(null)}`
   );
+}
+
+// --- whether to offer the quote after creating a lead ----------------------
+//
+// Asked by BOTH Add lead forms — the page and the pin on the map — which is
+// why it is one function and not a condition written out twice.
+{
+  const base = { id: "l1", status: "quoted", name: "Marilyn", estimate: 250 };
+
+  chk("a quoted lead with a phone is worth offering", quotable({ ...base, phone: "5415550101" }));
+  chk("a quoted lead with an email is too", quotable({ ...base, email: "a@b.com" }));
+
+  // THE POINT of the guard. The map's form collects a phone and no email, so
+  // "has an email" would have silently skipped every lead added from a pin.
+  chk(
+    "THE POINT: a phone alone is enough — the map form collects no email",
+    quotable({ ...base, phone: "5415550101", email: null })
+  );
+
+  chk(
+    "a quoted lead with no way to reach them is not offered",
+    !quotable({ ...base, phone: null, email: null }),
+    "the modal would open only to say it cannot do anything"
+  );
+  chk(
+    "a contacted lead is not offered — there is no quote yet",
+    !quotable({ ...base, status: "contacted", phone: "5415550101" })
+  );
+  chk(
+    "a booked lead is not offered either",
+    !quotable({ ...base, status: "booked", phone: "5415550101" })
+  );
+  chk("a row with no id is not offered", !quotable({ ...base, id: null, phone: "5415550101" }));
+  chk("and nothing at all does not throw", !quotable(null) && !quotable(undefined));
 }
 
 // --- which way a quote goes out -------------------------------------------

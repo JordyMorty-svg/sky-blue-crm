@@ -123,6 +123,28 @@ export async function fetchQuotes({ leadId = null, customerId = null }) {
 }
 
 /**
+ * Is there a quote to offer to send for this freshly created lead?
+ *
+ * Lives here rather than beside the component that uses it for two reasons.
+ * A component file may export only components — fast refresh depends on it —
+ * and more usefully, there are two Add lead forms (the New lead page and the
+ * pin on the map) that both ask this question. Two copies of it would
+ * eventually answer differently.
+ */
+export function quotable(lead) {
+  return Boolean(
+    lead &&
+      lead.id &&
+      // A lead cannot be saved as "quoted" without a price, so by this point
+      // a quote genuinely exists — it just exists in somebody's head.
+      lead.status === "quoted" &&
+      // Nothing to send it to means the modal would open only to say so,
+      // which is worse than not offering.
+      (lead.email || lead.phone)
+  );
+}
+
+/**
  * Turn a Supabase error into a sentence someone can act on.
  *
  * The one worth naming is a missing function. The frontend and the database

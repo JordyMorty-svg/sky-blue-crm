@@ -26,15 +26,8 @@
 // deliberately switched on.
 
 import { sendSms, quoteSms } from "../lib/sms.mjs";
-
-const SERVICE_LABELS = {
-  "residential-window-washing": "Residential window washing",
-  "commercial-window-washing": "Commercial window washing",
-  "gutter-cleaning": "Gutter cleaning",
-  "screen-cleaning-repair": "Screen cleaning & repair",
-  "pressure-washing": "Pressure washing",
-  "solar-panel-cleaning": "Solar panel cleaning",
-};
+import { esc, money, SERVICE_LABELS } from "../lib/html.mjs";
+import { notify, notifyConfigured, quoteSentNotification } from "../lib/notify.mjs";
 
 // Identifies the caller AND tells us who they are — the quote has to record a
 // sender, because that is who gets the booking fee when the customer accepts
@@ -77,19 +70,25 @@ async function db(path, method, body) {
   return data;
 }
 
-function money(n) {
-  return `$${Number(n).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
-}
-
-// Anything that reaches an email body gets escaped. The customer name and the
-// note are typed by whoever made the quote — on a phone, at a door — and a
-// stray angle bracket should not be able to rewrite the markup around it.
-function esc(s) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+/**
+ * Who sent this, by name.
+ *
+ * Only ever used in the internal notification, so a failure here must not
+ * matter: "Emailed a quote — sent by (unknown)" is a perfectly useful email,
+ * and failing the send because a profile lookup 500'd would not be.
+ */
+async function senderName(senderId) {
+  if (!senderId) return null;
+  try {
+    const rows = await db(
+      `profiles?id=eq.${encodeURIComponent(senderId)}&select=full_name`,
+      "GET"
+    );
+    return (Array.isArray(rows) ? rows[0] : rows)?.full_name || null;
+  } catch (err) {
+    console.error("Couldn't read the sender's name:", err);
+    return null;
+  }
 }
 
 function quoteHtml({ customerName, amount, services, note, address, link, expires }) {
@@ -171,6 +170,12 @@ function configReport() {
     quo_api_key: Boolean(process.env.QUO_API_KEY),
     quo_from: Boolean(process.env.QUO_FROM),
     sms_mode: process.env.SMS_MODE || "off",
+    // Whether a copy of each sent quote reaches the company inbox. Reported
+    // because "I stopped getting the confirmation emails" is otherwise
+    // indistinguishable from "no quotes have been sent", and one of those is
+    // a blank field in the Netlify dashboard.
+    notify_to: Boolean(process.env.NOTIFY_TO),
+    notify_ready: notifyConfigured(),
   };
 }
 
@@ -291,6 +296,49 @@ export default async (req) => {
   // Not emailing is a normal case, not a failure — either there is no address
   // or the sender chose to text. Text it where we can, and hand the link back
   // either way so the CRM can offer it however this went.
+  const expiresLabel = expiresAt.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+  });
+
+  /**
+   * Tell the company inbox that a quote went out.
+   *
+   * Awaited rather than fired and forgotten: a Netlify function's process can
+   * be torn down the moment it returns a response, and a background fetch
+   * that has not resolved by then simply never happens — which would make
+   * this work locally and silently do nothing in production.
+   *
+   * The cost is a few hundred milliseconds on a request that has already done
+   * the slow part. The alternative is a feature whose entire purpose is to be
+   * reliable, being unreliable.
+   */
+  async function announceSent(channel) {
+    if (!notifyConfigured()) return;
+    const { subject, html } = quoteSentNotification({
+      channel,
+      customerName,
+      customerEmail,
+      customerPhone,
+      address,
+      serviceKeys,
+      amount: value,
+      note,
+      link,
+      expiresAt: expiresLabel,
+      sentByName: await senderName(senderId),
+      leadId,
+      customerId,
+    });
+    const sent = await notify({ subject, html });
+    if (!sent.ok) {
+      // Logged, never surfaced. The customer has their quote; an internal
+      // copy that didn't arrive is not something to fail the request over,
+      // and not something the person who pressed Send can fix from there.
+      console.error("[send-quote:notify]", JSON.stringify({ quote: quote.id, reason: sent.reason }));
+    }
+  }
+
   if (!useEmail) {
     const texted = await textTheQuote({
       quote,
@@ -301,6 +349,11 @@ export default async (req) => {
       customerId,
       senderId,
     });
+
+    // Only when it actually went. A quote that fell back to a copied link was
+    // not "texted to the customer", and saying so would make the inbox a
+    // record of things that never left.
+    if (texted.ok) await announceSent("text");
 
     return Response.json({
       id: quote.id,
@@ -339,15 +392,14 @@ export default async (req) => {
           note,
           address,
           link,
-          expires: expiresAt.toLocaleDateString("en-US", {
-            month: "long",
-            day: "numeric",
-          }),
+          expires: expiresLabel,
         }),
       }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.message || "Resend error");
+
+    await announceSent("email");
 
     return Response.json({ id: quote.id, token: quote.token, link, emailed: true });
   } catch (err) {
