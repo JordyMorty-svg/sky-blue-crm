@@ -8,7 +8,7 @@
   padding: 11px 13px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  font-size: 1rem;
+  font-size: var(--text-lg);
   color: #0f172a;
   font-family: inherit;
   box-sizing: border-box;
@@ -39,7 +39,7 @@
 
 .addresspicker__option {
   padding: 10px 12px;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   color: #334155;
   cursor: pointer;
   border-radius: 7px;

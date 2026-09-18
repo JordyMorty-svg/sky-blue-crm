@@ -21,7 +21,7 @@
   border: none;
   color: #2563eb;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   cursor: pointer;
   padding: 0;
 }
@@ -37,7 +37,7 @@
 }
 
 .detail__source {
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -48,7 +48,7 @@
 }
 
 .detail__title {
-  font-size: 1.6rem;
+  font-size: var(--text-4xl);
   color: #0f172a;
   /* Was 20px. The tag row below now carries that gap, so the title sits
      tight against what the lead is actually asking for. */
@@ -68,7 +68,7 @@
 
 .detail__service,
 .detail__property {
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   padding: 5px 12px;
   border-radius: 999px;
@@ -94,7 +94,7 @@
 
 .detail__error {
   color: #dc2626;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   margin-bottom: 16px;
 }
 
@@ -118,7 +118,7 @@
 }
 
 .detail__label {
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   font-weight: 600;
   color: #475569;
   margin-bottom: 6px;
@@ -128,7 +128,7 @@
   padding: 10px 12px;
   border: 1px solid #e2e8f0;
   border-radius: 9px;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   color: #0f172a;
   font-family: inherit;
   width: 100%;
@@ -168,7 +168,7 @@
 
 .detail__save {
   background: #2563eb;
-  color: white;
+  color: #ffffff;
   border: none;
   padding: 12px 24px;
   border-radius: 999px;
@@ -211,7 +211,7 @@
 }
 
 .detail__confirm-text {
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   color: #dc2626;
   font-weight: 600;
 }
@@ -234,7 +234,7 @@
 
 .detail__delete-yes {
   background: #dc2626;
-  color: white;
+  color: #ffffff;
   border: none;
   padding: 11px 18px;
   border-radius: 999px;
@@ -270,7 +270,7 @@
 }
 
 .detail__historytitle {
-  font-size: 1.05rem;
+  font-size: var(--text-lg);
   color: #0f172a;
   margin-bottom: 14px;
 }
@@ -299,7 +299,7 @@
   align-items: baseline;
   gap: 12px;
   padding: 8px 0 8px 22px;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
 }
 
 .detail__eventdot {
@@ -328,7 +328,7 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 1px;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   color: #94a3b8;
   white-space: nowrap;
 }
@@ -379,7 +379,7 @@
   border: 1px solid #bfdbfe;
   color: #2563eb;
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   text-decoration: none;
   min-height: 42px;
   touch-action: manipulation;
@@ -399,7 +399,7 @@
 
 .detail__lastcall {
   margin: 6px 0 0;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: #64748b;
 }
 
@@ -408,7 +408,7 @@
    use fully. */
 .detail__statushint {
   margin: 6px 0 0;
-  font-size: 0.76rem;
+  font-size: var(--text-sm);
   line-height: 1.45;
   color: #94a3b8;
 }
@@ -418,7 +418,7 @@
    them (moved, removed, created, left alone) that it's worth reading. */
 .detail__reassigned {
   margin: 6px 0 0;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   line-height: 1.45;
   color: #15803d;
 }

@@ -4,7 +4,7 @@
 
 .cardpay__label {
   display: block;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: #0f172a;
   margin-bottom: 8px;
@@ -26,14 +26,14 @@
 }
 
 .cardpay__hint {
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   color: #64748b;
   line-height: 1.45;
   margin: 8px 0 0;
 }
 
 .cardpay__error {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #dc2626;
   line-height: 1.45;
   margin: 8px 0 0;
@@ -44,7 +44,7 @@
   align-items: flex-start;
   gap: 10px;
   margin: 14px 0 16px;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   color: #0f172a;
   cursor: pointer;
 }
@@ -61,7 +61,7 @@
 .cardpay__savehint {
   display: block;
   font-style: normal;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: #64748b;
   line-height: 1.4;
   margin-top: 2px;
@@ -75,7 +75,7 @@
   padding: 14px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: var(--text-lg);
   cursor: pointer;
 }
 
@@ -112,14 +112,14 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-size: 0.92rem;
+  font-size: var(--text-base);
   color: #0f172a;
   font-weight: 600;
 }
 
 .cardpay__savedexp {
   font-weight: 400;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: #64748b;
 }
 
@@ -128,7 +128,7 @@
   border: none;
   color: #2563eb;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   cursor: pointer;
   padding: 0;
   white-space: nowrap;

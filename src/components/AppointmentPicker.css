@@ -1,6 +1,6 @@
 .appt__label {
   display: block;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 600;
   color: #0f172a;
   margin-bottom: 6px;
@@ -11,7 +11,7 @@
   padding: 11px 13px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  font-size: 1rem;
+  font-size: var(--text-lg);
   color: #0f172a;
   font-family: inherit;
   margin-bottom: 16px;
@@ -30,7 +30,7 @@
 }
 
 .appt__confirm {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #2563eb;
   font-weight: 600;
   background: #eff6ff;

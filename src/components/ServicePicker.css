@@ -15,13 +15,13 @@
 }
 
 .svcpick__label {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 700;
   color: #334155;
 }
 
 .svcpick__hint {
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   color: #94a3b8;
 }
 
@@ -41,7 +41,7 @@
      they wrap to three rows on a phone as it is. Still comfortably above
      the tap-target floor. */
   min-height: 40px;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
   touch-action: manipulation;
@@ -78,7 +78,7 @@
 
 .svcpick__preview {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   line-height: 1.45;
   color: #64748b;
 }

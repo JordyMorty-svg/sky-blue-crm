@@ -28,7 +28,7 @@
 }
 
 .modal__title {
-  font-size: 1.25rem;
+  font-size: var(--text-2xl);
   color: #0f172a;
 }
 
@@ -39,7 +39,7 @@
 .modal__close {
   background: none;
   border: none;
-  font-size: 1.6rem;
+  font-size: var(--text-4xl);
   line-height: 1;
   color: #94a3b8;
   cursor: pointer;
@@ -62,7 +62,7 @@
 }
 
 .modal__label {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 600;
   color: #0f172a;
   margin-bottom: 6px;
@@ -74,7 +74,7 @@
 }
 
 .modal__confirm {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #2563eb;
   font-weight: 600;
   background: #eff6ff;
@@ -87,7 +87,7 @@
   padding: 11px 13px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  font-size: 1rem;
+  font-size: var(--text-lg);
   color: #0f172a;
   margin-bottom: 16px;
   font-family: inherit;
@@ -107,7 +107,7 @@
 
 .modal__error {
   color: #dc2626;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   margin-bottom: 14px;
 }
 
@@ -122,7 +122,7 @@
   padding: 12px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   cursor: pointer;
   border: none;
 }
@@ -142,7 +142,7 @@
 
 .modal__btn--primary {
   background: #2563eb;
-  color: white;
+  color: #ffffff;
 }
 
 @media (hover: hover) {
@@ -161,7 +161,7 @@
    "Signage" covering flyers isn't. */
 .modal__hint {
   margin: -6px 0 12px;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   line-height: 1.45;
   color: #94a3b8;
 }

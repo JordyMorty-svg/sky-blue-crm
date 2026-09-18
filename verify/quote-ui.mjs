@@ -151,7 +151,9 @@ chk(
   `${(markup.match(/quotem__service/g) || []).length} chips`
 );
 
-const css = readFileSync("src/components/QuoteModal.css", "utf8");
+const css =
+  readFileSync("src/index.css", "utf8") +
+  readFileSync("src/components/QuoteModal.css", "utf8");
 const html = join(dir, "modal.html");
 writeFileSync(
   html,
@@ -214,7 +216,9 @@ const panelMarkup = renderToStaticMarkup(
   })
 );
 
-const panelCss = readFileSync("src/components/QuotesPanel.css", "utf8");
+const panelCss =
+  readFileSync("src/index.css", "utf8") +
+  readFileSync("src/components/QuotesPanel.css", "utf8");
 const panelHtml = join(dir, "panel.html");
 writeFileSync(
   panelHtml,

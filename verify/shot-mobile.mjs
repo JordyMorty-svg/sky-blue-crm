@@ -25,6 +25,11 @@ import { readFileSync, writeFileSync } from "node:fs";
 // Storefront & Bakery LLC"`.
 const NAME = process.argv[2] || "Susan";
 
+// index.css first, and it is not optional: every font-size in the app is now
+// a --text-* custom property defined there. Without it those declarations are
+// invalid at computed-value time and the text silently falls back to whatever
+// it inherits — so the harness would measure a layout the app never renders.
+const baseCss = readFileSync("src/index.css", "utf8");
 const customersCss = readFileSync("src/pages/customers/Customers.css", "utf8");
 const appCss = readFileSync("src/App.css", "utf8");
 const menuCss = readFileSync("src/components/RecordMenu.css", "utf8");
@@ -86,6 +91,7 @@ const page = (name = "Susan") => `
 const html = `<!doctype html><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <style>
+  ${baseCss}
   ${appCss}
   ${customersCss}
   ${menuCss}

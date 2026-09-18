@@ -25,7 +25,7 @@
    note there. These are the two section headings on the customer page and
    they must read as the same kind of thing. */
 .quotes__title {
-  font-size: 1.1rem;
+  font-size: var(--text-xl);
   font-weight: 800;
   color: #0f172a;
   margin: 0;
@@ -39,7 +39,7 @@
   padding: 10px 18px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   font-family: inherit;
   cursor: pointer;
   /* "Send another quote" must not break across two lines next to a heading
@@ -56,7 +56,7 @@
 .quotes__empty {
   margin: 0;
   color: #64748b;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   line-height: 1.6;
   /* Stops the sentence running the full width of a desktop window, where a
      one-line 1100px paragraph under a short heading is what looked off. */
@@ -70,7 +70,7 @@
   border-radius: 10px;
   padding: 9px 12px;
   color: #b91c1c;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
 }
 
 .quotes__warn {
@@ -80,7 +80,7 @@
   border-radius: 10px;
   padding: 9px 12px;
   color: #92400e;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   line-height: 1.55;
 }
 
@@ -107,13 +107,13 @@
 }
 
 .quoterow__amount {
-  font-size: 1.15rem;
+  font-size: var(--text-xl);
   font-weight: 800;
   color: #0f172a;
 }
 
 .quoterow__state {
-  font-size: 0.74rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -149,13 +149,13 @@
 
 .quoterow__services {
   margin: 7px 0 0;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #475569;
 }
 
 .quoterow__meta {
   margin: 4px 0 0;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: #94a3b8;
 }
 
@@ -179,7 +179,7 @@
   border: none;
   padding: 8px 14px;
   border-radius: 999px;
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;

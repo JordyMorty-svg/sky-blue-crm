@@ -14,7 +14,7 @@
   border: none;
   color: #2563eb;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   cursor: pointer;
   padding: 0;
   margin-bottom: 16px;
@@ -35,7 +35,7 @@
 }
 
 .newlead__title {
-  font-size: 1.5rem;
+  font-size: var(--text-3xl);
   color: #0f172a;
   margin: 0 0 4px;
   display: flex;
@@ -45,7 +45,7 @@
 }
 
 .newlead__stage {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -56,7 +56,7 @@
 }
 
 .newlead__blurb {
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   color: #64748b;
   margin: 0;
 }
@@ -67,7 +67,7 @@
   border: 1px solid #fecaca;
   border-radius: 10px;
   padding: 10px 14px;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   margin-bottom: 16px;
 }
 
@@ -87,7 +87,7 @@
 }
 
 .newlead__sectiontitle {
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #64748b;
@@ -112,7 +112,7 @@
 }
 
 .newlead__label {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 600;
   color: #0f172a;
   margin-bottom: 6px;
@@ -121,7 +121,7 @@
 .newlead__hint {
   font-weight: 400;
   color: #94a3b8;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 
 .newlead__input {
@@ -129,7 +129,7 @@
   padding: 10px 13px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   font-family: inherit;
   color: #0f172a;
   background: #ffffff;
@@ -143,7 +143,7 @@
 
 .newlead__textarea {
   resize: vertical;
-  font-size: 0.92rem;
+  font-size: var(--text-base);
 }
 
 .newlead__check {
@@ -151,7 +151,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 0;
-  font-size: 0.92rem;
+  font-size: var(--text-base);
   color: #0f172a;
   cursor: pointer;
 }
@@ -179,7 +179,7 @@
   padding: 14px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: var(--text-lg);
   cursor: pointer;
 }
 
@@ -236,7 +236,7 @@
   color: #475569;
   border-radius: 999px;
   padding: 7px 16px;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
   min-height: 38px;

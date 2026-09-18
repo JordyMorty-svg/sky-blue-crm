@@ -95,6 +95,9 @@ writeFileSync(
    <meta name=viewport content="width=device-width,initial-scale=1">
    <style>
      body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+     ${/* The type scale lives in index.css; without it every --text-* is
+           unresolved and the tabs render at the inherited size. */""}
+     ${readFileSync("src/index.css", "utf8")}
      ${readFileSync("src/App.css", "utf8")}
      ${readFileSync("src/components/NavTabs.css", "utf8")}
    </style>

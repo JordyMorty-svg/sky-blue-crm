@@ -18,7 +18,7 @@
 }
 
 .income__title {
-  font-size: 1.5rem;
+  font-size: var(--text-3xl);
   color: #0f172a;
 }
 
@@ -36,7 +36,7 @@
   padding: 8px 15px;
   border-radius: 999px;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -76,7 +76,7 @@
   padding: 10px 13px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   color: #0f172a;
   font-family: inherit;
 }
@@ -98,7 +98,7 @@
 
 .income__error {
   color: #dc2626;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   margin-bottom: 16px;
 }
 
@@ -107,31 +107,31 @@
   flex-direction: column;
   gap: 4px;
   background: #2563eb;
-  color: white;
+  color: #ffffff;
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 24px;
 }
 
 .income__total-label {
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   opacity: 0.85;
 }
 
 .income__total-amount {
-  font-size: 2.4rem;
+  font-size: var(--text-6xl);
   font-weight: 800;
   line-height: 1.1;
 }
 
 .income__total-count {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   opacity: 0.85;
 }
 
 .income__empty {
   color: #94a3b8;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   padding: 20px 0;
 }
 
@@ -158,12 +158,12 @@
 }
 
 .income__jobs {
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   color: #64748b;
 }
 
 .income__amount {
-  font-size: 1.2rem;
+  font-size: var(--text-2xl);
   font-weight: 800;
   color: #16a34a;
 }

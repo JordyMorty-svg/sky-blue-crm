@@ -13,7 +13,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #ffffff;
-  font-size: 1rem;
+  font-size: var(--text-lg);
   color: #0f172a;
   font-family: inherit;
   cursor: pointer;
@@ -42,7 +42,7 @@
 }
 
 .techpicker__arrow {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   color: #64748b;
 }
 
@@ -89,7 +89,7 @@
 }
 
 .techpicker__role {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   color: #64748b;
@@ -99,7 +99,7 @@
 }
 
 .techpicker__empty {
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   color: #94a3b8;
   padding: 10px 12px;
 }

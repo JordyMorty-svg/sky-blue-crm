@@ -7,7 +7,7 @@
 }
 
 .jobhist__head {
-  font-size: 1.1rem;
+  font-size: var(--text-xl);
   color: #0f172a;
   margin: 0 0 12px;
 }
@@ -71,13 +71,13 @@
 }
 
 .jobhist__title {
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: #0f172a;
 }
 
 .jobhist__meta {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   line-height: 1.45;
   color: #64748b;
 }
@@ -89,7 +89,7 @@
   align-items: flex-end;
   gap: 1px;
   flex-shrink: 0;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   color: #94a3b8;
   white-space: nowrap;
 }
@@ -135,7 +135,7 @@
   border-radius: 999px;
   background: #ffffff;
   color: #475569;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   /* Sized for a thumb even though it reads as a small control. */

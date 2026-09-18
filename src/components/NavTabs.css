@@ -73,7 +73,7 @@
   border-radius: 8px;
   text-decoration: none;
   color: #475569;
-  font-size: 0.92rem;
+  font-size: var(--text-base);
   font-weight: 600;
   /* Tabs must not squeeze to fit — that is what scrolling is for — and a
      label broken across two lines inside a 60px header is worse than one you

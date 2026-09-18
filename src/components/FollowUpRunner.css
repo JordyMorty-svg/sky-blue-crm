@@ -14,14 +14,14 @@
 }
 
 .fuprun__title {
-  font-size: 1.05rem;
+  font-size: var(--text-lg);
   color: #0f172a;
   margin: 0 0 6px;
 }
 
 .fuprun__blurb {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   line-height: 1.5;
   color: #64748b;
 }
@@ -38,7 +38,7 @@
   border-radius: 999px;
   padding: 0 18px;
   min-height: 42px;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: #475569;
   cursor: pointer;
@@ -85,20 +85,20 @@
   color: #b91c1c;
   border-radius: 10px;
   padding: 10px 13px;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   line-height: 1.5;
 }
 
 .fuprun__count {
   margin: 16px 0 0;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: #0f172a;
 }
 
 .fuprun__none {
   margin: 16px 0 0;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   line-height: 1.5;
   color: #64748b;
 }
@@ -118,7 +118,7 @@
   align-items: baseline;
   gap: 12px;
   padding: 10px 13px;
-  font-size: 0.86rem;
+  font-size: var(--text-md);
   border-bottom: 1px solid #f1f5f9;
 }
 
@@ -133,7 +133,7 @@
 
 .fuprun__addr {
   color: #64748b;
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   /* The address is the part that proves it's going to the right person, so
      it truncates rather than wrapping the row into two lines. */
   min-width: 0;
@@ -149,7 +149,7 @@
   color: #92400e;
   border-radius: 10px;
   padding: 10px 13px;
-  font-size: 0.83rem;
+  font-size: var(--text-md);
   line-height: 1.55;
 }
 

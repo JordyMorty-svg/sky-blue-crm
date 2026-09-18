@@ -8,7 +8,7 @@
 
 .daypreview--empty {
   color: #94a3b8;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   text-align: center;
   padding: 28px 16px;
 }
@@ -23,11 +23,11 @@
 .daypreview__date {
   font-weight: 700;
   color: #0f172a;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
 }
 
 .daypreview__loading {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: #94a3b8;
 }
 
@@ -37,7 +37,7 @@
   color: #b91c1c;
   border-radius: 10px;
   padding: 10px 14px;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 600;
   margin-bottom: 12px;
 }
@@ -72,7 +72,7 @@
   top: -7px;
   width: 44px;
   text-align: right;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   color: #94a3b8;
 }
 
@@ -95,7 +95,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
 }
 
@@ -132,6 +132,6 @@
 }
 
 .daypreview__jobtime {
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   opacity: 0.85;
 }

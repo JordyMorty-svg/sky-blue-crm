@@ -4,7 +4,7 @@
   gap: 5px;
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;

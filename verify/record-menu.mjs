@@ -76,6 +76,8 @@ writeFileSync(
   `<!doctype html><meta charset=utf-8>
    <meta name=viewport content="width=device-width,initial-scale=1">
    <style>body{margin:0;padding:24px;font-family:system-ui,sans-serif}
+   ${/* The scale, or every --text-* below is unresolved. */ ""}
+   ${readFileSync("src/index.css", "utf8")}
    ${readFileSync("src/components/RecordMenu.css", "utf8")}</style>
    <div id="root"></div>
    <script>${readFileSync(bundle, "utf8")}</script>`

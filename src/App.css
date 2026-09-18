@@ -19,7 +19,7 @@
 }
 
 .shell__brand {
-  font-size: 1.1rem;
+  font-size: var(--text-xl);
   font-weight: 800;
   color: #0f172a;
   white-space: nowrap;
@@ -47,7 +47,7 @@
 }
 
 .shell__email {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #64748b;
   display: flex;
   align-items: center;
@@ -55,7 +55,7 @@
 }
 
 .shell__role {
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -71,7 +71,7 @@
   color: #475569;
   padding: 7px 14px;
   border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
   transition: border-color 0.15s ease, color 0.15s ease;

@@ -6,7 +6,7 @@
 
 .jobs__error {
   color: #dc2626;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   margin-bottom: 16px;
 }
 
@@ -35,7 +35,7 @@
   padding: 10px 13px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   color: #0f172a;
   font-family: inherit;
 }
@@ -56,7 +56,7 @@
 
 .jobs__filterlabel {
   display: block;
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   font-weight: 600;
   color: #475569;
   margin-bottom: 6px;
@@ -68,7 +68,7 @@
   color: #475569;
   padding: 7px 14px;
   border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -101,7 +101,7 @@
 
 .jobs__empty {
   color: #94a3b8;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   padding: 12px 0;
 }
 
@@ -134,29 +134,29 @@
 }
 
 .jobrow__meta {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #64748b;
 }
 
 .jobrow__when {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #2563eb;
   font-weight: 600;
 }
 
 .jobrow__techs {
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   color: #475569;
 }
 
 .jobrow__btn {
   background: #2563eb;
-  color: white;
+  color: #ffffff;
   border: none;
   padding: 10px 18px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -213,7 +213,7 @@
   display: inline-block;
   margin-left: 8px;
   vertical-align: middle;
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;

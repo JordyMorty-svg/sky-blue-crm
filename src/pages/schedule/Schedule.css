@@ -11,7 +11,7 @@
 
 .schedule__error {
   color: #dc2626;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   margin-bottom: 16px;
 }
 
@@ -26,7 +26,7 @@
   padding: 10px 13px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  font-size: 1rem;
+  font-size: var(--text-lg);
   font-weight: 600;
   color: #0f172a;
   font-family: inherit;
@@ -46,7 +46,7 @@
   padding: 10px 16px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   cursor: pointer;
 }
 
@@ -61,14 +61,14 @@
 }
 
 .schedule__dayhead {
-  font-size: 1.05rem;
+  font-size: var(--text-lg);
   color: #475569;
   margin-bottom: 16px;
 }
 
 .schedule__empty {
   color: #94a3b8;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   padding: 20px 0;
 }
 
@@ -89,7 +89,7 @@
 }
 
 .schedjob__time {
-  font-size: 1rem;
+  font-size: var(--text-lg);
   font-weight: 800;
   color: #2563eb;
   white-space: nowrap;
@@ -106,21 +106,21 @@
 .schedjob__name {
   font-weight: 700;
   color: #0f172a;
-  font-size: 1rem;
+  font-size: var(--text-lg);
 }
 
 .schedjob__addr {
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   color: #475569;
 }
 
 .schedjob__meta {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #64748b;
 }
 
 .schedjob__notes {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #475569;
   background: #f8fafc;
   border-radius: 6px;
@@ -129,7 +129,7 @@
 }
 
 .schedjob__crew {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: #94a3b8;
   margin-top: 2px;
 }
@@ -141,7 +141,7 @@
   padding: 10px 16px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -185,7 +185,7 @@
   padding: 7px 13px;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   cursor: pointer;
 }
 
@@ -199,7 +199,7 @@
 .calbar__label {
   font-weight: 700;
   color: #0f172a;
-  font-size: 1rem;
+  font-size: var(--text-lg);
 }
 
 .calbar__views {
@@ -217,7 +217,7 @@
   padding: 6px 14px;
   border-radius: 7px;
   font-weight: 600;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   cursor: pointer;
 }
 
@@ -274,7 +274,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 600;
   color: #475569;
 }
@@ -308,7 +308,7 @@
   padding: 8px 16px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   cursor: pointer;
 }
 
@@ -324,7 +324,7 @@
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  font-size: 1.1rem;
+  font-size: var(--text-xl);
   color: #475569;
   cursor: pointer;
   line-height: 1;
@@ -338,7 +338,7 @@
 }
 
 .rbc-custom-toolbar__label {
-  font-size: 1.1rem;
+  font-size: var(--text-xl);
   font-weight: 700;
   color: #0f172a;
 }
@@ -357,7 +357,7 @@
   padding: 7px 16px;
   border-radius: 7px;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #475569;
   cursor: pointer;
 }
@@ -382,7 +382,7 @@
 .schedule__calendar .rbc-header {
   padding: 12px 6px;
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   color: #334155;
   border-bottom: 1px solid #e2e8f0;
   text-transform: none;
@@ -421,7 +421,7 @@
 }
 
 .schedule__calendar .rbc-label {
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   color: #94a3b8;
   padding: 0 8px;
 }
@@ -443,7 +443,7 @@
 }
 
 .schedule__calendar .rbc-event-label {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   opacity: 0.85;
 }
 
@@ -468,7 +468,7 @@
 
 .schedule__calendar .rbc-date-cell {
   padding: 6px 8px;
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   color: #475569;
 }
 
@@ -495,7 +495,7 @@
   color: #14532d;
   border-radius: 10px;
   padding: 10px 14px;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   line-height: 1.5;
   margin-bottom: 16px;
 }
@@ -517,7 +517,7 @@
   padding: 8px 16px;
   border-radius: 999px;
   font-weight: 600;
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -541,7 +541,7 @@
   padding: 10px 16px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -567,7 +567,7 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: #64748b;
   margin: -6px 0 14px;
 }
@@ -581,7 +581,7 @@
   border: none;
   padding: 0;
   color: #2563eb;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
@@ -610,13 +610,13 @@
 }
 
 .mapspick__title {
-  font-size: 1.1rem;
+  font-size: var(--text-xl);
   color: #0f172a;
   margin: 0 0 4px;
 }
 
 .mapspick__sub {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #64748b;
   line-height: 1.5;
   margin: 0 0 16px;
@@ -636,7 +636,7 @@
   padding: 14px 18px;
   border-radius: 12px;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: var(--text-lg);
   cursor: pointer;
 }
 
@@ -647,7 +647,7 @@
 }
 
 .mapspick__note {
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   color: #94a3b8;
   line-height: 1.5;
   margin: 12px 0 4px;
@@ -660,7 +660,7 @@
   color: #64748b;
   padding: 10px;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   cursor: pointer;
 }
 
@@ -699,12 +699,12 @@
 
 .weeklist__dayname {
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   color: #0f172a;
 }
 
 .weeklist__daydate {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #64748b;
 }
 
@@ -712,7 +712,7 @@
    reading any of the jobs. */
 .weeklist__daycount {
   margin-left: auto;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   color: #94a3b8;
 }
 
@@ -760,7 +760,7 @@
   flex: 0 0 76px;
   white-space: nowrap;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #1d4ed8;
   padding-top: 1px;
 }
@@ -779,7 +779,7 @@
 
 .weeklist__name {
   font-weight: 600;
-  font-size: 0.92rem;
+  font-size: var(--text-base);
   color: #0f172a;
   /* Wrap on whole words. Letter-by-letter stacking is the bug this whole
      view exists to fix. */
@@ -787,7 +787,7 @@
 }
 
 .weeklist__addr {
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   line-height: 1.4;
   color: #94a3b8;
   overflow-wrap: break-word;
@@ -795,7 +795,7 @@
 
 .weeklist__status {
   flex-shrink: 0;
-  font-size: 0.66rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -869,7 +869,7 @@
     padding: 1px 2px !important;
     width: calc(100% - 2px) !important;
     border-radius: 5px !important;
-    font-size: 0.56rem;
+    font-size: var(--text-2xs);
     /* A fixed height, not one derived from font metrics. react-big-calendar
        measures one rendered chip to decide how many fit a row; if it
        measures before the font settles it gets a smaller number and packs
@@ -896,12 +896,12 @@
 
   .schedule__calendar .rbc-date-cell {
     padding: 3px 5px;
-    font-size: 0.72rem;
+    font-size: var(--text-xs);
   }
 
   .schedule__calendar .rbc-header {
     padding: 7px 2px;
-    font-size: 0.68rem;
+    font-size: var(--text-2xs);
   }
 
   /* react-big-calendar decides how many chips fit a week row by measuring
@@ -916,7 +916,7 @@
 
   /* "+2 more" is a count, which is worth its line. */
   .schedule__calendar .rbc-show-more {
-    font-size: 0.6rem;
+    font-size: var(--text-2xs);
     padding: 0 3px;
     margin-top: 1px;
   }
@@ -1044,7 +1044,7 @@
   .schedjob__complete {
     min-height: 46px;
     padding: 12px 14px;
-    font-size: 0.92rem;
+    font-size: var(--text-base);
   }
 
 }

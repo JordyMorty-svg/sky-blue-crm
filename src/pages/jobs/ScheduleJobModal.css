@@ -6,13 +6,13 @@
   border-radius: 10px;
   padding: 12px 14px;
   margin-bottom: 18px;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   color: #475569;
 }
 
 .schedule__lead strong {
   color: #0f172a;
-  font-size: 1rem;
+  font-size: var(--text-lg);
 }
 
 .schedule__techs {
@@ -45,7 +45,7 @@
 }
 
 .schedule__tech-role {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   color: #64748b;
@@ -55,6 +55,6 @@
 }
 
 .schedule__empty {
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   color: #94a3b8;
 }

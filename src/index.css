@@ -1,3 +1,36 @@
+/* ---- Type scale ----
+ *
+ * Every font-size in this app comes from this list. Before it existed there
+ * were 41 different sizes across 44 stylesheets, doing 12 jobs — eight of
+ * them inside a single 0.14rem band, so "small grey text" was 0.78, 0.8,
+ * 0.82, 0.83, 0.84, 0.85, 0.86, 0.87 or 0.88rem depending on which page you
+ * were looking at and which day it was written.
+ *
+ * The steps are not invented: each one is the value the app already used
+ * most often in that band, so adopting the scale moved 231 declarations and
+ * none of them by more than 2.4px. It is a tidying-up, not a redesign.
+ *
+ * Named by size rather than by role — there is no honest role name covering
+ * both a table cell and a button label. Pick by eye, from the list.
+ *
+ * verify/css-consistency.mjs fails if a raw rem value appears in a
+ * font-size again, which is the only thing that keeps this true.
+ */
+:root {
+  --text-2xs:  0.66rem;  /* 10.6px — uppercase micro-labels */
+  --text-xs:   0.72rem;  /* 11.5px */
+  --text-sm:   0.78rem;  /* 12.5px */
+  --text-md:   0.85rem;  /* 13.6px — the most common size in the app */
+  --text-base: 0.9rem;   /* 14.4px — body text */
+  --text-lg:   1rem;     /* 16px */
+  --text-xl:   1.1rem;   /* 17.6px — section headings */
+  --text-2xl:  1.25rem;  /* 20px */
+  --text-3xl:  1.5rem;   /* 24px — the big number on a stat card */
+  --text-4xl:  1.6rem;   /* 25.6px — page titles */
+  --text-5xl:  2rem;     /* 32px */
+  --text-6xl:  2.4rem;   /* 38.4px */
+}
+
 /* ---- Reset & base ---- */
 *,
 *::before,
@@ -80,7 +113,7 @@ button,
   align-items: center;
   justify-content: center;
   color: #64748b;
-  font-size: 1rem;
+  font-size: var(--text-lg);
 }
 /* Available to screen readers and the document outline, but not painted.
    Used where a visible heading would only repeat a control that's already

@@ -28,7 +28,7 @@
 }
 
 .quotem__title {
-  font-size: 1.25rem;
+  font-size: var(--text-2xl);
   font-weight: 800;
   color: #0f172a;
   margin: 0 0 4px;
@@ -37,12 +37,12 @@
 .quotem__address {
   margin: 0 0 18px;
   color: #64748b;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
 }
 
 .quotem__label {
   display: block;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: #475569;
   text-transform: uppercase;
@@ -74,7 +74,7 @@
 }
 
 .quotem__currency {
-  font-size: 1.5rem;
+  font-size: var(--text-3xl);
   font-weight: 700;
   color: #94a3b8;
   margin-right: 4px;
@@ -85,7 +85,7 @@
   border: none;
   outline: none;
   padding: 12px 0;
-  font-size: 1.6rem;
+  font-size: var(--text-4xl);
   font-weight: 800;
   color: #0f172a;
   font-family: inherit;
@@ -108,7 +108,7 @@
   color: #475569;
   padding: 8px 13px;
   border-radius: 999px;
-  font-size: 0.83rem;
+  font-size: var(--text-md);
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
@@ -135,7 +135,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 11px 13px;
-  font-size: 0.92rem;
+  font-size: var(--text-base);
   font-family: inherit;
   color: #0f172a;
   resize: vertical;
@@ -150,7 +150,7 @@
 
 .quotem__dest {
   margin: 16px 0 0;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #64748b;
   line-height: 1.55;
 }
@@ -162,7 +162,7 @@
   border: 1px solid #fecaca;
   border-radius: 10px;
   padding: 9px 12px;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
 }
 
 /* --- actions --- */
@@ -185,7 +185,7 @@
   padding: 14px 20px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   font-family: inherit;
   cursor: pointer;
   text-align: center;
@@ -212,7 +212,7 @@
   padding: 14px 20px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
@@ -228,7 +228,7 @@
 
 .quotem__sentnote {
   margin: 0 0 16px;
-  font-size: 0.92rem;
+  font-size: var(--text-base);
   line-height: 1.6;
   color: #475569;
 }
@@ -242,7 +242,7 @@
   border-radius: 10px;
   padding: 12px 14px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   color: #334155;
   word-break: break-all;
   user-select: all;
@@ -255,7 +255,7 @@
   border: none;
   color: #64748b;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-family: inherit;
   padding: 10px;
   cursor: pointer;

@@ -10,14 +10,14 @@
 }
 
 .stc__title {
-  font-size: 1.05rem;
+  font-size: var(--text-lg);
   color: #0f172a;
   margin: 0 0 6px;
 }
 
 .stc__blurb {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   line-height: 1.5;
   color: #64748b;
 }
@@ -26,7 +26,7 @@
 .stc__empty,
 .stc__more {
   margin: 12px 0 0;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   color: #94a3b8;
 }
 
@@ -37,7 +37,7 @@
   color: #b91c1c;
   border-radius: 10px;
   padding: 10px 13px;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   line-height: 1.5;
 }
 
@@ -48,7 +48,7 @@
   color: #15803d;
   border-radius: 10px;
   padding: 10px 13px;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   line-height: 1.5;
 }
 
@@ -59,7 +59,7 @@
   border-radius: 10px;
   padding: 11px 13px;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   color: #0f172a;
 }
 
@@ -115,7 +115,7 @@
    whose email is missing and go and add it. */
 .stc__pick:disabled {
   cursor: default;
-  background: #fcfcfd;
+  background: #f8fafc;
 }
 
 .stc__pick:disabled .stc__name {
@@ -124,13 +124,13 @@
 
 .stc__name {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   color: #0f172a;
   flex: 0 0 auto;
 }
 
 .stc__mail {
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   color: #64748b;
   flex: 1 1 auto;
   min-width: 0;
@@ -141,7 +141,7 @@
 
 .stc__blocked {
   flex: 0 0 auto;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   color: #92400e;
   background: #fef3c7;
@@ -173,11 +173,11 @@
 .stc__confirmname {
   font-weight: 700;
   color: #0f172a;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
 }
 
 .stc__confirmmail {
-  font-size: 0.83rem;
+  font-size: var(--text-md);
   color: #475569;
   overflow-wrap: anywhere;
 }
@@ -195,7 +195,7 @@
   border-radius: 999px;
   padding: 0 20px;
   min-height: 42px;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
@@ -219,7 +219,7 @@
   border-radius: 999px;
   padding: 0 18px;
   min-height: 42px;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: #475569;
   cursor: pointer;
@@ -249,7 +249,7 @@
    can't pick this one". The row stays clickable under both of these. */
 .stc__note {
   flex: 0 0 auto;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   border-radius: 999px;
   padding: 2px 8px;
