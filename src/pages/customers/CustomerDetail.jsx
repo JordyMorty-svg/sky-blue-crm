@@ -22,6 +22,7 @@ import { recordContact } from "../../services/contactService";
 import { setEmailOptOut, setCustomerReviewed } from "../../services/followUpService";
 import AddressPicker from "../../components/AddressPicker";
 import JobPlanTag from "../../components/JobPlanTag";
+import QuotesPanel from "../../components/QuotesPanel";
 import "./Customers.css";
 
 function formatWhen(iso) {
@@ -306,6 +307,16 @@ export default function CustomerDetail() {
     0
   );
 
+  // What to put in the price box when quoting an existing customer: the
+  // plan's projected price if they're on one, otherwise what they last
+  // actually paid. Anything that isn't a real positive number becomes null so
+  // the box starts empty — an accidental NaN or 0 in front of a price is
+  // worse than a blank, because a blank gets filled in and a 0 gets sent.
+  const suggestedQuote =
+    [projectedVisit?.price, lastCompleted?.final_price, lastCompleted?.price]
+      .map(Number)
+      .find((n) => Number.isFinite(n) && n > 0) ?? null;
+
   // Work that hasn't happened yet — booked, or due on the plan. Kept out
   // of the visit count so it can't be read as work already done: a
   // recurring customer always has a future visit on record, and counting
@@ -407,6 +418,11 @@ export default function CustomerDetail() {
         <>
           <div className="custdetail__namerow">
             <h1 className="custdetail__name">{customer.name}</h1>
+            {/* The three actions are wrapped so they move to the next line
+                TOGETHER on a narrow screen. As loose siblings they wrapped
+                one at a time, which left "+ Schedule a job" breaking across
+                two lines next to a name that had also broken across two. */}
+            <div className="custdetail__actions">
             <button
               className="custdetail__schedule"
               onClick={() => navigate(`/customers/${id}/schedule`)}
@@ -429,6 +445,7 @@ export default function CustomerDetail() {
             <button className="custdetail__edit" onClick={() => setEditing(true)}>
               Edit
             </button>
+            </div>
           </div>
 
           <div className="custdetail__badges">
@@ -636,6 +653,20 @@ export default function CustomerDetail() {
           </span>
         </div>
       )}
+
+      {/* Above Job history, because a quote for an existing customer is
+          almost always "the same as last time" — and the number that starts
+          the modal is exactly that: what the plan projects, or failing that
+          what they last actually paid. */}
+      <QuotesPanel
+        customerId={id}
+        customerName={customer.name}
+        customerEmail={customer.email}
+        customerPhone={customer.phone}
+        address={customer.address}
+        suggestedAmount={suggestedQuote}
+        onChanged={load}
+      />
 
       <h2 className="custdetail__subhead">Job history</h2>
       {jobs.length === 0 ? (

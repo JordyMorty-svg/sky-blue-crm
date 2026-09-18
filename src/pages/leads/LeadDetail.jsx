@@ -21,6 +21,7 @@ import { useAuth } from "../../context/useAuth";
 import { can } from "../../components/capabilities";
 import PlanPicker from "../../components/PlanPicker";
 import AppointmentPicker from "../../components/AppointmentPicker";
+import QuotesPanel from "../../components/QuotesPanel";
 import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import "./LeadDetail.css";
 
@@ -466,6 +467,28 @@ export default function LeadDetail() {
             onChange={(e) => set("crm_notes", e.target.value)} />
         </Field>
       </div>
+
+      {/* Under the form, above the history. The price you'd quote is the
+          Estimate field directly above it, so the two sit together — and the
+          panel is passed that estimate as its starting number rather than
+          making someone retype what's already on screen.
+
+          Unsaved edits to Estimate are NOT carried in: `form.estimate` is
+          whatever is in the box right now, which is the number the person
+          means. It is only a default; the modal still lets them change it. */}
+      <QuotesPanel
+        leadId={id}
+        customerName={form.name}
+        customerEmail={form.email}
+        customerPhone={form.phone}
+        address={form.address}
+        suggestedAmount={Number(form.estimate) || null}
+        suggestedServices={form.service ? [form.service] : null}
+        // A lead moves to Booked the moment a quote is accepted, and that
+        // happens in the database, not here. Reload so the status select and
+        // the history below both reflect it.
+        onChanged={load}
+      />
 
       {events.length > 0 && (
         <div className="detail__history">

@@ -25,6 +25,7 @@ import Communication from "./pages/customers/Communication";
 import CustomerDetail from "./pages/customers/CustomerDetail";
 import AddPastJobs from "./pages/customers/AddPastJobs";
 import MapView from "./pages/map/MapView";
+import PublicQuote from "./pages/quote/PublicQuote";
 import { REMEMBERED_SECTIONS } from "./components/navViews";
 import { lastViewFor } from "./components/viewMemory";
 import { canSee, landingFor, navSectionsFor } from "./components/capabilities";
@@ -200,6 +201,19 @@ export default function App() {
           form they cannot get past is the least useful answer to "my reset
           link didn't work". The page explains it instead. */}
       <Route path="/reset-password" element={<ResetPassword />} />
+
+      {/* The customer's quote. The one route in this app that a stranger is
+          meant to reach, so it sits outside Page entirely — no
+          ProtectedRoute, no RequireSection, no Shell. Wrapping it would put
+          a sign-in form in front of the person we are trying to sell to.
+
+          It touches Supabase only through /api/quote/:token, which uses the
+          service key server-side; the anon key never reaches this page, and
+          `quotes` stays staff-only in the database.
+
+          Short path on purpose — it gets pasted into a text message, where
+          every character is visible. */}
+      <Route path="/q/:token" element={<PublicQuote />} />
 
       {/* Every Page carries the section it belongs to, and that string is
           the same one the nav filters on — so a tab and its routes can't

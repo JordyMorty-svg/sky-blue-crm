@@ -149,26 +149,36 @@
 
 .custdetail__namerow {
   display: flex;
+  /* Without this the four children just compress: at phone width the name
+     broke across two lines AND "+ Schedule a job" broke across two, next to
+     each other, which is what made the header look lumpy. */
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px 12px;
   margin-bottom: 8px;
 }
 
-.custdetail__name {
-  font-size: 1.6rem;
-  color: #0f172a;
+/* Keeps the three buttons together as one unit, so they drop to their own
+   line as a group rather than peeling off one at a time. margin-left:auto
+   holds them right on a wide screen; it does nothing once they've wrapped. */
+.custdetail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .custdetail__edit {
   background: #eff6ff;
   color: #2563eb;
   border: none;
-  padding: 8px 18px;
+  padding: 9px 16px;
   border-radius: 999px;
   font-weight: 700;
   font-size: 0.88rem;
+  font-family: inherit;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 @media (hover: hover) {
@@ -252,10 +262,16 @@
   }
 }
 
+/* Was declared twice in this file with different margins; the second won,
+   and its bottom margin fought the row's align-items: center. One rule now.
+   The flex-basis is what decides the breakpoint: below roughly 200px of
+   room for the name, the buttons wrap instead of squeezing it. */
 .custdetail__name {
   font-size: 1.6rem;
   color: #0f172a;
-  margin-bottom: 8px;
+  margin: 0;
+  flex: 1 1 200px;
+  min-width: 0;
 }
 
 .custdetail__info {
@@ -478,17 +494,35 @@
   background: #2563eb;
   color: #ffffff;
   border: none;
-  padding: 8px 16px;
+  padding: 9px 16px;
   border-radius: 999px;
   font-weight: 600;
   font-size: 0.88rem;
+  font-family: inherit;
   cursor: pointer;
-  margin-left: auto;
+  /* "+ Schedule a job" is one phrase; letting it break made the button two
+     lines tall and knocked the whole row out of alignment. */
+  white-space: nowrap;
 }
 
 @media (hover: hover) {
   .custdetail__schedule:hover {
     background: #1d4ed8;
+  }
+}
+
+/* At 390px the three header buttons came to ~329px against ~326px of room,
+   so "Edit" alone fell to a third row. Three pixels. Trimming the horizontal
+   padding buys 18px and puts them all on one line, which is the difference
+   between a header that looks designed and one that looks broken. */
+@media (max-width: 480px) {
+  .custdetail__schedule,
+  .custdetail__edit {
+    padding-left: 13px;
+    padding-right: 13px;
+  }
+  .custdetail__actions {
+    gap: 6px;
   }
 }
 
