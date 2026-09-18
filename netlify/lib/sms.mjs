@@ -215,9 +215,23 @@ export function reminderSms({ customerName, startsAt }) {
 // --- sending ----------------------------------------------------------------
 
 export async function postToQuo(to, body) {
+  // Normalised, not trusted. Quo requires E.164 — a leading + and the country
+  // code — and QUO_FROM is typed into a Netlify form by a person reading a
+  // phone number off a screen, where "15412503361" looks completely correct.
+  // Without the +, every send is rejected by the API while the "Text the
+  // link" button in the CRM keeps working perfectly, because that one is the
+  // phone's own Messages app and never touches Quo. A confusing way to lose
+  // an afternoon, and one character to prevent.
+  const from = toE164(process.env.QUO_FROM);
+  if (!from) {
+    throw new Error(
+      `QUO_FROM is not a usable number (${process.env.QUO_FROM || "unset"}) - it must be E.164, e.g. +15417303593`
+    );
+  }
+
   const payload = {
     content: body,
-    from: process.env.QUO_FROM,
+    from,
     // An array: Quo accepts up to ten recipients per call. Always sent as a
     // single-element one, because a text to two people is a group thread and
     // every message this CRM sends is to one household.

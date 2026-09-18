@@ -370,6 +370,72 @@ const chk = (what, pass, detail = "") => {
     denied.reason
   );
 
+  // --- QUO_FROM has to be E.164 ---
+  //
+  // The number is typed into a Netlify form off the screen of a phone app,
+  // where "15412503361" looks right. Quo requires the leading +; without it
+  // the API rejects every send, while the CRM's own "Text the link" button
+  // carries on working because it opens Messages rather than calling an API.
+  // The failure therefore presents as "only the automatic ones are broken",
+  // which points at everything except the one character responsible.
+  //
+  // So it is normalised here rather than merely validated. Being strict would
+  // be honest and still cost somebody an evening.
+  globalThis.__rpc = async (fn) =>
+    fn === "claim_sms"
+      ? [{ id: 1, ok: true, reason: "claimed", phone: "+15415550101" }]
+      : null;
+
+  // fetch is stubbed for the rest of this block. Without it these assertions
+  // reach api.quo.com for real — which the first version of this test did,
+  // and it "passed" on a 403 from a live server.
+  const realFetch = globalThis.fetch;
+  let sent = null;
+  globalThis.fetch = async (url, opts) => {
+    sent = { url, body: JSON.parse(opts.body) };
+    return { ok: true, status: 200, json: async () => ({ data: { id: "msg_1" } }) };
+  };
+
+  process.env.QUO_FROM = "15412503361";
+  const noPlus = await M.sendSms({ phone: "(541) 555-0101", body: "hi" });
+  chk(
+    "THE POINT: a from-number missing its + is normalised, not rejected",
+    noPlus.ok === true && sent.body.from === "+15412503361",
+    `${noPlus.reason || "sent"} as ${sent?.body?.from}`
+  );
+
+  process.env.QUO_FROM = "(541) 250-3361";
+  await M.sendSms({ phone: "(541) 555-0101", body: "hi" });
+  chk(
+    "and so is one typed the way it is printed on a van",
+    sent.body.from === "+15412503361",
+    sent?.body?.from
+  );
+
+  chk(
+    "the recipient is sent exactly as the database normalised it",
+    sent.body.to.length === 1 && sent.body.to[0] === "+15415550101",
+    JSON.stringify(sent?.body?.to)
+  );
+
+  // The API key goes in bare. Quo's docs are explicit that it is NOT a bearer
+  // token, and prefixing it fails with a 401 that looks exactly like a wrong
+  // key — another afternoon.
+  process.env.QUO_FROM = "+15412503361";
+
+  // Something that could not be a US number at all still has to be named
+  // rather than handed to Quo to reject.
+  process.env.QUO_FROM = "the office line";
+  const nonsense = await M.sendSms({ phone: "(541) 555-0101", body: "hi" });
+  chk(
+    "a from-number that is not a number at all is named",
+    nonsense.ok === false && /QUO_FROM/.test(nonsense.reason),
+    nonsense.reason
+  );
+
+  process.env.QUO_FROM = "+15412503361";
+  globalThis.fetch = realFetch;
+
   // And a refusal from the database itself — an opt-out, quiet hours — is
   // passed straight through as the reason the screen shows.
   globalThis.__rpc = async () => [{ id: null, ok: false, reason: "opted_out", phone: "+15417303593" }];
