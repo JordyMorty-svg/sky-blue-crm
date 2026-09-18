@@ -1,0 +1,120 @@
+/* The section tabs. See NavTabs.jsx for why this is a scroller rather than a
+   wrapping row. */
+
+.shell__navwrap {
+  position: relative;
+  flex: 1;
+  /* min-width: 0 is what actually lets the strip scroll. A flex item's
+     default min-width is auto — its content size — so without this the nav
+     refuses to shrink below the full width of six tabs and pushes the header
+     wider than the screen instead of scrolling inside it. */
+  min-width: 0;
+}
+
+.shell__nav {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  /* Never wrap. The whole point is one row you push sideways. */
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+  /* The strip is the scrollbar's own affordance; a visible bar under six
+     tabs in a 60px header is noise. The fades below say the same thing more
+     quietly. */
+  scrollbar-width: none;
+}
+
+.shell__nav::-webkit-scrollbar {
+  display: none;
+}
+
+/* --- the edges ---
+
+   Fades drawn as overlays rather than as a mask on the nav itself.
+   mask-image would fade the TABS, so the one under the fade would go
+   translucent and look disabled; these sit on top and fade to the header's
+   own background instead.
+
+   data-edges is set from the scroll position, so a fade appears only while
+   there is genuinely more in that direction. A fade that is always on is a
+   promise the strip cannot keep at the end of the row. */
+
+.shell__navwrap::before,
+.shell__navwrap::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.shell__navwrap::before {
+  left: 0;
+  background: linear-gradient(to right, #ffffff, rgba(255, 255, 255, 0));
+}
+
+.shell__navwrap::after {
+  right: 0;
+  background: linear-gradient(to left, #ffffff, rgba(255, 255, 255, 0));
+}
+
+.shell__navwrap[data-edges="right"]::after,
+.shell__navwrap[data-edges="both"]::after,
+.shell__navwrap[data-edges="left"]::before,
+.shell__navwrap[data-edges="both"]::before {
+  opacity: 1;
+}
+
+.shell__tab {
+  padding: 8px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #475569;
+  font-size: 0.92rem;
+  font-weight: 600;
+  /* Tabs must not squeeze to fit — that is what scrolling is for — and a
+     label broken across two lines inside a 60px header is worse than one you
+     have to scroll to.
+     
+     This one declaration does both jobs. `flex: 0 0 auto` holds a tab at its
+     content width, so there is never pressure to wrap in the first place;
+     `white-space: nowrap` sat alongside it for a while and was measured to
+     change nothing. Removing this line, though, breaks a two-word label
+     immediately — which is why verify/nav-tabs.mjs tests one even though
+     every section is a single word today. */
+  flex: 0 0 auto;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+/* Hover styling is gated behind (hover: hover) throughout this app. On a
+   touch screen :hover latches after a tap and stays until you tap something
+   else, so a hover style that looks like selection is a lie. */
+@media (hover: hover) {
+  .shell__tab:hover {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+}
+
+.shell__tab--active {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+/* Where the strip sits in the header on a phone: its own full-width row under
+   the brand and the sign-out button.
+   
+   Here rather than in App.css because that file also selected .shell__navwrap,
+   at the same specificity, and lost to the base rule above depending on which
+   stylesheet Vite emitted first. In this file it is unambiguously later and
+   the cascade needs no luck. */
+@media (max-width: 720px) {
+  .shell__navwrap {
+    order: 3;
+    width: 100%;
+    flex: none;
+  }
+}

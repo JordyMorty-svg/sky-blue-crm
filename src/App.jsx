@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, NavLink, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./context/useAuth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/login/Login";
@@ -26,6 +26,7 @@ import CustomerDetail from "./pages/customers/CustomerDetail";
 import AddPastJobs from "./pages/customers/AddPastJobs";
 import MapView from "./pages/map/MapView";
 import PublicQuote from "./pages/quote/PublicQuote";
+import NavTabs from "./components/NavTabs";
 import { REMEMBERED_SECTIONS } from "./components/navViews";
 import { lastViewFor } from "./components/viewMemory";
 import { canSee, landingFor, navSectionsFor } from "./components/capabilities";
@@ -92,19 +93,10 @@ function Shell({ children }) {
           Sky Blue <span className="shell__brand-accent">CRM</span>
         </div>
 
-        <nav className="shell__nav">
-          {tabs.map((tab) => (
-            <NavLink
-              key={tab.root}
-              to={tab.to}
-              className={`shell__tab ${
-                inSection(tab.root) ? "shell__tab--active" : ""
-              }`}
-            >
-              {tab.label}
-            </NavLink>
-          ))}
-        </nav>
+        {/* The strip owns its own scrolling — see NavTabs.jsx. `tabs` is
+            rebuilt on every navigation because `to` is a remembered sub-view,
+            which is also what re-runs the scroll-to-active effect inside it. */}
+        <NavTabs tabs={tabs} isActive={inSection} />
 
         <div className="shell__user">
           <span className="shell__email">

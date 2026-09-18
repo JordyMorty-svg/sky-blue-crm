@@ -29,37 +29,16 @@
   color: #2563eb;
 }
 
-.shell__nav {
-  display: flex;
-  gap: 4px;
-  flex: 1;
-}
-
-.shell__tab {
-  padding: 8px 14px;
-  border-radius: 8px;
-  text-decoration: none;
-  color: #475569;
-  font-size: 0.92rem;
-  font-weight: 600;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-/* Hover styling is gated behind (hover: hover) throughout this app.
-   On a touch screen :hover latches after a tap and stays until you
-   tap something else, so a hover style that looks like selection
-   leaves the wrong control looking chosen. See index.css. */
-@media (hover: hover) {
-  .shell__tab:hover {
-    background: #eff6ff;
-    color: #2563eb;
-  }
-}
-
-.shell__tab--active {
-  background: #eff6ff;
-  color: #2563eb;
-}
+/* .shell__nav, .shell__navwrap and .shell__tab live in
+   src/components/NavTabs.css — ALL of them, including where the strip sits in
+   this header at phone width.
+   
+   Nothing about .shell__navwrap is styled here, deliberately. Both files
+   would be selecting it at the same specificity, so which one won would come
+   down to the order Vite happened to concatenate them in — and it lost: the
+   base `flex: 1` in NavTabs.css overrode the `flex: none` this file set
+   inside a media query, and the strip stayed on the brand's row instead of
+   dropping below it. One owner, no order dependency. */
 
 .shell__user {
   display: flex;
@@ -128,21 +107,6 @@
     height: auto;
     padding: 12px 16px;
     gap: 12px;
-  }
-
-  /* Wraps onto a second row rather than scrolling sideways.
-  
-     It scrolled before, and the tab that fell off the end was Customers —
-     the page you were actually on. A horizontal scroller with no scrollbar,
-     no fade and no affordance reads as a tab strip that has been cut off,
-     because visually that is exactly what it is. Six short labels fit in two
-     rows at 390px with room to spare, and every one of them stays tappable. */
-  .shell__nav {
-    order: 3;
-    width: 100%;
-    flex: none;
-    flex-wrap: wrap;
-    row-gap: 4px;
   }
 
   .shell__email {

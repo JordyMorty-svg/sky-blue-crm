@@ -10,8 +10,13 @@
 // test never would:
 //
 //   * the action buttons line up with the name above them
-//   * every nav tab is fully readable, not clipped by a scroller
 //   * a section heading is not left stranded above content it doesn't describe
+//
+// The tab strip used to be checked here too. It isn't any more: its styling
+// moved into NavTabs.css with the behaviour that goes with it, and a static
+// fixture cannot run the scroll-to-the-active-tab logic — so the check went
+// on passing while testing nothing. verify/nav-tabs.mjs drives the real
+// component instead.
 import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -25,18 +30,12 @@ const appCss = readFileSync("src/App.css", "utf8");
 const menuCss = readFileSync("src/components/RecordMenu.css", "utf8");
 const panelCss = readFileSync("src/components/QuotesPanel.css", "utf8");
 
-const TABS = ["Leads", "Jobs", "Schedule", "Income", "Customers", "Map"];
-
 // The real markup, matching App.jsx and CustomerDetail.jsx.
+// Enough of the header to put the page under something the right height.
+// The strip itself is verify/nav-tabs.mjs's job.
 const shell = `
   <header class="shell__bar">
     <div class="shell__brand">Sky Blue <span class="shell__brand-accent">CRM</span></div>
-    <nav class="shell__nav">
-      ${TABS.map(
-        (t) =>
-          `<a class="shell__tab ${t === "Customers" ? "shell__tab--active" : ""}" href="#">${t}</a>`
-      ).join("")}
-    </nav>
     <div class="shell__user">
       <span class="shell__email">Jordan<span class="shell__role">admin</span></span>
       <button class="shell__signout">Sign out</button>
@@ -133,8 +132,6 @@ for (const width of [390, 430, 600, 1100]) {
     range.selectNodeContents(h1.firstChild);
     const lines = [...range.getClientRects()];
     const lastLine = lines[lines.length - 1];
-    const nav = document.querySelector(".shell__nav");
-    const navBox = nav.getBoundingClientRect();
 
     return {
       nameLeft: Math.round(name.left),
@@ -211,15 +208,6 @@ for (const width of [390, 430, 600, 1100]) {
         );
         return { quotes, job: read(j) };
       })(),
-      // A tab is clipped if it sticks out past the nav's visible box, or if
-      // the nav can scroll at all — on a phone that hides the tab you are on.
-      navScrollable: nav.scrollWidth > nav.clientWidth + 1,
-      clippedTabs: [...document.querySelectorAll(".shell__tab")]
-        .filter((t) => {
-          const b = t.getBoundingClientRect();
-          return b.right > navBox.right + 1 || b.left < navBox.left - 1;
-        })
-        .map((t) => t.textContent),
       phone: (() => {
         const el = document.querySelector(".custdetail__phone");
         const box = el.getBoundingClientRect();
@@ -346,11 +334,6 @@ for (const width of [390, 430, 600, 1100]) {
     "and leave the same gap above their content",
     Math.abs(h.quotes.below - h.job.below) <= 1,
     `Quotes ${h.quotes.below}px, Job history ${h.job.below}px`
-  );
-  chk(
-    "every nav tab is fully visible",
-    m.clippedTabs.length === 0 && !m.navScrollable,
-    m.clippedTabs.length ? `clipped: ${m.clippedTabs.join(", ")}` : "the nav scrolls horizontally"
   );
 
 
