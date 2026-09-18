@@ -55,6 +55,7 @@ const {
   smsText,
   money,
   shortDate,
+  viewSummary,
 } = await import(out);
 
 let bad = 0;
@@ -324,6 +325,43 @@ chk(
   );
   chk("a row with no id is not offered", !quotable({ ...base, id: null, phone: "5415550101" }));
   chk("and nothing at all does not throw", !quotable(null) && !quotable(undefined));
+}
+
+// ---------------------------------------------------------------------------
+{
+  console.log("\n-- how many times they opened it --\n");
+
+  chk("a quote nobody has opened says nothing at all",
+    viewSummary({ view_count: 0 }) === null,
+    "the status already says 'not opened yet'; a zero here is noise on every unread row");
+
+  chk("one open reads as words, not a number",
+    viewSummary({ view_count: 1 }) === "opened once",
+    viewSummary({ view_count: 1 }));
+
+  chk("THE POINT: more than once is the signal, and it says when",
+    viewSummary({ view_count: 4, last_viewed_at: "2026-09-20T12:00:00Z" }) ===
+      "opened 4 times, last Sep 20, 2026",
+    viewSummary({ view_count: 4, last_viewed_at: "2026-09-20T12:00:00Z" }));
+
+  chk("falls back to viewed_at when there is no last_viewed_at",
+    viewSummary({ view_count: 3, viewed_at: "2026-09-19T12:00:00Z" }) ===
+      "opened 3 times, last Sep 19, 2026");
+
+  chk("and drops the date rather than printing an empty one",
+    viewSummary({ view_count: 3 }) === "opened 3 times",
+    viewSummary({ view_count: 3 }));
+
+  chk("a missing count is not an open",
+    viewSummary({}) === null && viewSummary(null) === null && viewSummary(undefined) === null);
+
+  chk("a count that arrived as a string still counts",
+    viewSummary({ view_count: "2", last_viewed_at: "2026-09-20T12:00:00Z" }) ===
+      "opened 2 times, last Sep 20, 2026",
+    "PostgREST has handed back numerics as strings before");
+
+  chk("nonsense never renders as NaN",
+    viewSummary({ view_count: "lots" }) === null);
 }
 
 // --- which way a quote goes out -------------------------------------------

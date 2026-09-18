@@ -166,6 +166,15 @@
   font-style: italic;
 }
 
+/* Darker than the rest of the meta line. "Opened 4 times" is the one thing
+   on this row worth acting on today, and at the meta line's #94a3b8 it read
+   as filler. Not a colour of its own — the same slate the services line
+   uses — so it lifts without becoming a second badge. */
+.quoterow__views {
+  color: #475569;
+  font-weight: 600;
+}
+
 .quoterow__actions {
   display: flex;
   flex-wrap: wrap;

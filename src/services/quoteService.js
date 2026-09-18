@@ -200,6 +200,37 @@ export function quoteState(q) {
   return { key: "draft", label: "Link created, not sent", tone: "muted" };
 }
 
+/**
+ * "opened 3 times, last Sep 20" — or nothing at all.
+ *
+ * The count is the point. One open days ago and five opens this morning are
+ * the same `viewed` status and completely different situations: the first is
+ * somebody who looked and moved on, the second is somebody talking it over
+ * with their spouse. One deserves a nudge, the other deserves a phone call,
+ * and the status badge alone can't tell them apart.
+ *
+ * Returns null rather than "opened 0 times" — a quote nobody has opened
+ * already says so in its status, and a zero here would just be noise on every
+ * row that hasn't been read yet.
+ *
+ * Only ever counts CUSTOMER opens. A staff preview doesn't increment it (see
+ * db/quote-preview.sql), which is the only reason this number is worth
+ * showing: a count polluted by our own clicks would be trusted in a way the
+ * old boolean never was, and be wrong.
+ */
+export function viewSummary(q) {
+  const n = Number(q?.view_count) || 0;
+  if (n <= 0) return null;
+  if (n === 1) return "opened once";
+
+  // Falls back to viewed_at for rows that predate the counter — they were
+  // backfilled to 1, so this branch shouldn't see them, but a quote opened
+  // again after the backfill would have a count and no last_viewed_at if the
+  // migration were ever run out of order.
+  const last = q.last_viewed_at || q.viewed_at;
+  return last ? `opened ${n} times, last ${shortDate(last)}` : `opened ${n} times`;
+}
+
 // The message you paste into Messages when there's no email on file. Written
 // the way Jordan actually texts — short, no salesy padding, the link last so
 // it's the thing under their thumb.

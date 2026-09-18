@@ -8,6 +8,7 @@ import {
   quoteState,
   shortDate,
   smsHref,
+  viewSummary,
   smsText,
 } from "../services/quoteService";
 import "./QuotesPanel.css";
@@ -159,6 +160,7 @@ function QuoteRow({ quote, customerName, customerPhone }) {
   // still produces a link on today's domain.
   const link = `${window.location.origin}/q/${quote.token}`;
   const resendable = state.key === "sent" || state.key === "viewed" || state.key === "draft";
+  const views = viewSummary(quote);
 
   async function copy() {
     try {
@@ -188,6 +190,10 @@ function QuoteRow({ quote, customerName, customerPhone }) {
       <p className="quoterow__meta">
         Sent {shortDate(quote.sent_at || quote.created_at)}
         {quote.sender?.full_name ? ` by ${quote.sender.full_name}` : ""}
+        {/* In the meta line rather than the badge. The badge is the status
+            and should stay the same width from row to row; how many times
+            they came back is detail, and detail belongs here. */}
+        {views && <span className="quoterow__views"> · {views}</span>}
         {quote.accepted_at ? ` · accepted ${shortDate(quote.accepted_at)}` : ""}
         {/* Said out loud. A quote appearing on a customer's profile that was
             never sent from it looks like a duplicate of one somebody already
