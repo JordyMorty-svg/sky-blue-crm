@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import QuoteModal from "./QuoteModal";
 import {
   SERVICE_LABELS,
+  describeLoadError,
   fetchQuotes,
   money,
   quoteState,
@@ -63,7 +64,12 @@ export default function QuotesPanel({
       // Says so rather than rendering an empty list. An empty list here reads
       // as "we never quoted them", which is the one wrong answer that makes
       // someone send a second quote at a different price.
-      setLoadError("Couldn't load past quotes.");
+      //
+      // And it says WHY. "Couldn't load past quotes" on every customer at
+      // once sent somebody looking through DevTools for a message the code
+      // already had in its hand. Everyone who can see this screen is signed
+      // in, so there is nothing to protect by hiding it.
+      setLoadError(describeLoadError(e));
     }
   }, [leadId, customerId]);
 

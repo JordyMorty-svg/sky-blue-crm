@@ -119,6 +119,32 @@ export async function fetchQuotes({ leadId = null, customerId = null }) {
 }
 
 /**
+ * Turn a Supabase error into a sentence someone can act on.
+ *
+ * The one worth naming is a missing function. The frontend and the database
+ * are deployed separately — Netlify on a push, Supabase by hand in the SQL
+ * editor — so "the code is ahead of the schema" is a normal state to be in
+ * for a few minutes, and it presents as every customer failing at once.
+ * PGRST202 is PostgREST's code for exactly that.
+ */
+export function describeLoadError(e) {
+  const code = e?.code || "";
+  const message = String(e?.message || e || "");
+
+  if (code === "PGRST202" || /could not find the function/i.test(message)) {
+    return "Quotes need one more database migration: run db/quote-history.sql in the Supabase SQL editor.";
+  }
+
+  // PostgREST reports a permissions problem as an empty result far more often
+  // than as an error, so a 401/403 here really is a misconfigured session.
+  if (code === "42501" || /permission denied/i.test(message)) {
+    return "This account isn't allowed to read quotes. Check the grant on quotes_for_contact.";
+  }
+
+  return `Couldn't load past quotes: ${message || "unknown error"}`;
+}
+
+/**
  * What a quote's state means in words, and whether it's still live.
  *
  * Expiry is computed here rather than stored, matching sb_quote_public. A

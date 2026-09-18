@@ -47,6 +47,7 @@ await build({
 const {
   SERVICE_LABELS,
   SERVICE_OPTIONS,
+  describeLoadError,
   fetchQuotes,
   quoteState,
   smsHref,
@@ -246,6 +247,48 @@ chk(
   // rendering an empty list — which would read as "we never quoted them".
   chk("a failure is thrown, so the panel can say so instead of showing nothing",
     threw);
+}
+
+// --- what the panel says when the list won't load ---------------------------
+//
+// "Couldn't load past quotes" on every customer at once is what shipped, and
+// it sent somebody into DevTools for a message the code already had. The
+// frontend and the database deploy separately, so the code being ahead of the
+// schema is a normal state for a few minutes — and it has to say so.
+{
+  // supabase-js hands back a plain object, not an Error, so the code is read
+  // off `.code` rather than caught by instanceof.
+  const missingFn = {
+    code: "PGRST202",
+    message:
+      "Could not find the function public.quotes_for_contact(p_customer_id, p_lead_id) in the schema cache",
+  };
+  chk(
+    "THE POINT: a missing migration names the file to run",
+    /quote-history\.sql/.test(describeLoadError(missingFn)),
+    describeLoadError(missingFn)
+  );
+  chk(
+    "recognised by PostgREST's message as well as its code",
+    /quote-history\.sql/.test(
+      describeLoadError({ message: "Could not find the function foo" })
+    )
+  );
+  chk(
+    "a permissions failure says something different",
+    /grant/i.test(describeLoadError({ code: "42501", message: "permission denied" })),
+    describeLoadError({ code: "42501", message: "permission denied" })
+  );
+  chk(
+    "anything else still carries the underlying message",
+    describeLoadError({ message: "connection reset" }).includes("connection reset"),
+    describeLoadError({ message: "connection reset" })
+  );
+  chk(
+    "and an error with nothing in it does not print 'undefined'",
+    !/undefined/.test(describeLoadError({})) && !/undefined/.test(describeLoadError(null)),
+    `${describeLoadError({})} / ${describeLoadError(null)}`
+  );
 }
 
 writeFileSync(join(dir, "done"), "");
