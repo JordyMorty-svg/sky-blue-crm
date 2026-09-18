@@ -324,7 +324,7 @@ export default async (req) => {
       serviceKeys,
       amount: value,
       note,
-      link,
+      // Deliberately no `link` — see the note in netlify/lib/notify.mjs.
       expiresAt: expiresLabel,
       sentByName: await senderName(senderId),
       leadId,

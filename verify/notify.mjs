@@ -209,6 +209,10 @@ const sentArgs = {
   serviceKeys: ["residential-window-washing", "gutter-cleaning"],
   amount: 450,
   note: "Ladder access round the back",
+  // Still passed on purpose, even though the builder ignores it. Dropping it
+  // from the fixture would make the assertion below pass because the test
+  // stopped supplying a link, not because the email stopped printing one —
+  // and the day somebody puts it back in the template, this catches it.
   link: "https://crm.skybluecleaningco.com/q/" + TOKEN,
   expiresAt: "October 18",
   sentByName: "Trenton",
@@ -230,10 +234,16 @@ const sentArgs = {
     html.includes('href="https://crm.skybluecleaningco.com/leads/lead-1"'));
 
   // The one worth breaking the build over.
-  chk("THE POINT: the customer's link is present but NOT clickable",
-    html.includes(TOKEN) && !html.includes(`href="https://crm.skybluecleaningco.com/q/${TOKEN}"`),
-    "the quote link must never be an href — opening it marks the quote viewed");
-  chk("and the email says why it isn't a link", /marks the quote as read/i.test(html));
+  //
+  // Absent, not merely un-anchored. An earlier version printed the link as
+  // plain text with a warning — which Gmail and Apple Mail autolink anyway,
+  // so it was a tappable link with a label claiming it wasn't. The only
+  // version of this that holds is the token never appearing at all.
+  chk("THE POINT: the customer's quote link is not in the email at all",
+    !html.includes(TOKEN) && !html.includes("/q/"),
+    "opening a quote link marks it viewed and changes which follow-up the customer gets");
+  chk("and no leftover caption pointing at a link that isn't there",
+    !/link the customer/i.test(html));
 }
 
 {

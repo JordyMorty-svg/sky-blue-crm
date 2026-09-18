@@ -126,29 +126,26 @@ function shell({ accent, eyebrow, heading, body }) {
   </div>`;
 }
 
-/**
- * The link the customer got, shown but deliberately NOT clickable.
- *
- * Opening a quote link is what moves it from 'sent' to 'viewed'. That flag is
- * load-bearing: sms_due_quote_nudges() sends a different chaser for "never
- * opened" than for "opened and didn't accept", and the second one is the
- * valuable message. If Jordan opens his own confirmation email and taps the
- * link to check it looks right, the customer is recorded as having read a
- * quote they have not seen, and gets the wrong follow-up — or, once they do
- * open it, none at all.
- *
- * This is the same reason QuotesPanel has no Preview button. Stating it as
- * plain selectable text keeps the link available for the rare case somebody
- * genuinely needs to resend it by hand, while making the consequence of
- * opening it impossible to stumble into.
- */
-function customerLinkBlock(link) {
-  if (!link) return "";
-  return `
-  <p style="margin:18px 0 6px;font-size:0.8rem;color:#64748b;">The link the customer received</p>
-  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.75rem;color:#334155;word-break:break-all;user-select:all;">${esc(link)}</div>
-  <p style="margin:6px 0 0;font-size:0.75rem;color:#b45309;">Not a link on purpose — opening it marks the quote as read by the customer and changes which follow-up they get.</p>`;
-}
+// --- why there is no quote link in here ------------------------------------
+//
+// The customer's /q/<token> link is deliberately ABSENT from both emails, and
+// it is worth knowing that this was tried the other way first.
+//
+// Opening a quote link is what moves it from 'sent' to 'viewed'. That flag is
+// load-bearing: sms_due_quote_nudges() sends a different chaser for "never
+// opened" than for "opened and didn't accept", and the second one is the
+// valuable message. A confirmation email that invites a tap would record the
+// customer as having read a quote they have not seen, and send them the wrong
+// follow-up — or, once they do open it, none at all.
+//
+// The first version included it as plain text with a warning not to tap it.
+// That was wrong: Gmail and Apple Mail autolink a bare URL in the body
+// whether or not it is wrapped in an anchor, so the link was live no matter
+// how it was rendered. A warning label does not make a tappable link safe on
+// a phone, and the notification never needed the link anyway — the quote is
+// already reachable from the CRM record, where opening it changes nothing.
+//
+// Same reasoning as QuotesPanel having no Preview button.
 
 /**
  * "Here's the quote you just sent."
@@ -167,7 +164,6 @@ export function quoteSentNotification({
   serviceKeys,
   amount,
   note,
-  link,
   expiresAt,
   sentByName,
   leadId,
@@ -197,7 +193,6 @@ export function quoteSentNotification({
           ? `<p style="margin:16px 0 0;padding:11px 13px;background:#f8fafc;border-radius:10px;font-size:0.85rem;color:#475569;"><span style="color:#94a3b8;">Note on the quote:</span><br/>${esc(note)}</p>`
           : ""
       }
-      ${customerLinkBlock(link)}
       ${
         record
           // Bordered, not just tinted. Against the white card a #f1f5f9 fill
