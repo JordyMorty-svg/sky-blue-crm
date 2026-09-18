@@ -1,0 +1,115 @@
+.recmenu {
+  position: relative;
+  /* inline-block as well as the flex shorthand, and the inline-block is the
+     one that matters. The sheet is positioned with `right: 0` against THIS
+     element, so if it ever stretches — which a plain block child does — the
+     sheet detaches from the button and pins itself to the far side of
+     whatever contains it. Shrink-wrapping here makes the anchor correct in
+     any context, not just inside the flex row it happens to live in today. */
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.recmenu__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  /* Stated, not arrived at. An earlier version set 11px of vertical padding
+     and a comment claiming it reached 44px; measured, it was 38. A min-height
+     says what is actually required — this button now carries every action on
+     the page, so it is the last control that should be fiddly — and it cannot
+     drift when the font size or line-height changes. */
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .recmenu__button:hover {
+    background: #1d4ed8;
+  }
+}
+
+.recmenu__button--open {
+  background: #1d4ed8;
+}
+
+/* A chevron drawn with a border rather than an SVG or a glyph: it inherits
+   the text colour, needs no font to be loaded, and cannot arrive as a
+   tofu box. */
+.recmenu__caret {
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  /* The rotated square sits low against the text; lift it back onto the
+     optical centre. */
+  margin-top: -4px;
+  transition: transform 0.15s ease;
+}
+
+.recmenu__button--open .recmenu__caret {
+  transform: rotate(-135deg);
+  margin-top: 2px;
+}
+
+.recmenu__sheet {
+  position: absolute;
+  top: calc(100% + 6px);
+  /* Anchored to the RIGHT edge of the button, which is itself at the right of
+     the row. Anchored left, the sheet would hang off the side of a phone. */
+  right: 0;
+  z-index: 50;
+  min-width: 190px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+  display: flex;
+  flex-direction: column;
+}
+
+.recmenu__item {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 11px 14px;
+  border-radius: 9px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #0f172a;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Gated on (hover: hover) like everything else in this app — on a touch
+   screen :hover latches after a tap and leaves an item looking selected. */
+@media (hover: hover) {
+  .recmenu__item:hover {
+    background: #f1f5f9;
+  }
+}
+
+/* Visible focus, because the menu is keyboard-navigable and an invisible
+   focus ring makes arrow keys feel broken. */
+.recmenu__item:focus-visible {
+  outline: none;
+  background: #eff6ff;
+  box-shadow: inset 0 0 0 2px #2563eb;
+}
+
+.recmenu__item--primary {
+  color: #2563eb;
+  font-weight: 700;
+}

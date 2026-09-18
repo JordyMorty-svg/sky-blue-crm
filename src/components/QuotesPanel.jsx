@@ -36,10 +36,23 @@ export default function QuotesPanel({
   // Leads move to Booked when a quote is accepted, so the page behind this
   // needs a chance to re-read itself.
   onChanged,
+  // The customer page moved every action into one menu, so its "Send a quote"
+  // lives there rather than here. The panel keeps its own button by default,
+  // because the lead page still shows one.
+  showSendButton = true,
+  // Optionally controlled, for exactly that case: the menu is outside this
+  // component, so something outside has to be able to open the modal. Left
+  // alone, the panel manages its own state as before.
+  open: openProp,
+  onOpenChange,
 }) {
   const [quotes, setQuotes] = useState([]);
-  const [open, setOpen] = useState(false);
+  const [selfOpen, setSelfOpen] = useState(false);
   const [loadError, setLoadError] = useState("");
+
+  const controlled = typeof openProp === "boolean";
+  const open = controlled ? openProp : selfOpen;
+  const setOpen = controlled ? (v) => onOpenChange?.(v) : setSelfOpen;
 
   const load = useCallback(async () => {
     try {
@@ -78,9 +91,11 @@ export default function QuotesPanel({
     <div className="quotes">
       <div className="quotes__head">
         <h2 className="quotes__title">Quotes</h2>
-        <button className="quotes__send" onClick={() => setOpen(true)}>
-          {quotes.length ? "Send another quote" : "Send a quote"}
-        </button>
+        {showSendButton && (
+          <button className="quotes__send" onClick={() => setOpen(true)}>
+            {quotes.length ? "Send another quote" : "Send a quote"}
+          </button>
+        )}
       </div>
 
       {loadError && <p className="quotes__error">{loadError}</p>}

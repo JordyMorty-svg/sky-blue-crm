@@ -22,6 +22,8 @@ const NAME = process.argv[2] || "Susan";
 
 const customersCss = readFileSync("src/pages/customers/Customers.css", "utf8");
 const appCss = readFileSync("src/App.css", "utf8");
+const menuCss = readFileSync("src/components/RecordMenu.css", "utf8");
+const panelCss = readFileSync("src/components/QuotesPanel.css", "utf8");
 
 const TABS = ["Leads", "Jobs", "Schedule", "Income", "Customers", "Map"];
 
@@ -51,10 +53,10 @@ const page = (name = "Susan") => `
       <div class="custdetail__namerow">
         <h1 class="custdetail__name">${name} <span
           class="custbadge custbadge--residential custdetail__typebadge">Residential</span></h1>
-        <div class="custdetail__actions">
-          <button class="custdetail__schedule">+ Schedule a job</button>
-          <button class="custdetail__edit">History</button>
-          <button class="custdetail__edit">Edit</button>
+        <div class="recmenu">
+          <button class="recmenu__button" aria-haspopup="menu" aria-expanded="false">
+            Actions<span class="recmenu__caret"></span>
+          </button>
         </div>
       </div>
       <div class="custdetail__info">
@@ -72,6 +74,13 @@ const page = (name = "Susan") => `
           </label>
         </div>
       </div>
+
+      <div class="quotes">
+        <div class="quotes__head"><h2 class="quotes__title">Quotes</h2></div>
+        <p class="quotes__empty">No quotes sent yet.</p>
+      </div>
+
+      <h2 class="custdetail__subhead">Job history</h2>
     </div>
   </main>`;
 
@@ -80,6 +89,8 @@ const html = `<!doctype html><meta charset=utf-8>
 <style>
   ${appCss}
   ${customersCss}
+  ${menuCss}
+  ${panelCss}
   body{margin:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
 </style>
 <div class="shell">${shell}${page(NAME)}</div>`;
@@ -109,7 +120,7 @@ for (const width of [390, 430, 600, 1100]) {
   const m = await p.evaluate(() => {
     const r = (sel) => document.querySelector(sel).getBoundingClientRect();
     const name = r(".custdetail__name");
-    const actions = r(".custdetail__actions");
+    const actions = r(".recmenu");
     const badge = r(".custdetail__typebadge");
     const info = r(".custdetail__info");
 
@@ -144,6 +155,8 @@ for (const width of [390, 430, 600, 1100]) {
       infoLeft: Math.round(info.left),
       infoTop: Math.round(info.top),
       actionsBottom: Math.round(actions.bottom),
+      nameTop: Math.round(name.top),
+      nameBottom: Math.round(name.bottom),
       // On its own row only when it starts at or below the BOTTOM of the
       // name. Comparing tops looked right and was wrong: align-items:center
       // pushes a short actions box down beside a name that has wrapped to
@@ -154,11 +167,50 @@ for (const width of [390, 430, 600, 1100]) {
         document.querySelector(".custdetail").getBoundingClientRect().right
       ),
       actionsRight: Math.round(actions.right),
-      tallestButton: Math.max(
-        ...[...document.querySelectorAll(".custdetail__actions button")].map((b) =>
-          Math.round(b.getBoundingClientRect().height)
-        )
-      ),
+      menu: (() => {
+        const el = document.querySelector(".recmenu__button");
+        const box = el.getBoundingClientRect();
+        return {
+          height: Math.round(box.height),
+          right: Math.round(box.right),
+          top: Math.round(box.top),
+          lines: el.getClientRects().length,
+        };
+      })(),
+
+      // The two section headings. They are styled in two different files —
+      // Customers.css and QuotesPanel.css, which cannot reference each other
+      // because the panel is shared with the leads page — so they are
+      // compared against EACH OTHER rather than against fixed numbers. That
+      // way the check still means something if either is restyled.
+      headings: (() => {
+        const q = document.querySelector(".quotes__title");
+        const j = document.querySelector(".custdetail__subhead");
+        const read = (el) => {
+          const cs = getComputedStyle(el);
+          const box = el.getBoundingClientRect();
+          return {
+            left: Math.round(box.left),
+            fontSize: cs.fontSize,
+            fontWeight: cs.fontWeight,
+            color: cs.color,
+            // The gap below the heading, to the first thing under it.
+            below: Math.round(
+              el.nextElementSibling
+                ? el.nextElementSibling.getBoundingClientRect().top - box.bottom
+                : parseFloat(cs.marginBottom)
+            ),
+          };
+        };
+        // The Quotes heading is wrapped in .quotes__head, so its gap to the
+        // content below comes from that wrapper rather than from itself.
+        const quotes = read(q);
+        quotes.below = Math.round(
+          document.querySelector(".quotes__empty").getBoundingClientRect().top -
+            q.getBoundingClientRect().bottom
+        );
+        return { quotes, job: read(j) };
+      })(),
       // A tab is clipped if it sticks out past the nav's visible box, or if
       // the nav can scroll at all — on a phone that hides the tab you are on.
       navScrollable: nav.scrollWidth > nav.clientWidth + 1,
@@ -213,13 +265,20 @@ for (const width of [390, 430, 600, 1100]) {
   // property of the actions rather than of the customer.
   // THE POINT of this change, and the assertion has to be able to tell the
   // OLD layout from the new one. "Below the name and left-aligned" was true
-  // of both — the badge sat on its own row under the buttons, at the same
-  // left margin. What separates them is the BUTTONS: the badge now belongs
-  // to the name block, so it can never start below where the actions end.
+  // of both — the badge used to sit on its own row under the buttons, at the
+  // same left margin.
+  //
+  // What separates them is CONTAINMENT: the badge now lives inside the
+  // heading, so it falls entirely within the heading's box however many lines
+  // the name takes. An earlier version compared it to the bottom of the
+  // actions instead, which measured the geometry of a row that no longer
+  // exists — once the menu moved onto the name's line, a long name pushed the
+  // badge below the vertically-centred menu and the check failed on a layout
+  // that was perfectly correct.
   chk(
-    "the badge belongs to the name, not below the buttons",
-    m.badge.top < m.actionsBottom,
-    `badge starts ${m.badge.top}, buttons end ${m.actionsBottom}`
+    "the badge is inside the name heading, not a row of its own",
+    m.badge.top >= m.nameTop - 1 && m.badge.top < m.nameBottom,
+    `badge ${m.badge.top}, heading spans ${m.nameTop}–${m.nameBottom}`
   );
   // Two correct outcomes, and no third. Either it sits at the end of the
   // name's last line, or — when a long name leaves no room there — it drops
@@ -247,38 +306,54 @@ for (const width of [390, 430, 600, 1100]) {
     m.badge.height <= 30,
     `${m.badge.height}px tall`
   );
-  chk("no button label wraps to two lines", m.tallestButton <= 46, `${m.tallestButton}px`);
+  chk(
+    "the actions menu is a real tap target",
+    m.menu.height >= 44,
+    `${m.menu.height}px tall`
+  );
+  chk("the menu label stays on one line", m.menu.lines === 1, `${m.menu.lines} lines`);
+  chk(
+    "the menu sits at the right-hand edge",
+    Math.abs(m.menu.right - m.containerRight) <= 2,
+    `menu ends ${m.menu.right}, container ends ${m.containerRight}`
+  );
+  // The whole point of replacing four buttons with one: the header is a
+  // single row again, so the name keeps its line.
+  chk(
+    "the header is one row — the menu sits beside the name",
+    m.menu.top < m.lastLine.midY + 20,
+    `menu top ${m.menu.top}, name last line ${m.lastLine.midY}`
+  );
+
+  // "Quotes" and "Job history" are the same kind of thing and have to look it.
+  const h = m.headings;
+  chk(
+    "the two section headings start at the same left margin",
+    h.quotes.left === h.job.left,
+    `Quotes at ${h.quotes.left}, Job history at ${h.job.left}`
+  );
+  chk(
+    "and are the same size and weight",
+    h.quotes.fontSize === h.job.fontSize && h.quotes.fontWeight === h.job.fontWeight,
+    `${h.quotes.fontSize}/${h.quotes.fontWeight} vs ${h.job.fontSize}/${h.job.fontWeight}`
+  );
+  chk(
+    "and the same colour",
+    h.quotes.color === h.job.color,
+    `${h.quotes.color} vs ${h.job.color}`
+  );
+  chk(
+    "and leave the same gap above their content",
+    Math.abs(h.quotes.below - h.job.below) <= 1,
+    `Quotes ${h.quotes.below}px, Job history ${h.job.below}px`
+  );
   chk(
     "every nav tab is fully visible",
     m.clippedTabs.length === 0 && !m.navScrollable,
     m.clippedTabs.length ? `clipped: ${m.clippedTabs.join(", ")}` : "the nav scrolls horizontally"
   );
 
-  if (width < 720) {
-    // THE POINT. On a phone everything else on this page starts at the same
-    // left margin; actions floated to the right edge under a left-aligned
-    // name is the thing that reads as broken.
-    chk(
-      "the actions line up with the name, not the right edge",
-      m.wrapped ? Math.abs(m.actionsLeft - m.nameLeft) <= 2 : true,
-      `name at ${m.nameLeft}, actions at ${m.actionsLeft}`
-    );
-    chk(
-      "and with the contact details below them",
-      m.wrapped ? Math.abs(m.actionsLeft - m.infoLeft) <= 2 : true,
-      `info at ${m.infoLeft}, actions at ${m.actionsLeft}`
-    );
-  } else {
-    // On a laptop the actions belong on the right, whether or not a long
-    // commercial name has pushed them onto their own row. Asserting they
-    // never wrap was wrong: .custdetail is capped at 720px, so a long enough
-    // name legitimately takes the line to itself at any viewport width.
-    chk(
-      "on a wide screen the actions stay right-aligned",
-      Math.abs(m.actionsRight - m.containerRight) <= 2,
-      `actions end ${m.actionsRight}, container ends ${m.containerRight}`
-    );
-  }
+
 
   await p.screenshot({ path: `verify/shot-mobile-${width}.png`, fullPage: true });
   await p.close();

@@ -24,6 +24,7 @@ import { setEmailOptOut, setCustomerReviewed } from "../../services/followUpServ
 import AddressPicker from "../../components/AddressPicker";
 import JobPlanTag from "../../components/JobPlanTag";
 import QuotesPanel from "../../components/QuotesPanel";
+import RecordMenu from "../../components/RecordMenu";
 import "./Customers.css";
 
 function formatWhen(iso) {
@@ -69,6 +70,10 @@ export default function CustomerDetail() {
   const [forceDelete, setForceDelete] = useState(false);
   const [forceText, setForceText] = useState("");
   const [deleting, setDeleting] = useState(false);
+  // Lives here rather than inside QuotesPanel because the button that opens
+  // it is now in the actions menu, which is a sibling of the panel and not a
+  // child of it.
+  const [quoteOpen, setQuoteOpen] = useState(false);
   const [optBusy, setOptBusy] = useState(false);
   const [revBusy, setRevBusy] = useState(false);
 
@@ -437,34 +442,34 @@ export default function CustomerDetail() {
                 {propertyType === "commercial" ? "Commercial" : "Residential"}
               </span>
             </h1>
-            {/* The three actions are wrapped so they move to the next line
-                TOGETHER on a narrow screen. As loose siblings they wrapped
-                one at a time, which left "+ Schedule a job" breaking across
-                two lines next to a name that had also broken across two. */}
-            <div className="custdetail__actions">
-            <button
-              className="custdetail__schedule"
-              onClick={() => navigate(`/customers/${id}/schedule`)}
-            >
-              + Schedule a job
-            </button>
-            <button
-              className="custdetail__edit"
-              onClick={() =>
-                navigate(`/history/customer/${id}`, {
-                  state: {
-                    from: `/customers/${id}`,
-                    person: { name: customer.name, phone: customer.phone },
-                  },
-                })
-              }
-            >
-              History
-            </button>
-            <button className="custdetail__edit" onClick={() => setEditing(true)}>
-              Edit
-            </button>
-            </div>
+            {/* One control where there were four.
+                
+                Three buttons plus the panel's own "Send a quote" made the top
+                of the page read as a toolbar rather than as a customer, and
+                on a phone they took a line of their own. A menu costs one tap
+                to reach any of them and gives the name back its row. */}
+            <RecordMenu
+              label="Actions"
+              items={[
+                {
+                  label: "Schedule a job",
+                  tone: "primary",
+                  onSelect: () => navigate(`/customers/${id}/schedule`),
+                },
+                { label: "Send a quote", onSelect: () => setQuoteOpen(true) },
+                {
+                  label: "History",
+                  onSelect: () =>
+                    navigate(`/history/customer/${id}`, {
+                      state: {
+                        from: `/customers/${id}`,
+                        person: { name: customer.name, phone: customer.phone },
+                      },
+                    }),
+                },
+                { label: "Edit", onSelect: () => setEditing(true) },
+              ]}
+            />
           </div>
 
           {/* Rendered only when there IS one. An always-present wrapper
@@ -689,6 +694,11 @@ export default function CustomerDetail() {
           what they last actually paid. */}
       <QuotesPanel
         customerId={id}
+        // The send button lives in the actions menu at the top of the page,
+        // so the panel shows the list only.
+        showSendButton={false}
+        open={quoteOpen}
+        onOpenChange={setQuoteOpen}
         customerName={customer.name}
         customerEmail={customer.email}
         customerPhone={customer.phone}

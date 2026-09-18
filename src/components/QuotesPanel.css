@@ -17,11 +17,15 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
+  /* 14px, matching the gap under "Job history". */
+  margin-bottom: 14px;
 }
 
+/* Deliberately identical to .custdetail__subhead in Customers.css — see the
+   note there. These are the two section headings on the customer page and
+   they must read as the same kind of thing. */
 .quotes__title {
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   font-weight: 800;
   color: #0f172a;
   margin: 0;

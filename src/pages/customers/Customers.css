@@ -147,71 +147,20 @@
   }
 }
 
+/* Two children now: the heading (name + type badge) and the actions menu.
+   
+   No margin-left on the menu, and none is needed. .custdetail__name carries
+   `flex: 1 1 200px` with `min-width: 0`, so it grows to absorb the free space
+   and pushes the menu to the right edge — and when a long commercial name
+   needs more room it wraps INTERNALLY rather than pushing the menu to a row
+   of its own. The whole auto-margin problem that made this header look broken
+   on a phone went away with the buttons that caused it. */
 .custdetail__namerow {
   display: flex;
-  /* Without this the four children just compress: at phone width the name
-     broke across two lines AND "+ Schedule a job" broke across two, next to
-     each other, which is what made the header look lumpy. */
   flex-wrap: wrap;
   align-items: center;
   gap: 10px 12px;
-  margin-bottom: 8px;
-}
-
-/* Keeps the three buttons together as one unit, so they drop to their own
-   line as a group rather than peeling off one at a time. margin-left:auto
-   holds them right on a wide screen, where there is room beside the name. */
-.custdetail__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-left: auto;
-}
-
-/* The auto margin above has to be switched OFF once the buttons wrap, and an
-   earlier comment here claimed it "does nothing once they've wrapped".
-   That is wrong, and it is what made this page look broken on a phone: a flex
-   container distributes free space per LINE, so an auto margin on a wrapped
-   item still absorbs the whole of its own line and pins the group to the
-   right edge — under a left-aligned name, beside a left-aligned badge, with
-   80px of nothing to its left.
-   
-   This one declaration is the whole fix. `width: 100%` on the actions and
-   `flex-basis: 100%` on the name were tried alongside it and each also
-   happens to work — by leaving the auto margin no free space to eat rather
-   than by addressing it — so they are left out. Three declarations where one
-   does the job is how the misleading comment above got written in the first
-   place.
-   
-   The name already carries `flex: 1 1 200px`, so it grows to fill its line
-   and pushes the actions onto their own row at every width where they don't
-   fit beside it. Nothing extra is needed to force the wrap.
-   
-   720px matches the breakpoint where the app shell restacks, so the header
-   and the page it sits on change shape at the same width. */
-@media (max-width: 720px) {
-  .custdetail__actions {
-    margin-left: 0;
-  }
-}
-
-.custdetail__edit {
-  background: #eff6ff;
-  color: #2563eb;
-  border: none;
-  padding: 9px 16px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 0.88rem;
-  font-family: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-@media (hover: hover) {
-  .custdetail__edit:hover {
-    background: #dbeafe;
-  }
+  margin-bottom: 12px;
 }
 
 .custedit {
@@ -411,10 +360,26 @@
   color: #64748b;
 }
 
+/* The section headings on this page — this one and "Quotes" — are the same
+   kind of thing and now look it. Both are 1.1rem/800 with the same margins
+   and the same rule above, so they sit on an identical rhythm down the page.
+   
+   `margin-top` is stated rather than left to the browser's h2 default of
+   0.83em: that default scaled with the font size, so the two headings sat at
+   different distances from the content above them purely because one was
+   1.05rem and the other 1.1rem.
+   
+   The matching half lives in QuotesPanel.css, which cannot reference this
+   file — the panel is shared with the leads page and must not depend on the
+   customers stylesheet. The two are kept in step by verify/shot-mobile.mjs,
+   which measures them against each other rather than against a number. */
 .custdetail__subhead {
   font-size: 1.1rem;
+  font-weight: 800;
   color: #0f172a;
-  margin-bottom: 14px;
+  margin: 28px 0 14px;
+  padding-top: 22px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .custjob {
@@ -563,42 +528,6 @@
 .custbadge--commercial {
   background: #f5f3ff;
   color: #6d28d9;
-}
-
-.custdetail__schedule {
-  background: #2563eb;
-  color: #ffffff;
-  border: none;
-  padding: 9px 16px;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.88rem;
-  font-family: inherit;
-  cursor: pointer;
-  /* "+ Schedule a job" is one phrase; letting it break made the button two
-     lines tall and knocked the whole row out of alignment. */
-  white-space: nowrap;
-}
-
-@media (hover: hover) {
-  .custdetail__schedule:hover {
-    background: #1d4ed8;
-  }
-}
-
-/* At 390px the three header buttons came to ~329px against ~326px of room,
-   so "Edit" alone fell to a third row. Three pixels. Trimming the horizontal
-   padding buys 18px and puts them all on one line, which is the difference
-   between a header that looks designed and one that looks broken. */
-@media (max-width: 480px) {
-  .custdetail__schedule,
-  .custdetail__edit {
-    padding-left: 13px;
-    padding-right: 13px;
-  }
-  .custdetail__actions {
-    gap: 6px;
-  }
 }
 
 /* --- next recurring visit, due but not scheduled --- */
