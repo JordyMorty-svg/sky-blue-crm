@@ -22,7 +22,13 @@ const stub = {
   setup(b) {
     b.onResolve({ filter: /followUps\.mjs$/ }, (a) => ({ path: a.path, namespace: "fu" }));
     b.onLoad({ filter: /.*/, namespace: "fu" }, () => ({
-      contents: "export async function rpc() { throw new Error('no network in tests'); }",
+      // Routed through a global so a test can make the database fail in a
+      // specific way. rpc() throws — that is the behaviour sendSms has to
+      // survive — so the default is a throw too.
+      contents:
+        "export async function rpc(fn, args) { " +
+        "  if (globalThis.__rpc) return globalThis.__rpc(fn, args); " +
+        "  throw new Error('no network in tests'); }",
       loader: "js",
     }));
   },
@@ -322,6 +328,57 @@ const chk = (what, pass, detail = "") => {
   process.env.SMS_MODE = "preview";
   const previewed = await M.sendSms({ phone: "(541) 730-3593", body: "hi" });
   chk("preview reports what would go without claiming it", previewed.reason === "preview" && previewed.preview?.body === "hi");
+
+  // THE POINT. The claim talks to the database, and rpc() THROWS on a database
+  // error. Unwrapped, a missing claim_sms — which is just "db/sms.sql has not
+  // been run yet" — escaped sendSms and 500'd the whole /api/send-quote
+  // request: no quote saved, no link returned, the entire feature taken down
+  // by a failure to send a text. Sending a text is the last and least
+  // important thing that request does.
+  process.env.SMS_MODE = "send";
+  process.env.QUO_API_KEY = "test-key";
+  process.env.QUO_FROM = "+15417303593";
+
+  // Exactly what PostgREST says when the migration has not been run.
+  globalThis.__rpc = async () => {
+    throw new Error(
+      "Could not find the function public.claim_sms(p_body, p_customer_id, p_force, p_job_id, p_kind, p_lead_id, p_phone, p_quote_id, p_sent_by) in the schema cache"
+    );
+  };
+
+  const missing = await M.sendSms({ phone: "(541) 730-3593", body: "hi" });
+  chk(
+    "THE POINT: a database failure is reported, not thrown",
+    missing.ok === false,
+    JSON.stringify(missing)
+  );
+  chk(
+    "and a missing migration names itself",
+    missing.reason === "no_sms_tables",
+    missing.reason
+  );
+
+  // Any other database failure comes back with its own message rather than
+  // being flattened into one unhelpful sentence.
+  globalThis.__rpc = async () => {
+    throw new Error("permission denied for function claim_sms");
+  };
+  const denied = await M.sendSms({ phone: "(541) 730-3593", body: "hi" });
+  chk(
+    "another database failure keeps its own message",
+    denied.ok === false && /permission denied/.test(denied.reason),
+    denied.reason
+  );
+
+  // And a refusal from the database itself — an opt-out, quiet hours — is
+  // passed straight through as the reason the screen shows.
+  globalThis.__rpc = async () => [{ id: null, ok: false, reason: "opted_out", phone: "+15417303593" }];
+  const stopped = await M.sendSms({ phone: "(541) 730-3593", body: "hi" });
+  chk("a refusal carries its reason to the screen", stopped.reason === "opted_out", stopped.reason);
+
+  delete globalThis.__rpc;
+  delete process.env.QUO_API_KEY;
+  delete process.env.QUO_FROM;
 
   if (was === undefined) delete process.env.SMS_MODE;
   else process.env.SMS_MODE = was;

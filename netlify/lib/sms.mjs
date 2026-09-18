@@ -299,19 +299,38 @@ export async function sendSms({
     return { ok: false, reason: "not_configured" };
   }
 
-  const claim = (
-    await rpc("claim_sms", {
-      p_kind: kind,
-      p_phone: phone,
-      p_body: body,
-      p_lead_id: leadId,
-      p_customer_id: customerId,
-      p_quote_id: quoteId,
-      p_job_id: jobId,
-      p_sent_by: sentBy,
-      p_force: force,
-    })
-  )?.[0];
+  // Wrapped, and it was not always. rpc() THROWS on a database error — a
+  // missing function most of all, which is what "db/sms.sql has not been run
+  // yet" looks like. Unwrapped, that exception escaped sendSms, escaped
+  // textTheQuote, and turned the whole /api/send-quote request into a 500:
+  // the quote would not save, the link would not come back, and the failure
+  // to send a text took the entire feature down with it.
+  //
+  // Sending a text is the LAST and least important thing that request does.
+  // It must never be able to fail the rest of it.
+  let claim;
+  try {
+    claim = (
+      await rpc("claim_sms", {
+        p_kind: kind,
+        p_phone: phone,
+        p_body: body,
+        p_lead_id: leadId,
+        p_customer_id: customerId,
+        p_quote_id: quoteId,
+        p_job_id: jobId,
+        p_sent_by: sentBy,
+        p_force: force,
+      })
+    )?.[0];
+  } catch (err) {
+    const message = String(err?.message || err);
+    // Named, because this one has a one-line fix and is otherwise a mystery.
+    if (/could not find the function/i.test(message)) {
+      return { ok: false, reason: "no_sms_tables" };
+    }
+    return { ok: false, reason: message };
+  }
 
   if (!claim?.ok) {
     return { ok: false, reason: claim?.reason || "not_claimed" };

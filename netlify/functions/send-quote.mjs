@@ -370,6 +370,20 @@ async function textTheQuote({ quote, customerName, customerPhone, amount, leadId
     force: true,
   });
 
+  // Logged either way. "It didn't text them" is answerable from the Netlify
+  // function log without reproducing it, which is the only place the reason
+  // exists once the browser has moved on.
+  console.log(
+    "[send-quote:text]",
+    JSON.stringify({
+      quote: quote.id,
+      ok: result.ok,
+      reason: result.reason || null,
+      mode: process.env.SMS_MODE || "off",
+      configured: Boolean(process.env.QUO_API_KEY && process.env.QUO_FROM),
+    })
+  );
+
   if (!result.ok) return result;
 
   try {

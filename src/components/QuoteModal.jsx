@@ -39,6 +39,8 @@ function textExplanation(result, customerPhone) {
   }
 
   switch (result.textReason) {
+    case "no_sms_tables":
+      return "Texting needs one more database migration: run db/sms.sql in the Supabase SQL editor.";
     case "opted_out":
       return "They've replied STOP to a previous text, so we can't message this number. Send the link another way.";
     case "sms_off":
@@ -51,7 +53,13 @@ function textExplanation(result, customerPhone) {
     case "no_phone":
       return "Send them this link. Accepting it books the job automatically.";
     default:
-      return "The quote is saved, but the text didn't go. Send them the link instead — it works the same.";
+      // The reason from here is whatever Quo or the database actually said.
+      // Dropping it and printing a generic sentence is what sent somebody
+      // hunting through logs for a message this code already had — the same
+      // mistake twice over now.
+      return `The quote is saved, but the text didn't go${
+        result.textReason ? ` — ${result.textReason}` : ""
+      }. Send them the link instead; it works the same.`;
   }
 }
 
