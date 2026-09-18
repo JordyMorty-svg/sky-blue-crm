@@ -284,6 +284,30 @@ export function telHref(phone) {
   return digits ? `tel:${digits}` : null;
 }
 
+/**
+ * A phone number as a human reads it.
+ *
+ * Numbers arrive in this CRM however they were typed — pasted from a text,
+ * copied off a door hanger, tapped out on a phone — so "5412868421" and
+ * "(541) 286-8421" are both already in the database. Rendering the raw column
+ * means the same customer looks different depending on who added them.
+ *
+ * Anything that isn't a plain US number is returned untouched rather than
+ * mangled: an extension, an international number, or a note somebody typed in
+ * the phone field is better shown as-is than reformatted into nonsense.
+ */
+export function formatPhone(phone) {
+  const digits = String(phone ?? "").replace(/\D/g, "");
+
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return String(phone ?? "");
+}
+
 // Days since each lead last changed status, from the lead_status_age view.
 // One flat query, merged client-side — same shape as the job counts.
 async function fetchStatusAges() {

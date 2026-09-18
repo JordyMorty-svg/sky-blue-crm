@@ -160,12 +160,39 @@
 
 /* Keeps the three buttons together as one unit, so they drop to their own
    line as a group rather than peeling off one at a time. margin-left:auto
-   holds them right on a wide screen; it does nothing once they've wrapped. */
+   holds them right on a wide screen, where there is room beside the name. */
 .custdetail__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-left: auto;
+}
+
+/* The auto margin above has to be switched OFF once the buttons wrap, and an
+   earlier comment here claimed it "does nothing once they've wrapped".
+   That is wrong, and it is what made this page look broken on a phone: a flex
+   container distributes free space per LINE, so an auto margin on a wrapped
+   item still absorbs the whole of its own line and pins the group to the
+   right edge — under a left-aligned name, beside a left-aligned badge, with
+   80px of nothing to its left.
+   
+   This one declaration is the whole fix. `width: 100%` on the actions and
+   `flex-basis: 100%` on the name were tried alongside it and each also
+   happens to work — by leaving the auto margin no free space to eat rather
+   than by addressing it — so they are left out. Three declarations where one
+   does the job is how the misleading comment above got written in the first
+   place.
+   
+   The name already carries `flex: 1 1 200px`, so it grows to fill its line
+   and pushes the actions onto their own row at every width where they don't
+   fit beside it. Nothing extra is needed to force the wrap.
+   
+   720px matches the breakpoint where the app shell restacks, so the header
+   and the page it sits on change shape at the same width. */
+@media (max-width: 720px) {
+  .custdetail__actions {
+    margin-left: 0;
+  }
 }
 
 .custdetail__edit {
@@ -272,6 +299,35 @@
   margin: 0;
   flex: 1 1 200px;
   min-width: 0;
+}
+
+/* The phone number had no rule at all, so it rendered as a browser-default
+   underlined link — the one piece of unstyled blue on an otherwise finished
+   page, and a small tap target sitting on top of the address.
+   
+   Vertical padding rather than a bare inline link: tapping the number is the
+   most common thing anyone does on this page from a driveway, and an inline
+   link's hit area is only as tall as its text — about 17px here.
+   
+   Not the full 44px Apple asks of a button. This is a line of contact
+   information sitting directly above the address, and a 44px-tall line would
+   push the two apart and read as a button that isn't one. ~31px roughly
+   doubles the target while keeping the block looking like a block.
+   
+   align-self: flex-start so the link is only as wide as the number — stretched
+   to the full column it would swallow taps meant for the address beneath. */
+.custdetail__phone {
+  align-self: flex-start;
+  color: #2563eb;
+  font-weight: 700;
+  text-decoration: none;
+  padding: 7px 0;
+}
+
+@media (hover: hover) {
+  .custdetail__phone:hover {
+    text-decoration: underline;
+  }
 }
 
 .custdetail__info {
@@ -473,6 +529,25 @@
   font-weight: 700;
   background: #f1f5f9;
   color: #475569;
+}
+
+/* The property type, sitting in the heading's own text flow.
+   vertical-align: middle rather than baseline — the badge's own text is less
+   than half the heading's size, so sharing a baseline would hang it off the
+   bottom of the name instead of centring it against it. */
+.custdetail__typebadge {
+  /* Small, because a literal space in the heading carries most of the gap.
+     Anything larger shows as an indent on the line the badge wraps onto. */
+  margin-left: 4px;
+  vertical-align: middle;
+  /* Sets the pill's height, and that is all it does — an earlier comment
+     here claimed it stopped the badge inheriting the heading's line-height,
+     which is not true: nothing sets one on .custdetail__name, so `normal`
+     is what would be inherited either way. Measured, it is the difference
+     between a 27px pill and a 22px one beside a ~26px name, and 27 is the
+     one that looks deliberate rather than shrunken. */
+  line-height: 1.5;
+  white-space: nowrap;
 }
 
 .custbadge--recurring {

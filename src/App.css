@@ -130,11 +130,19 @@
     gap: 12px;
   }
 
+  /* Wraps onto a second row rather than scrolling sideways.
+  
+     It scrolled before, and the tab that fell off the end was Customers —
+     the page you were actually on. A horizontal scroller with no scrollbar,
+     no fade and no affordance reads as a tab strip that has been cut off,
+     because visually that is exactly what it is. Six short labels fit in two
+     rows at 390px with room to spare, and every one of them stays tappable. */
   .shell__nav {
     order: 3;
     width: 100%;
-    overflow-x: auto;
     flex: none;
+    flex-wrap: wrap;
+    row-gap: 4px;
   }
 
   .shell__email {

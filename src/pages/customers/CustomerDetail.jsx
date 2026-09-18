@@ -17,6 +17,7 @@ import {
   nextVisitDate,
   priceForVisit,
   telHref,
+  formatPhone,
 } from "../../services/leadService";
 import { recordContact } from "../../services/contactService";
 import { setEmailOptOut, setCustomerReviewed } from "../../services/followUpService";
@@ -417,7 +418,25 @@ export default function CustomerDetail() {
       ) : (
         <>
           <div className="custdetail__namerow">
-            <h1 className="custdetail__name">{customer.name}</h1>
+            {/* The type badge lives INSIDE the heading, not beside it.
+                A sibling would be a flex item next to a name that carries
+                `flex: 1 1 200px` — the name would grow and shove the badge to
+                the far side of the row, which is the disconnected look this
+                move was meant to fix. In the text flow it stays glued to the
+                last word however the name wraps. */}
+            <h1 className="custdetail__name">
+              {customer.name}
+              {/* A real space, not just a margin. When a long commercial
+                  name fills the last line the badge drops to the next one,
+                  and a left margin would indent it there; a space collapses
+                  at the start of a line, so it lands flush under the name. */}
+              {" "}
+              <span
+                className={`custbadge custbadge--${propertyType} custdetail__typebadge`}
+              >
+                {propertyType === "commercial" ? "Commercial" : "Residential"}
+              </span>
+            </h1>
             {/* The three actions are wrapped so they move to the next line
                 TOGETHER on a narrow screen. As loose siblings they wrapped
                 one at a time, which left "+ Schedule a job" breaking across
@@ -448,16 +467,19 @@ export default function CustomerDetail() {
             </div>
           </div>
 
-          <div className="custdetail__badges">
-            {isRecurring && (
+          {/* Rendered only when there IS one. An always-present wrapper
+              would keep its bottom margin on a one-time customer and leave a
+              gap where the property badge used to be. The recurring label
+              stays on its own line rather than joining the name: it is a
+              sentence ("Recurring client · Quarterly"), not a one-word tag,
+              and two badges after a long name crowd it at phone width. */}
+          {isRecurring && (
+            <div className="custdetail__badges">
               <span className="custbadge custbadge--recurring">
                 Recurring client · {plan.label}
               </span>
-            )}
-            <span className={`custbadge custbadge--${propertyType}`}>
-              {propertyType === "commercial" ? "Commercial" : "Residential"}
-            </span>
-          </div>
+            </div>
+          )}
 
           <div className="custdetail__info">
             {customer.phone && (
@@ -466,7 +488,7 @@ export default function CustomerDetail() {
                 href={telHref(customer.phone)}
                 onClick={handleCall}
               >
-                {customer.phone}
+                {formatPhone(customer.phone)}
               </a>
             )}
             {customer.email && <span>{customer.email}</span>}
@@ -479,7 +501,14 @@ export default function CustomerDetail() {
               desktop, stacked on a phone, from one auto-fit grid rather
               than a breakpoint. */}
           <div className="custprefs">
-            <span className="custprefs__head">Email</span>
+            {/* Named for what is actually in the group. On a customer with
+                no email address the opt-out switch below is hidden, which
+                left the word "Email" sitting on its own above a tickbox
+                about Google reviews — a heading describing a control that
+                wasn't there. */}
+            <span className="custprefs__head">
+              {customer.email ? "Email" : "Reviews"}
+            </span>
             <div className="custprefs__grid">
               {/* Only where there's an address. On a customer with no email
                   this would be a switch that governs nothing. */}
