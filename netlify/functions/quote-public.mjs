@@ -122,6 +122,61 @@ async function announceAccepted(token) {
   }
 }
 
+/**
+ * Is this request coming from a signed-in member of staff?
+ *
+ * Returns "staff", "public", or "unknown" — and the third one is the whole
+ * reason this isn't a boolean.
+ *
+ * What hangs on it: a staff request must not mark the quote as read by the
+ * customer, and must not be allowed to accept on their behalf. A public
+ * request must do the first and may do the second.
+ *
+ * The three cases are NOT interchangeable:
+ *
+ *   * "staff"   — a token that Supabase Auth confirmed belongs to a user.
+ *   * "public"  — no token at all, or a token Supabase actively REJECTED.
+ *                 That is a real answer: we asked, and they are not staff.
+ *   * "unknown" — we could not ask. The anon key is missing, Supabase is
+ *                 down, the fetch threw. We have no idea who this is.
+ *
+ * "unknown" is treated as staff for MARKING (don't record a view we cannot
+ * attribute) and as staff for ACCEPTING (don't book a job on a request we
+ * cannot identify). Both failure directions are recoverable by a human; the
+ * opposite ones silently corrupt a follow-up or create a commission.
+ *
+ * Note what this does NOT do: it never trusts a flag from the browser. An
+ * earlier sketch had the page send `?preview=1`, which any customer could
+ * append to skip being recorded. The bearer token is the only claim here
+ * that cannot be made up, because making one up requires logging in.
+ */
+async function identify(req) {
+  const token = (req.headers.get("authorization") || "").replace(/^Bearer /i, "").trim();
+  if (!token) return "public";
+
+  const url = process.env.VITE_SUPABASE_URL;
+  const anon = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !anon) {
+    console.error("identify(): VITE_SUPABASE_ANON_KEY missing — cannot verify callers");
+    return "unknown";
+  }
+
+  try {
+    const res = await fetch(`${url}/auth/v1/user`, {
+      headers: { apikey: anon, Authorization: `Bearer ${token}` },
+    });
+    // 401/403 is Supabase telling us this is not a valid session. That is an
+    // answer, not a failure — an expired tab belongs to the public.
+    if (res.status === 401 || res.status === 403) return "public";
+    if (!res.ok) return "unknown";
+    const user = await res.json().catch(() => null);
+    return user?.id ? "staff" : "public";
+  } catch (err) {
+    console.error("identify() couldn't reach Supabase Auth:", err);
+    return "unknown";
+  }
+}
+
 // A token is 64 hex characters. Rejecting anything else before it reaches the
 // database turns a scan into a cheap 404 instead of a query, and keeps
 // obviously-junk input out of the logs.
@@ -139,10 +194,21 @@ export default async (req) => {
     return Response.json({ error: "not_found" }, { status: 404 });
   }
 
+  // Asked once, used by both handlers. A signed-in member of staff looking at
+  // a quote is a PREVIEW: it must not record the customer as having read it,
+  // and it must not be able to accept on their behalf.
+  const who = await identify(req);
+  const preview = who !== "public";
+
   // ---- read ---------------------------------------------------------------
   if (req.method === "GET") {
     try {
-      const rows = await rpc("sb_quote_public", { p_token: token });
+      const rows = await rpc("sb_quote_public", {
+        p_token: token,
+        // The only request that marks a quote as read is one we positively
+        // identified as coming from outside the company.
+        p_mark: !preview,
+      });
       const quote = Array.isArray(rows) ? rows[0] : rows;
       if (!quote) {
         // Same shape and status as a malformed token. A customer with a real
@@ -151,9 +217,15 @@ export default async (req) => {
         return Response.json({ error: "not_found" }, { status: 404 });
       }
       return Response.json(
-        { quote },
+        // `preview` drives the banner on the page. Sent so the person looking
+        // knows the state they are seeing is untouched — without it, a rep
+        // checking a quote has no way to tell whether looking cost them the
+        // "not opened yet" signal, and the safe assumption is the wrong one.
+        { quote, preview },
         // Never cached. A quote that has just been accepted must not keep
-        // rendering its Accept button from a CDN copy.
+        // rendering its Accept button from a CDN copy. Doubly so now: a
+        // preview response and a customer's response differ, and a CDN
+        // serving one for the other would be the bug this file just fixed.
         { headers: { "Cache-Control": "no-store" } }
       );
     } catch (err) {
@@ -164,6 +236,20 @@ export default async (req) => {
 
   // ---- accept -------------------------------------------------------------
   if (req.method === "POST") {
+    // Staff cannot accept for the customer. A quote page opened as a preview
+    // still renders an Accept button's worth of screen, and a mis-tap would
+    // book a job, move the lead, set its estimate and credit a booking
+    // commission — a chain that is tedious to unwind and leaves lead_events
+    // carrying an acceptance that never happened.
+    //
+    // Refused BEFORE sb_accept_quote, not after: that function is where the
+    // booking happens, so the only safe place to stop is in front of it.
+    //
+    // 200 with a reason, like every other outcome here. The page explains it.
+    if (preview) {
+      return Response.json({ ok: false, reason: "staff_preview" });
+    }
+
     try {
       const rows = await rpc("sb_accept_quote", { p_token: token });
       const result = Array.isArray(rows) ? rows[0] : rows;

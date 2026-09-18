@@ -20,6 +20,24 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
+/* The staff preview bar. Amber rather than blue so it reads as scaffolding
+   rather than as part of the quote — and matched to the card's width so it
+   sits with it instead of floating across a wide screen. A customer never
+   receives this element at all; the server decides, not a CSS rule. */
+.pq__preview {
+  width: 100%;
+  max-width: 440px;
+  box-sizing: border-box;
+  margin: 0 0 14px;
+  padding: 11px 14px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+  color: #92400e;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
 .pq__card {
   width: 100%;
   max-width: 440px;

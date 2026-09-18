@@ -54,6 +54,16 @@ const STATES = {
   </div>`,
 };
 
+// Rendered ABOVE the card, never inside it. The page below the bar has to be
+// byte-for-byte what the customer sees — a preview altered to look safe stops
+// being a preview — so the bar is the only difference, and it is the one thing
+// the customer never receives.
+const PREVIEW_BAR = `<p class="pq__preview"><strong>Preview.</strong> You're signed in, so opening this hasn't marked the quote as read. The customer sees this page without this bar — and only they can accept it.</p>`;
+
+// The staff preview is the same "ready" page with the bar on top.
+STATES.preview = STATES.ready;
+const BEFORE = { preview: PREVIEW_BAR };
+
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 let bad = 0;
 
@@ -62,7 +72,7 @@ for (const [name, inner] of Object.entries(STATES)) {
     `verify/.pq-${name}.html`,
     `<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
      <style>${css}</style>
-     <div class="pq"><div class="pq__card">${inner}</div>
+     <div class="pq">${BEFORE[name] || ""}<div class="pq__card">${inner}</div>
      <p class="pq__foot">Sky Blue Cleaning Co. · Corvallis, Oregon</p></div>`
   );
 
@@ -93,7 +103,24 @@ for (const [name, inner] of Object.entries(STATES)) {
     bad++;
   }
 
-  if (!overflow && telLines === 1) console.log(`ok    ${name}`);
+  // The preview bar has to line up with the card. Left floating at a
+  // different width it reads as a browser extension or a broken element
+  // rather than as part of the page — and the one job of this bar is to be
+  // believed.
+  let barOk = true;
+  if (BEFORE[name]) {
+    const [bar, card] = await page.evaluate(() => [
+      document.querySelector(".pq__preview")?.getBoundingClientRect().width ?? -1,
+      document.querySelector(".pq__card")?.getBoundingClientRect().width ?? -2,
+    ]);
+    barOk = bar > 0 && Math.abs(bar - card) < 1;
+    if (!barOk) {
+      console.log(`FAIL  ${name}: preview bar is ${bar}px against a ${card}px card`);
+      bad++;
+    }
+  }
+
+  if (!overflow && telLines === 1 && barOk) console.log(`ok    ${name}`);
 
   await page.screenshot({ path: `verify/shot-quote-${name}.png`, fullPage: true });
   await page.close();

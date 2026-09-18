@@ -216,12 +216,29 @@ function QuoteRow({ quote, customerName, customerPhone }) {
           <button className="quoterow__btn" onClick={copy}>
             {copied ? "Copied" : "Copy link"}
           </button>
-          {/* Deliberately no Preview button. Fetching the quote page is what
-              flips `sent` to `viewed` — the database cannot tell a curious rep
-              from the customer — so a preview would quietly turn "Sent, not
-              opened yet" into "Opened, not accepted" on a quote nobody has
-              read. That distinction is the whole reason to follow up, so it
-              is worth more than the convenience of looking. */}
+          {/* There was deliberately no Preview button here for a long time,
+              because opening the quote page is what flips `sent` to `viewed`
+              and the database cannot tell a curious rep from the customer.
+              That reasoning was right, but the fix was in the wrong place:
+              Copy link hands out the same URL, and pasting it did the same
+              damage with no warning at all.
+
+              /api/quote/:token now identifies the caller from their session
+              token server-side and only records a view for a request it
+              positively identifies as NOT staff. Looking is safe, so the
+              honest thing is to offer it rather than leave everyone pasting
+              links into a browser to see the same page. */}
+          <a
+            className="quoterow__btn"
+            href={`/q/${quote.token}`}
+            target="_blank"
+            // noreferrer alongside noopener: the target is our own origin, so
+            // this is about not leaking which CRM record was open, not about
+            // window.opener.
+            rel="noopener noreferrer"
+          >
+            Preview
+          </a>
         </div>
       )}
     </li>

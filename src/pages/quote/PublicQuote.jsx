@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { SERVICE_LABELS, money } from "../../services/quoteService";
+import { supabase } from "../../supabaseClient";
 import "./PublicQuote.css";
 
 /**
@@ -9,15 +10,28 @@ import "./PublicQuote.css";
  *
  * Constraints that shaped it:
  *
- *   * No Supabase client. Everything goes through /api/quote/:token, so the
- *     anon key is never handed to a stranger's browser and `quotes` stays
- *     staff-only in the database.
+ *   * All data goes through /api/quote/:token. The customer's browser never
+ *     queries Supabase, so `quotes` stays staff-only in the database and no
+ *     RLS policy has to be loose enough to serve a logged-out stranger.
  *   * No app chrome. No nav, no "Sky Blue CRM", no sign-out button. This is
  *     a customer-facing page that happens to live at the same domain; it
  *     should read like a quote, not like software.
  *   * Every dead end explains itself. Expired, already accepted, bad link —
  *     each says what happened and how to reach a human, because the person
  *     reading it cannot open a ticket.
+ *
+ * It DOES import the Supabase client, for one purpose: to find out whether
+ * the person looking is signed in, and if so to prove it to the server. This
+ * used to say "no Supabase client" as a rule, which was aspirational rather
+ * than true — App.jsx imports the client and this route is in the same
+ * bundle, so a customer already downloads it. The anon key is public by
+ * design; RLS is what protects the table.
+ *
+ * Why it needs that: loading this page is what flips a quote from `sent` to
+ * `viewed`, and the database cannot tell a rep from the customer. Attaching
+ * the session token lets the server tell, so a member of staff opening a
+ * copied link no longer marks the quote as read by somebody who has not seen
+ * it. A customer has no session and sends nothing.
  */
 
 export default function PublicQuote() {
@@ -26,11 +40,33 @@ export default function PublicQuote() {
   const [state, setState] = useState("loading"); // loading | ready | missing | error
   const [accepting, setAccepting] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const [preview, setPreview] = useState(false);
   const [problem, setProblem] = useState("");
+
+  /**
+   * The session token, if there is one.
+   *
+   * Never throws and never blocks the page. A customer has no session; a
+   * customer on a browser that blocks storage may make getSession() unhappy.
+   * Either way the quote must still render — falling back to no header just
+   * means the page behaves exactly as it always did.
+   */
+  const authHeader = useCallback(async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      return session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {};
+    } catch {
+      return {};
+    }
+  }, []);
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/quote/${token}`);
+      const res = await fetch(`/api/quote/${token}`, { headers: await authHeader() });
       if (res.status === 404) {
         setState("missing");
         return;
@@ -39,12 +75,13 @@ export default function PublicQuote() {
       const data = await res.json();
       setQuote(data.quote);
       setAccepted(data.quote.status === "accepted");
+      setPreview(Boolean(data.preview));
       setState("ready");
     } catch (e) {
       console.error(e);
       setState("error");
     }
-  }, [token]);
+  }, [token, authHeader]);
 
   useEffect(() => {
     void (async () => {
@@ -56,7 +93,10 @@ export default function PublicQuote() {
     setAccepting(true);
     setProblem("");
     try {
-      const res = await fetch(`/api/quote/${token}`, { method: "POST" });
+      const res = await fetch(`/api/quote/${token}`, {
+        method: "POST",
+        headers: await authHeader(),
+      });
       const data = await res.json().catch(() => ({}));
 
       if (data.ok) {
@@ -71,6 +111,12 @@ export default function PublicQuote() {
           expired: "This quote has expired — but give us a call and we'll sort it out.",
           declined: "This quote was already turned down. Call us if that was a mistake.",
           not_found: "We couldn't find this quote. Check the link, or give us a call.",
+          // Only ever seen by staff, so it is written to them. The customer
+          // has to press this themselves — the acceptance books the job,
+          // moves the lead and credits a commission, and none of that should
+          // rest on a rep's word that somebody said yes.
+          staff_preview:
+            "You're signed in, so this is a preview — only the customer can accept. Mark it booked from the CRM instead.",
         }[data.reason] || "Something went wrong. Give us a call and we'll take care of it."
       );
     } catch (e) {
@@ -111,6 +157,18 @@ export default function PublicQuote() {
 
   return (
     <div className="pq">
+      {/* Shown only to someone signed in. Everything below it is left exactly
+          as the customer sees it — including a live Accept button — because a
+          preview that has been altered to be safe stops being a preview. The
+          server is what refuses the accept; this just says so first. */}
+      {preview && (
+        <p className="pq__preview">
+          <strong>Preview.</strong> You&rsquo;re signed in, so opening this
+          hasn&rsquo;t marked the quote as read. The customer sees this page
+          without this bar — and only they can accept it.
+        </p>
+      )}
+
       <div className="pq__card">
         <Brand />
 
