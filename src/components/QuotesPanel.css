@@ -1,8 +1,15 @@
 /* Quotes panel — shared by the lead page and the customer page, so it
    borrows nothing from either stylesheet. */
 
+/* Its own band, not a floating heading.
+   Dropped in between the stats and Job history it had no separation on either
+   side, so "Job history" read as a sub-heading of the quotes copy above it.
+   A rule on top and real space underneath — the same treatment the lead
+   page's Status history already gets. */
 .quotes {
-  margin: 28px 0 0;
+  margin: 28px 0 34px;
+  padding-top: 22px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .quotes__head {
@@ -47,6 +54,9 @@
   color: #64748b;
   font-size: 0.88rem;
   line-height: 1.6;
+  /* Stops the sentence running the full width of a desktop window, where a
+     one-line 1100px paragraph under a short heading is what looked off. */
+  max-width: 60ch;
 }
 
 .quotes__error {

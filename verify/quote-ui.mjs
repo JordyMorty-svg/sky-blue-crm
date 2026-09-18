@@ -77,7 +77,7 @@ try {
   process.exit(1);
 }
 
-const { QuoteModal } = await import("./.quote-ui-bundle.mjs");
+const { QuoteModal, QuotesPanel } = await import("./.quote-ui-bundle.mjs");
 const { renderToStaticMarkup } = await import("react-dom/server");
 const { createElement } = await import("react");
 
@@ -150,6 +150,84 @@ const fontPx = await page.evaluate(() =>
 chk("the price input is 16px or larger, so iOS won't zoom", fontPx >= 16, `${fontPx}px`);
 
 await page.screenshot({ path: "verify/shot-quote-modal.png", fullPage: true });
+await page.close();
+
+// --- the panel in place on the customer page -------------------------------
+//
+// The panel is dropped between the lifetime-value stats and "Job history", and
+// the first version had no separation from either. "Job history" read as a
+// sub-heading of the quotes copy above it. This measures the actual gap on the
+// rendered page rather than trusting the stylesheet.
+const panelMarkup = renderToStaticMarkup(
+  createElement(QuotesPanel, {
+    customerId: "cccc",
+    customerName: "Marilyn Hollingsworth",
+    customerEmail: null,
+    customerPhone: "(541) 730-3593",
+    address: "1014 NE Diane Pl, Corvallis, OR 97330",
+    suggestedAmount: 399,
+    onChanged: () => {},
+  })
+);
+
+const panelCss = readFileSync("src/components/QuotesPanel.css", "utf8");
+const panelHtml = join(dir, "panel.html");
+writeFileSync(
+  panelHtml,
+  `<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+   <style>
+     body{margin:0;padding:20px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+     /* Stand-ins for the real neighbours, so the spacing measured here is the
+        spacing that ships. */
+     .above{height:70px;border:1px solid #e2e8f0;border-radius:12px}
+     .custdetail__subhead{font-size:1.1rem;color:#0f172a;margin-bottom:14px}
+     ${panelCss}
+   </style>
+   <div class="above"></div>
+   ${panelMarkup}
+   <h2 class="custdetail__subhead">Job history</h2>`
+);
+
+// 720px is the real ceiling: .custdetail and .detail are both capped there
+// and centred, so the panel never renders wider than this in the app.
+for (const width of [390, 720]) {
+  const p = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 2 });
+  await p.goto(`file://${panelHtml}`);
+  await p.waitForTimeout(120);
+
+  const gaps = await p.evaluate(() => {
+    const above = document.querySelector(".above").getBoundingClientRect();
+    const panel = document.querySelector(".quotes").getBoundingClientRect();
+    const below = document.querySelector(".custdetail__subhead").getBoundingClientRect();
+    const empty = document.querySelector(".quotes__empty").getBoundingClientRect();
+    return {
+      before: Math.round(panel.top - above.bottom),
+      after: Math.round(below.top - panel.bottom),
+      emptyWidth: Math.round(empty.width),
+    };
+  });
+
+  chk(
+    `@${width}px the panel is clear of what's above it`,
+    gaps.before >= 20,
+    `${gaps.before}px`
+  );
+  // The complaint that started this: no air before "Job history".
+  chk(
+    `@${width}px "Job history" is clear of the panel`,
+    gaps.after >= 24,
+    `${gaps.after}px`
+  );
+  chk(
+    `@${width}px the empty-state line isn't a full-width run-on`,
+    gaps.emptyWidth <= 700,
+    `${gaps.emptyWidth}px wide`
+  );
+
+  await p.screenshot({ path: `verify/shot-quote-panel-${width}.png`, fullPage: true });
+  await p.close();
+}
+
 await browser.close();
 
 console.log(bad === 0 ? "\nquote UI holds" : `\n${bad} problem(s)`);
