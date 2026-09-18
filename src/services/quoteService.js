@@ -51,6 +51,9 @@ export async function sendQuote({
   // The browser never talks to Quo directly — the API key would be in the
   // bundle, and the send has to be claimed and logged server-side anyway.
   customerPhone = null,
+  // "email" | "text" — chosen in the modal. Omitted, the server falls back to
+  // the old behaviour of preferring an email address where there is one.
+  channel = null,
   address = null,
   serviceKeys = [],
   amount,
@@ -73,6 +76,7 @@ export async function sendQuote({
       customerName,
       customerEmail,
       customerPhone,
+      channel,
       address,
       serviceKeys,
       amount,

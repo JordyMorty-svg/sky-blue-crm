@@ -94,6 +94,43 @@
   min-width: 0;
 }
 
+/* --- how it goes out --- */
+
+.quotem__channels {
+  display: flex;
+  gap: 7px;
+}
+
+.quotem__channel {
+  flex: 1 1 0;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  /* 44px, the tap-target floor. This one decides whether the customer gets a
+     text or an email, and a mis-tap sends the quote the wrong way. */
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font-size: var(--text-base);
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.quotem__channel--on {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+/* Gated like everything else — on a touch screen :hover latches after a tap
+   and leaves the unchosen option looking chosen. */
+@media (hover: hover) {
+  .quotem__channel:not(.quotem__channel--on):hover {
+    border-color: #cbd5e1;
+  }
+}
+
 /* --- services --- */
 
 .quotem__services {

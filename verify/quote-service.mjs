@@ -291,6 +291,69 @@ chk(
   );
 }
 
+// --- which way a quote goes out -------------------------------------------
+//
+// Bundled from the Netlify function, which imports nothing that needs a
+// server for this one export.
+{
+  const bundled = join(dir, "channel.mjs");
+  await build({
+    entryPoints: ["netlify/functions/send-quote.mjs"],
+    bundle: true,
+    format: "esm",
+    platform: "node",
+    outfile: bundled,
+    external: ["../lib/sms.mjs"],
+    logLevel: "silent",
+    plugins: [
+      {
+        name: "stub-sms",
+        setup(b) {
+          b.onResolve({ filter: /lib\/sms\.mjs$/ }, (a) => ({ path: a.path, namespace: "s" }));
+          b.onLoad({ filter: /.*/, namespace: "s" }, () => ({
+            contents: "export const sendSms = async () => ({ ok: false }); export const quoteSms = () => '';",
+            loader: "js",
+          }));
+        },
+      },
+    ],
+  });
+  const { chooseChannel } = await import(bundled);
+
+  // The change. It was a rule — an email address won, always — and a
+  // customer with both never got a text.
+  chk(
+    "THE POINT: asked to text somebody who also has an email, it texts",
+    chooseChannel({ channel: "text", customerEmail: "a@b.com" }).useEmail === false
+  );
+  chk(
+    "asked to email, it emails",
+    chooseChannel({ channel: "email", customerEmail: "a@b.com" }).useEmail === true
+  );
+
+  // The old precedence, kept as the default so a client that has not
+  // reloaded still behaves the way it did yesterday.
+  chk(
+    "told nothing, an email address still wins",
+    chooseChannel({ channel: null, customerEmail: "a@b.com" }).useEmail === true
+  );
+  chk(
+    "told nothing with no address, it texts",
+    chooseChannel({ channel: null, customerEmail: null }).wanted === "text"
+  );
+
+  // A stale form can ask for an email on a record that has none. Inventing
+  // one is not an option, so it falls back to the link rather than failing.
+  chk(
+    "asked to email somebody with no address, it does not pretend",
+    chooseChannel({ channel: "email", customerEmail: null }).useEmail === false
+  );
+  chk(
+    "a nonsense channel falls back to the default, not to nothing",
+    chooseChannel({ channel: "carrier pigeon", customerEmail: "a@b.com" }).useEmail === true
+  );
+}
+
 writeFileSync(join(dir, "done"), "");
 console.log(bad === 0 ? `\nall ${"ok"} — quoteService holds` : `\n${bad} failure(s)`);
 process.exitCode = bad === 0 ? 0 : 1;

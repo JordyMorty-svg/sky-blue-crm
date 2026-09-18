@@ -84,6 +84,14 @@ export default function QuoteModal({
     suggestedServices?.length ? suggestedServices : [DEFAULT_SERVICE]
   );
   const [note, setNote] = useState("");
+
+  // Which way it goes out. Defaults to email where there is one — that is
+  // what the server did unconditionally before — but it is now a default the
+  // sender can override, which is the whole point. A price and a link are
+  // read on a phone in a driveway; an email waits for a desk.
+  const canEmail = Boolean(customerEmail);
+  const canText = Boolean(customerPhone);
+  const [channel, setChannel] = useState(canEmail ? "email" : "text");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null); // { link, emailed, texted, textReason }
@@ -115,6 +123,7 @@ export default function QuoteModal({
         customerName,
         customerEmail,
         customerPhone,
+        channel,
         address,
         serviceKeys: services,
         amount: value,
@@ -210,10 +219,47 @@ export default function QuoteModal({
               rows={3}
             />
 
+            {/* Only shown when there is a choice to make. With one contact
+                method a picker is two options where one is greyed out, which
+                is a worse way of saying "we only have a phone number" than
+                the sentence below already says. */}
+            {canEmail && canText && (
+              <>
+                <span className="quotem__label">Send it by</span>
+                <div className="quotem__channels" role="group" aria-label="Send it by">
+                  <button
+                    type="button"
+                    className={`quotem__channel ${
+                      channel === "email" ? "quotem__channel--on" : ""
+                    }`}
+                    aria-pressed={channel === "email"}
+                    onClick={() => setChannel("email")}
+                  >
+                    Email
+                  </button>
+                  <button
+                    type="button"
+                    className={`quotem__channel ${
+                      channel === "text" ? "quotem__channel--on" : ""
+                    }`}
+                    aria-pressed={channel === "text"}
+                    onClick={() => setChannel("text")}
+                  >
+                    Text
+                  </button>
+                </div>
+              </>
+            )}
+
             <p className="quotem__dest">
-              {customerEmail ? (
+              {/* Three branches, and each one is reachable. A first version
+                  had five, covering channel/availability combinations that
+                  cannot occur: the picker only appears when both exist, and
+                  the initial channel is chosen from what exists, so
+                  "chose email, has no email" is not a state. */}
+              {canEmail && channel === "email" ? (
                 <>Sends to <b>{customerEmail}</b></>
-              ) : customerPhone ? (
+              ) : canText ? (
                 <>Texts to <b>{customerPhone}</b></>
               ) : (
                 <>
@@ -233,7 +279,7 @@ export default function QuoteModal({
               >
                 {busy
                   ? "Sending…"
-                  : customerEmail || customerPhone
+                  : canEmail || canText
                     ? `Send quote${amount ? ` · ${money(amount)}` : ""}`
                     : "Create quote link"}
               </button>

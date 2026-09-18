@@ -128,7 +128,7 @@ chk(
 }
 
 {
-  const withEmail = renderToStaticMarkup(
+  const both = renderToStaticMarkup(
     createElement(QuoteModal, {
       customerName: "Marilyn Hollingsworth",
       customerEmail: "marilyn@example.com",
@@ -137,11 +137,40 @@ chk(
       onSent: () => {},
     })
   );
-  // Email wins when there is one: it carries the full quote with the
-  // services listed, where a text carries a price and a link.
+  // With both, the sender chooses. This used to be a rule the server applied
+  // — an email address won, always — so a customer who had both never got a
+  // text, which is the wrong answer more often than it is the right one.
+  // Counted on aria-pressed rather than the class name: there are two
+  // toggle buttons and one container div, and a class-name count picked up
+  // all three. This also asserts they announce their state.
   chk(
-    "an email address wins over a phone number",
-    withEmail.includes("Sends to") && !withEmail.includes("Texts to"),
+    "with both, the sender is offered a choice",
+    (both.match(/aria-pressed/g) || []).length === 2,
+    `${(both.match(/aria-pressed/g) || []).length} toggles`
+  );
+  chk(
+    "and email is still the default",
+    both.includes("Sends to") && !both.includes("Texts to"),
+    ""
+  );
+}
+
+{
+  // One contact method means no choice to make, and a picker with one option
+  // greyed out is a worse way of saying "we only have a phone number" than
+  // the sentence underneath already says.
+  const phoneOnly = renderToStaticMarkup(
+    createElement(QuoteModal, {
+      customerName: "Susan",
+      customerEmail: null,
+      customerPhone: "(541) 286-8421",
+      onClose: () => {},
+      onSent: () => {},
+    })
+  );
+  chk(
+    "with only a phone, no picker is shown",
+    !phoneOnly.includes("quotem__channel"),
     ""
   );
 }
@@ -197,6 +226,46 @@ chk("the price input is 16px or larger, so iOS won't zoom", fontPx >= 16, `${fon
 
 await page.screenshot({ path: "verify/shot-quote-modal.png", fullPage: true });
 await page.close();
+
+// The other shape of the same screen: a customer with both an email and a
+// phone, where the sender is offered the choice.
+{
+  const withPicker = renderToStaticMarkup(
+    createElement(QuoteModal, {
+      customerName: "Marilyn Hollingsworth",
+      customerEmail: "marilyn@example.com",
+      customerPhone: "(541) 730-3593",
+      address: "1014 NE Diane Pl, Corvallis, OR 97330",
+      suggestedAmount: 250,
+      onClose: () => {},
+      onSent: () => {},
+    })
+  );
+  const f = join(dir, "picker.html");
+  writeFileSync(
+    f,
+    `<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+     <style>body{margin:0}${css}</style>${withPicker}`
+  );
+  const p2 = await browser.newPage({ viewport: { width: 430, height: 1000 }, deviceScaleFactor: 2 });
+  await p2.goto(`file://${f}`);
+  await p2.waitForTimeout(150);
+
+  // Both options have to be a real tap target: this is the control that
+  // decides whether the customer gets a text or an email, and a mis-tap
+  // sends the quote the wrong way.
+  const opts = await p2.$$eval(".quotem__channel", (els) =>
+    els.map((e) => Math.round(e.getBoundingClientRect().height))
+  );
+  chk(
+    "both channel options are real tap targets",
+    opts.length === 2 && opts.every((h) => h >= 44),
+    opts.join(", ") + "px"
+  );
+
+  await p2.screenshot({ path: "verify/shot-quote-picker.png", fullPage: true });
+  await p2.close();
+}
 
 // --- the panel in place on the customer page -------------------------------
 //

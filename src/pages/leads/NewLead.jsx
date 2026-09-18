@@ -11,6 +11,7 @@ import {
 import { useAuth } from "../../context/useAuth";
 import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO } from "../../components/appointmentUtils";
+import QuoteModal from "../../components/QuoteModal";
 import AddressPicker from "../../components/AddressPicker";
 import PlanPicker from "../../components/PlanPicker";
 import { defaultSourceFor, findRateFor } from "../../components/capabilities";
@@ -69,6 +70,13 @@ export default function NewLead() {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // The lead that was just created, held so the quote modal can be opened
+  // against it. Null until Save succeeds.
+  //
+  // Up here with the other hooks, not down beside the code that uses it:
+  // there is an early return for an unknown stage a few lines below, and a
+  // hook after it is called on some renders and not others.
+  const [quoting, setQuoting] = useState(null);
 
   // An unknown stage in the URL would otherwise create a lead in a status
   // the board can't show.
@@ -105,7 +113,7 @@ export default function NewLead() {
 
     setBusy(true);
     try {
-      await createLead(
+      const lead = await createLead(
         {
           status: stage,
           name: name.trim(),
@@ -128,6 +136,22 @@ export default function NewLead() {
         },
         user?.id ?? null
       );
+
+      // A lead added at the Quoted stage has, by definition, just been
+      // quoted — a price was required to save it. Dropping straight back to
+      // the board means the quote itself has to be remembered and sent from
+      // the lead's page later, which is the step that gets skipped standing
+      // on a driveway.
+      //
+      // Only offered when there is somewhere to send it. With neither an
+      // email nor a phone the modal would open only to say it can't do
+      // anything, which is worse than not offering.
+      if (stage === "quoted" && lead?.id && (email.trim() || phone.trim())) {
+        setQuoting(lead);
+        setBusy(false);
+        return;
+      }
+
       navigate("/leads");
     } catch (err) {
       console.error(err);
@@ -138,6 +162,23 @@ export default function NewLead() {
 
   return (
     <div className="newlead">
+      {/* Opened after the lead is saved, not before: the quote hangs off a
+          lead id, and there is no id until the row exists. Closing it — sent
+          or not — returns to the board, because the lead is created either
+          way and nothing here is unsaved. */}
+      {quoting && (
+        <QuoteModal
+          leadId={quoting.id}
+          customerName={quoting.name || name.trim()}
+          customerEmail={email.trim() || null}
+          customerPhone={phone.trim() || null}
+          address={address.trim() || null}
+          suggestedAmount={Number(estimate) || null}
+          suggestedServices={service ? [service] : null}
+          onClose={() => navigate("/leads")}
+          onSent={() => {}}
+        />
+      )}
       <button className="newlead__back" onClick={() => navigate("/leads")}>
         ← Back to pipeline
       </button>
