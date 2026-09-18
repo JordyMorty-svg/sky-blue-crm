@@ -19,7 +19,13 @@ const stub = {
       namespace: "stub",
     }));
     b.onLoad({ filter: /.*/, namespace: "stub" }, () => ({
-      contents: "export const supabase = {};",
+      // A faithful shim, not a convenient one: supabase-js RESOLVES with
+      // { data, error } and does not throw, so the stub returns whatever the
+      // test hands it unchanged. A stub that returned a bare array would have
+      // let a destructuring bug through — the first version of this file did
+      // exactly that and every row came back empty.
+      contents:
+        "export const supabase = { rpc: async (fn, args) => globalThis.__rpc(fn, args) };",
       loader: "js",
     }));
   },
@@ -41,6 +47,7 @@ await build({
 const {
   SERVICE_LABELS,
   SERVICE_OPTIONS,
+  fetchQuotes,
   quoteState,
   smsHref,
   smsText,
@@ -163,6 +170,83 @@ chk(
   SERVICE_OPTIONS.length === 6,
   `${SERVICE_OPTIONS.length} options`
 );
+
+// --- fetching a person's quotes --------------------------------------------
+//
+// The reshaping matters because the panel reads `sender.full_name`, the shape
+// the old embedded PostgREST select produced. The RPC returns a flat
+// sender_name instead, and a quiet mismatch here shows up as every quote in
+// the list losing the name of whoever sent it.
+{
+  let called = null;
+  globalThis.__rpc = async (fn, args) => {
+    called = { fn, args };
+    return {
+      data: [
+        {
+          id: "q1",
+          lead_id: "lead-1",
+          customer_id: null,
+          amount: 250,
+          status: "accepted",
+          sender_name: "Jordan Mortensen",
+          from_elsewhere: true,
+        },
+        { id: "q2", lead_id: null, customer_id: "cust-1", amount: 300, status: "sent", sender_name: null },
+      ],
+      error: null,
+    };
+  };
+
+  const rows = await fetchQuotes({ customerId: "cust-1" });
+
+  chk("it asks the database for the whole person, not one row",
+    called.fn === "quotes_for_contact", called?.fn);
+  chk("and passes the id it was given",
+    called.args.p_customer_id === "cust-1" && called.args.p_lead_id === null,
+    JSON.stringify(called.args));
+  chk("the sender survives as the shape the panel reads",
+    rows[0].sender?.full_name === "Jordan Mortensen",
+    JSON.stringify(rows[0].sender));
+  chk("a quote with no sender is null, not an empty name object",
+    rows[1].sender === null, JSON.stringify(rows[1].sender));
+  chk("THE POINT: a lead's quote comes back flagged as from elsewhere",
+    rows[0].from_elsewhere === true);
+}
+
+{
+  // Asking about nobody must not hit the database at all — a stray call with
+  // two nulls would ask contact_identity to resolve "no one".
+  let hit = false;
+  globalThis.__rpc = async () => {
+    hit = true;
+    return { data: [], error: null };
+  };
+  const rows = await fetchQuotes({});
+  chk("with neither id it returns nothing without calling the database",
+    rows.length === 0 && !hit);
+}
+
+{
+  globalThis.__rpc = async () => ({ data: null, error: null });
+  chk("a null result is an empty list, not a crash",
+    (await fetchQuotes({ leadId: "lead-1" })).length === 0);
+}
+
+{
+  // supabase-js reports a database failure in `error`, it does not throw.
+  globalThis.__rpc = async () => ({ data: null, error: new Error("boom") });
+  let threw = false;
+  try {
+    await fetchQuotes({ leadId: "lead-1" });
+  } catch {
+    threw = true;
+  }
+  // The panel catches this and says "Couldn't load past quotes" rather than
+  // rendering an empty list — which would read as "we never quoted them".
+  chk("a failure is thrown, so the panel can say so instead of showing nothing",
+    threw);
+}
 
 writeFileSync(join(dir, "done"), "");
 console.log(bad === 0 ? `\nall ${"ok"} — quoteService holds` : `\n${bad} failure(s)`);

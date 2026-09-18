@@ -168,6 +168,15 @@ function QuoteRow({ quote, customerName, customerPhone }) {
         Sent {shortDate(quote.sent_at || quote.created_at)}
         {quote.sender?.full_name ? ` by ${quote.sender.full_name}` : ""}
         {quote.accepted_at ? ` · accepted ${shortDate(quote.accepted_at)}` : ""}
+        {/* Said out loud. A quote appearing on a customer's profile that was
+            never sent from it looks like a duplicate of one somebody already
+            sent, and the natural reaction is to check — or worse, to send
+            another. One clause turns it from a puzzle into a fact. */}
+        {quote.from_elsewhere && (
+          <span className="quoterow__origin">
+            {quote.lead_id ? " · sent while they were a lead" : " · sent from their customer record"}
+          </span>
+        )}
       </p>
 
       {resendable && (

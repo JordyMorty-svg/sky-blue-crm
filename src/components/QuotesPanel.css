@@ -155,6 +155,13 @@
   color: #94a3b8;
 }
 
+/* Part of the meta line rather than a badge of its own: it is a footnote
+   explaining where the row came from, not a status competing with the pill
+   above it. */
+.quoterow__origin {
+  font-style: italic;
+}
+
 .quoterow__actions {
   display: flex;
   flex-wrap: wrap;

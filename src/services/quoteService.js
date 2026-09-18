@@ -86,24 +86,36 @@ export async function sendQuote({
   return data;
 }
 
-// Every quote ever sent to this lead or customer, newest first. Shown on the
-// record so you can see at a glance that one is already out — and whether it
-// was opened — before sending another.
+/**
+ * Every quote ever sent to this PERSON, newest first.
+ *
+ * Not "every quote on this row". A quote sent while somebody was a lead keeps
+ * lead_id and nothing else, so a direct `customer_id = ...` query showed
+ * "No quotes sent yet" on the profile of the customer that very quote had
+ * won. Worse, one person is often several leads — knocked in spring, called
+ * back in autumn — and the quotes on the leads that did NOT convert are
+ * exactly the ones worth seeing before quoting them again.
+ *
+ * quotes_for_contact() resolves the person through contact_identity(), the
+ * same function the contact timeline uses, and returns a `from_elsewhere`
+ * flag for quotes attached to a different record so the page can say so.
+ */
 export async function fetchQuotes({ leadId = null, customerId = null }) {
-  let query = supabase
-    .from("quotes")
-    .select(
-      "id, token, amount, status, service_keys, note, created_at, sent_at, viewed_at, accepted_at, expires_at, sender:sent_by ( full_name )"
-    )
-    .order("created_at", { ascending: false });
+  if (!leadId && !customerId) return [];
 
-  if (leadId) query = query.eq("lead_id", leadId);
-  else if (customerId) query = query.eq("customer_id", customerId);
-  else return [];
-
-  const { data, error } = await query;
+  const { data, error } = await supabase.rpc("quotes_for_contact", {
+    p_lead_id: leadId,
+    p_customer_id: customerId,
+  });
   if (error) throw error;
-  return data || [];
+
+  // The RPC returns a flat sender_name; the panel reads `sender.full_name`,
+  // the shape the old embedded select produced. Reshaped here rather than in
+  // the component so the component doesn't have to know which it came from.
+  return (data || []).map((q) => ({
+    ...q,
+    sender: q.sender_name ? { full_name: q.sender_name } : null,
+  }));
 }
 
 /**
