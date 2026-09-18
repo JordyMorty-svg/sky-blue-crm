@@ -49,6 +49,11 @@ export async function recordContact({
 const CONTACT_KINDS = {
   call: "Called",
   text: "Texted",
+  // A message FROM them. Deliberately not "Texted" — on a timeline that
+  // reads as something Sky Blue did, and the difference between "we chased
+  // them" and "they got back to us" is the whole point of reading the
+  // history before picking the phone up.
+  text_in: "They replied",
   email: "Emailed",
   note: "Note",
   // Written by the follow-up automation, never by a person. Named

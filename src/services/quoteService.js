@@ -29,19 +29,28 @@ export const SERVICE_LABELS = Object.fromEntries(
 );
 
 /**
- * Create a quote, and email it if there's somewhere to send it.
+ * Create a quote, and deliver it however we can.
  *
- * Resolves with `{ link, emailed }` either way. `emailed: false` is a normal
- * outcome — no address on file, or Resend was down — and the caller shows the
- * link for a text instead of an error. A quote that exists but reports
- * failure is worse than one that exists and says "send this yourself": the
- * first makes people create a second quote for the same job.
+ * Email if there's an address; text if there's only a number; otherwise hand
+ * back the link. Resolves with `{ link, emailed, texted, textReason }` in
+ * every case.
+ *
+ * `emailed: false, texted: false` is a normal outcome, not a failure — and
+ * `textReason` says which normal outcome it was, because "opted_out" and
+ * "texting is switched off" need different things from the person reading
+ * the screen. A quote that exists but reports failure is worse than one that
+ * says "send this yourself": the first makes people create a second quote
+ * for the same job.
  */
 export async function sendQuote({
   leadId = null,
   customerId = null,
   customerName,
   customerEmail = null,
+  // Sent so the server can TEXT the quote when there is no email address.
+  // The browser never talks to Quo directly — the API key would be in the
+  // bundle, and the send has to be claimed and logged server-side anyway.
+  customerPhone = null,
   address = null,
   serviceKeys = [],
   amount,
@@ -63,6 +72,7 @@ export async function sendQuote({
       customerId,
       customerName,
       customerEmail,
+      customerPhone,
       address,
       serviceKeys,
       amount,

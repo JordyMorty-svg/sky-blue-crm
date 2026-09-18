@@ -96,11 +96,54 @@ const markup = renderToStaticMarkup(
 );
 
 chk("the modal renders its price box", markup.includes('inputMode="decimal"') || markup.includes("quotem__amount"), "");
+// Three destinations, three different sentences. Getting this wrong means
+// somebody taps Send expecting an email and nothing reaches the customer.
 chk(
-  "with no email on file it offers a link instead",
-  markup.includes("you") && markup.includes("link to text them"),
+  "with a phone and no email, it says it will text them",
+  markup.includes("Texts to") && markup.includes("(541) 730-3593"),
   ""
 );
+
+{
+  const noContact = renderToStaticMarkup(
+    createElement(QuoteModal, {
+      customerName: "Blythe Okonkwo",
+      customerEmail: null,
+      customerPhone: null,
+      onClose: () => {},
+      onSent: () => {},
+    })
+  );
+  chk(
+    "with neither, it offers a link to send by hand",
+    noContact.includes("link to send") && !noContact.includes("Texts to"),
+    ""
+  );
+  chk(
+    "and the button says link, not send",
+    noContact.includes("Create quote link"),
+    ""
+  );
+}
+
+{
+  const withEmail = renderToStaticMarkup(
+    createElement(QuoteModal, {
+      customerName: "Marilyn Hollingsworth",
+      customerEmail: "marilyn@example.com",
+      customerPhone: "(541) 730-3593",
+      onClose: () => {},
+      onSent: () => {},
+    })
+  );
+  // Email wins when there is one: it carries the full quote with the
+  // services listed, where a text carries a price and a link.
+  chk(
+    "an email address wins over a phone number",
+    withEmail.includes("Sends to") && !withEmail.includes("Texts to"),
+    ""
+  );
+}
 chk(
   "every service is offered as a chip",
   (markup.match(/quotem__service/g) || []).length >= 6,

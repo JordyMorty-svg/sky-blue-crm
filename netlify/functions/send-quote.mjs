@@ -6,7 +6,9 @@
 //   RESEND_API_KEY        — from resend.com
 //   SUPABASE_SERVICE_KEY  — service role; needed because the quote row is
 //                           written on the caller's behalf after their token
-//                           has been verified
+//                           has been verified. SUPABASE_SERVICE_ROLE_KEY is
+//                           accepted too — the rest of netlify/lib uses that
+//                           spelling, and only one of them needs to be set.
 //
 // Optional:
 //   QUOTE_FROM   — e.g. "Sky Blue Cleaning Co. <quotes@skybluecleaningco.com>"
@@ -17,6 +19,13 @@
 //                  never the sending address.
 //   PUBLIC_URL   — base for the quote link. Falls back to the request's own
 //                  origin, which is right in every normal deployment.
+//
+// When there is no email address but there IS a phone number, the quote is
+// TEXTED instead — see netlify/lib/sms.mjs for the Quo credentials that needs,
+// and note that SMS_MODE defaults to "off", so this does nothing until it is
+// deliberately switched on.
+
+import { sendSms, quoteSms } from "../lib/sms.mjs";
 
 const SERVICE_LABELS = {
   "residential-window-washing": "Residential window washing",
@@ -44,12 +53,20 @@ async function whoIs(req) {
   return user?.id || null;
 }
 
+// Either spelling. This file was written against SUPABASE_SERVICE_KEY;
+// netlify/lib/followUps.mjs — which sms.mjs now borrows its Supabase helper
+// from — reads SUPABASE_SERVICE_ROLE_KEY. With only one of them set, the
+// quote would save and the text would silently fail to claim, which is a
+// miserable thing to debug. Accepting both costs one line.
+const SERVICE_KEY = () =>
+  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
 async function db(path, method, body) {
   const res = await fetch(`${process.env.VITE_SUPABASE_URL}/rest/v1/${path}`, {
     method,
     headers: {
-      apikey: process.env.SUPABASE_SERVICE_KEY,
-      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+      apikey: SERVICE_KEY(),
+      Authorization: `Bearer ${SERVICE_KEY()}`,
       "Content-Type": "application/json",
       Prefer: "return=representation",
     },
@@ -107,13 +124,61 @@ function quoteHtml({ customerName, amount, services, note, address, link, expire
   </div>`;
 }
 
+/**
+ * Which server-side settings this function needs, and whether they are there.
+ *
+ * Exists because the failure it catches is invisible from the browser: a
+ * missing SUPABASE_SERVICE_KEY makes the insert 401 at the gateway, which
+ * surfaced as "Couldn't save the quote" with no hint that the cause was a
+ * blank field in the Netlify dashboard rather than anything in the code.
+ *
+ * Values are never returned — only whether each name is set.
+ */
+function configReport() {
+  return {
+    supabase_url: Boolean(process.env.VITE_SUPABASE_URL),
+    supabase_anon_key: Boolean(process.env.VITE_SUPABASE_ANON_KEY),
+    // Either spelling is fine; see SERVICE_KEY() above.
+    supabase_service_key: Boolean(SERVICE_KEY()),
+    resend_api_key: Boolean(process.env.RESEND_API_KEY),
+    quote_from: Boolean(process.env.QUOTE_FROM || process.env.RECEIPT_FROM),
+    reply_to: Boolean(process.env.REPLY_TO || process.env.FOLLOW_UP_REPLY_TO),
+    quo_api_key: Boolean(process.env.QUO_API_KEY),
+    quo_from: Boolean(process.env.QUO_FROM),
+    sms_mode: process.env.SMS_MODE || "off",
+  };
+}
+
 export default async (req) => {
+  const senderId = await whoIs(req);
+  if (!senderId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  // GET is a health check, behind the same login as everything else. Answers
+  // "is this configured?" without sending anybody a quote to find out.
+  if (req.method === "GET") {
+    return Response.json({ ok: true, config: configReport() });
+  }
+
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
 
-  const senderId = await whoIs(req);
-  if (!senderId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  // Checked before anything is built, so the message names the actual
+  // problem instead of surfacing as a failed insert.
+  if (!SERVICE_KEY() || !process.env.VITE_SUPABASE_URL) {
+    const missing = [
+      !process.env.VITE_SUPABASE_URL && "VITE_SUPABASE_URL",
+      !SERVICE_KEY() && "SUPABASE_SERVICE_KEY",
+    ].filter(Boolean);
+    console.error("send-quote is missing configuration:", missing);
+    return Response.json(
+      {
+        error: `The server is missing ${missing.join(" and ")}. Add it in Netlify → Site configuration → Environment variables, then redeploy.`,
+        config: configReport(),
+      },
+      { status: 500 }
+    );
+  }
 
   let body;
   try {
@@ -127,6 +192,7 @@ export default async (req) => {
     customerId = null,
     customerName,
     customerEmail = null,
+    customerPhone = null,
     address = null,
     serviceKeys = [],
     amount,
@@ -175,17 +241,48 @@ export default async (req) => {
     quote = Array.isArray(rows) ? rows[0] : rows;
   } catch (err) {
     console.error("Couldn't save the quote:", err);
-    return Response.json({ error: "Couldn't save the quote" }, { status: 500 });
+    // The real reason, not a generic sentence. Everyone who can reach this
+    // endpoint is a signed-in member of staff, so there is nothing to
+    // protect by hiding a Postgres message from them — and "new row
+    // violates row-level security policy" tells you in five seconds what
+    // "Couldn't save the quote" hides for an evening.
+    return Response.json(
+      {
+        error: `Couldn't save the quote: ${String(err?.message || err)}`,
+        config: configReport(),
+      },
+      { status: 500 }
+    );
   }
 
   const origin = process.env.PUBLIC_URL || new URL(req.url).origin;
   const link = `${origin}/q/${quote.token}`;
 
   // No email address is a normal case, not a failure — most customers added
-  // through Add past jobs have none. The link comes back either way and the
-  // CRM offers it for a text instead.
+  // through Add past jobs have none. Text it instead where we can, and hand
+  // the link back either way so the CRM can offer it however this went.
   if (!customerEmail) {
-    return Response.json({ id: quote.id, token: quote.token, link, emailed: false });
+    const texted = await textTheQuote({
+      quote,
+      customerName,
+      customerPhone,
+      amount: value,
+      leadId,
+      customerId,
+      senderId,
+    });
+
+    return Response.json({
+      id: quote.id,
+      token: quote.token,
+      link,
+      emailed: false,
+      texted: texted.ok,
+      // Named rather than swallowed. "Couldn't text it" with no reason sends
+      // somebody looking through Netlify logs; "they replied STOP" is an
+      // answer they can act on without leaving the page.
+      textReason: texted.ok ? null : texted.reason,
+    });
   }
 
   const services = (serviceKeys.length ? serviceKeys : ["residential-window-washing"]).map(
@@ -238,6 +335,57 @@ export default async (req) => {
     });
   }
 };
+
+
+/**
+ * Text a quote that has no email address to go to.
+ *
+ * Two things have to happen together, and the order matters:
+ *
+ *   1. The text goes out.
+ *   2. The quote moves from 'draft' to 'sent'.
+ *
+ * Step 2 is not bookkeeping. sms_due_quote_nudges() only ever chases quotes
+ * in 'sent' or 'viewed' — a texted quote left as a draft would go out once
+ * and then never be followed up, which is the single most valuable thing
+ * this whole feature does.
+ *
+ * Resolves rather than throwing, always. The quote already exists and the
+ * link is already on its way back to the browser; a failure here means the
+ * rep texts it by hand, not that anything is lost.
+ */
+async function textTheQuote({ quote, customerName, customerPhone, amount, leadId, customerId, senderId }) {
+  if (!customerPhone) return { ok: false, reason: "no_phone" };
+
+  const result = await sendSms({
+    kind: "quote",
+    phone: customerPhone,
+    body: quoteSms({ customerName, amount, token: quote.token }),
+    leadId,
+    customerId,
+    quoteId: quote.id,
+    // A person pressed Send, so quiet hours don't apply. An opt-out still
+    // does, and there is no argument that it shouldn't.
+    sentBy: senderId,
+    force: true,
+  });
+
+  if (!result.ok) return result;
+
+  try {
+    await db(`quotes?id=eq.${quote.id}`, "PATCH", {
+      status: "sent",
+      sent_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    // The text has already gone. Saying so in the log and reporting success
+    // is the honest answer: the customer has the quote, and the worst case
+    // is that it is never automatically chased.
+    console.error("Texted the quote but couldn't mark it sent:", err);
+  }
+
+  return result;
+}
 
 export const config = {
   path: "/api/send-quote",

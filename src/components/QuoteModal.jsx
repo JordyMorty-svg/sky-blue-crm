@@ -24,6 +24,37 @@ import "./QuoteModal.css";
  * screen until it has been copied or texted.
  */
 
+
+/**
+ * Why the text didn't go, in words the person holding the phone can act on.
+ *
+ * Every one of these is a different next move: opted out means don't try
+ * again by any route, switched off means go and turn it on, quiet hours
+ * means it'll go in the morning. A single "couldn't send" would send all
+ * three of them to the same dead end.
+ */
+function textExplanation(result, customerPhone) {
+  if (!customerPhone) {
+    return "Send them this link. Accepting it books the job automatically.";
+  }
+
+  switch (result.textReason) {
+    case "opted_out":
+      return "They've replied STOP to a previous text, so we can't message this number. Send the link another way.";
+    case "sms_off":
+    case "not_configured":
+      return "Texting isn't switched on yet, so the quote hasn't gone anywhere. Send them this link in the meantime.";
+    case "quiet_hours":
+      return "It's outside texting hours, so this one hasn't gone out. Send the link yourself if it can't wait.";
+    case "bad_number":
+      return "That number doesn't look like a mobile we can text. Check it on the record, or send the link another way.";
+    case "no_phone":
+      return "Send them this link. Accepting it books the job automatically.";
+    default:
+      return "The quote is saved, but the text didn't go. Send them the link instead — it works the same.";
+  }
+}
+
 const DEFAULT_SERVICE = "residential-window-washing";
 
 export default function QuoteModal({
@@ -47,7 +78,7 @@ export default function QuoteModal({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState(null); // { link, emailed }
+  const [result, setResult] = useState(null); // { link, emailed, texted, textReason }
   const [copied, setCopied] = useState(false);
 
   function toggleService(key) {
@@ -75,6 +106,7 @@ export default function QuoteModal({
         customerId,
         customerName,
         customerEmail,
+        customerPhone,
         address,
         serviceKeys: services,
         amount: value,
@@ -173,10 +205,12 @@ export default function QuoteModal({
             <p className="quotem__dest">
               {customerEmail ? (
                 <>Sends to <b>{customerEmail}</b></>
+              ) : customerPhone ? (
+                <>Texts to <b>{customerPhone}</b></>
               ) : (
                 <>
-                  No email on file — you&rsquo;ll get a link to text them
-                  instead.
+                  No email or phone on file — you&rsquo;ll get a link to send
+                  them yourself.
                 </>
               )}
             </p>
@@ -191,7 +225,7 @@ export default function QuoteModal({
               >
                 {busy
                   ? "Sending…"
-                  : customerEmail
+                  : customerEmail || customerPhone
                     ? `Send quote${amount ? ` · ${money(amount)}` : ""}`
                     : "Create quote link"}
               </button>
@@ -203,7 +237,7 @@ export default function QuoteModal({
         ) : (
           <>
             <h2 className="quotem__title">
-              {result.emailed ? "Quote sent" : "Quote ready"}
+              {result.emailed || result.texted ? "Quote sent" : "Quote ready"}
             </h2>
 
             {result.emailed ? (
@@ -211,15 +245,22 @@ export default function QuoteModal({
                 Emailed to <b>{customerEmail}</b>. You&rsquo;ll see it move to
                 Booked here the moment they accept.
               </p>
+            ) : result.texted ? (
+              <p className="quotem__sentnote">
+                Texted to <b>{customerPhone}</b>. You&rsquo;ll see it move to
+                Booked here the moment they accept.
+              </p>
             ) : (
               <p className="quotem__sentnote">
-                {result.emailError
-                  ? "The quote is saved, but the email didn't go. Send them the link instead — it works the same."
-                  : "Send them this link. Accepting it books the job automatically."}
+                {textExplanation(result, customerPhone)}
               </p>
             )}
 
-            {!result.emailed && (
+            {/* The link stays on screen unless it actually went somewhere.
+                When the text didn't send — for any reason — the link IS the
+                deliverable and must not be hidden behind a success message
+                that isn't true. */}
+            {!result.emailed && !result.texted && (
               <>
                 <div className="quotem__link">{result.link}</div>
                 <div className="quotem__actions">
