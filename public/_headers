@@ -1,0 +1,29 @@
+# Netlify response headers for the CRM.
+#
+# Keep search engines out of crm.skybluecleaningco.com entirely.
+#
+# The CRM is behind a login, with one deliberate exception: the public quote
+# page at /q/<token>. That token is 64 random hex characters, so nothing can
+# guess or crawl its way to one — but a customer who shares their quote link
+# somewhere public would put their own name, address and price into Google's
+# index, and there is no way to take that back quickly.
+#
+# Why this rather than a robots.txt "Disallow":
+#
+#   Disallow stops a crawler READING the page, not indexing the URL. Google
+#   will still list a disallowed URL it has seen linked from elsewhere — it
+#   just shows the bare address with no description. Worse, having been told
+#   not to fetch the page, it can never see a noindex instruction inside it.
+#
+#   X-Robots-Tag works the other way round: crawlers are allowed to fetch,
+#   and what they fetch tells them not to index. That is the one that
+#   actually keeps a leaked quote link out of search results.
+#
+# So there is deliberately NO robots.txt in this project. Adding one with a
+# Disallow rule would undo this by making the header unreadable.
+#
+# Applies to every response Netlify serves from this site, including the
+# paths rewritten to index.html by _redirects.
+
+/*
+  X-Robots-Tag: noindex, nofollow
