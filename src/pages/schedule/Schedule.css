@@ -7,16 +7,19 @@
    How wide the calendar gets
    ------------------------------------------------------------------
    900px is the right measure for the daily list, which is a column of
-   text — but the week and month views are seven-column grids, and 900px
-   leaves each column about 120px. That is where "Tom Wolpert" starts
-   wrapping onto two lines and "Lisa Petermen" starts truncating, on a
-   screen with 500px of empty margin either side of the card.
+   text — but the calendar is a grid, and 900px leaves each of seven
+   columns about 120px. That is where "Tom Wolpert" starts wrapping onto
+   two lines and "Lisa Petermen" starts truncating, on a screen with
+   500px of empty margin either side of the card.
 
-   The day view is deliberately left out. It has one column, so every pixel
-   of extra width goes into making one job a wider empty rectangle. */
+   All three calendar views, not just the two that need the room. Day was
+   held back at 900px at first, on the grounds that one column gains
+   nothing from the extra width — but the card then changed size under
+   the view tabs every time you pressed Day, which is a worse thing to
+   watch than a slightly wide block. The tabs switch what's in the frame;
+   they shouldn't move the frame. */
 @media (min-width: 1000px) {
-  .schedule:has(.schedule__calendar--week),
-  .schedule:has(.schedule__calendar--month) {
+  .schedule:has(.schedule__calendar) {
     max-width: 1360px;
   }
 }
@@ -306,15 +309,12 @@
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
-/* Calendar event styling to match the brand */
-.schedule__calendar .rbc-event {
-  background: #2563eb;
-  border: none;
-}
-
-.schedule__calendar .rbc-today {
-  background: #eff6ff;
-}
+/* NOTE: event colour and shape live in one block further down, under
+   "A job on the calendar". Two rules used to sit here doing part of the
+   same job — one of them painting every event blue, completed ones
+   included — and were only invisible because rules below happened to
+   override them. Anything about how an event looks goes in that one
+   place. */
 
 @media (max-width: 720px) {
   .schedjob {
@@ -503,40 +503,73 @@
   background: #f8fafc;
 }
 
-/* Events — gaps so back-to-back jobs don't blur together */
+/* ------------------------------------------------------------------
+   A job on the calendar — one rule, all three views
+   ------------------------------------------------------------------
+   Everything about how a job LOOKS is here, so Day, Week and Month can't
+   drift apart. They did, twice:
+
+   1. These properties used to be set inline from `eventStyle` in
+      Schedule.jsx, where they competed with the four react-big-calendar
+      sets itself (`top`, `height`, `left`, `width`). One of them, a
+      `width: calc(100% - 6px) !important`, overrode the width but not the
+      `left` beside it — so on a Monday with two jobs running at once the
+      second block kept its offset, took the full column's width from
+      there, and was drawn 47px into Tuesday.
+
+   2. The gap that override was for came back as `clip-path`, which
+      trimmed the right and bottom off the block — and off its outline and
+      its drop shadow with them. The same job then had half an outline in
+      Week and a whole one in Month, which read as Month being the darker
+      view. It wasn't; it was the only one being drawn completely.
+
+   So: the outline is an INSET ring rather than a border, and the gap is a
+   TRANSPARENT BORDER rather than a margin. Neither changes the size or the
+   position of the box, which is the one thing react-big-calendar needs
+   left alone. */
+
 .schedule__calendar .rbc-event {
+  box-sizing: border-box;
+  border: none;
   border-radius: 8px !important;
+  padding: 3px 7px;
+  font-size: var(--text-sm);
+  font-weight: 600;
   outline: none !important;
+  overflow: hidden;
 }
 
-/* Month chips sit in a flex row, so a width and a margin are exactly the
-   right tools for the gap. */
+.schedule__calendar .rbc-event.calevent--booked {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px #1d4ed8;
+}
+
+.schedule__calendar .rbc-event.calevent--done {
+  background: #dcfce7;
+  color: #166534;
+  box-shadow: inset 0 0 0 1px #86efac;
+}
+
+/* The gap between two blocks stacked in a day column. `background-clip` is
+   what makes a transparent border read as space rather than as more block. */
+.schedule__calendar .rbc-day-slot .rbc-event {
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Month chips sit in a flex row, where a width and a margin are exactly the
+   right tools and change nothing that has to line up. */
 .schedule__calendar .rbc-month-view .rbc-event {
   margin: 1px 3px;
   width: calc(100% - 6px) !important;
-}
-
-/* Day and week blocks are not in a row. react-big-calendar gives each one an
-   inline `left` and `width` as percentages, worked out so two jobs at the
-   same hour tile inside their own day column.
-
-   The gap used to come from `width: calc(100% - 6px) !important`, which
-   overrode the width but could not override the `left` beside it — so on a
-   Monday with two jobs running at once the second block kept its offset,
-   took the full column's width from there, and was drawn 47px into Tuesday
-   on top of the job already there.
-
-   clip-path trims what gets painted without touching the box, so the gap
-   costs nothing that the layout depends on. */
-.schedule__calendar .rbc-day-slot .rbc-event {
-  clip-path: inset(0 3px 2px 0 round 8px);
 }
 
 /* What DayEvent renders inside a block. The name leads; the address and the
    crew are quieter lines under it. Everything clips rather than wraps out of
    the block — the grid's shape is load-bearing, and text that escapes it
    lands on the hour below. */
-.calevent {
+.dayevent {
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -544,14 +577,14 @@
   overflow: hidden;
 }
 
-.calevent__name {
+.dayevent__name {
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.calevent__line {
+.dayevent__line {
   font-size: var(--text-xs);
   font-weight: 500;
   opacity: 0.85;
@@ -569,9 +602,6 @@
   opacity: 0.85;
 }
 
-.schedule__calendar .rbc-day-slot .rbc-event {
-  border: none;
-}
 
 /* Add a little inset so adjacent events have visible separation */
 .schedule__calendar .rbc-day-slot .rbc-events-container {
@@ -999,7 +1029,11 @@
        stated height is the same on the first measurement as the last. */
     height: 20px;
     line-height: 16px;
-    box-shadow: none;
+    /* No `box-shadow: none` here, which is what used to sit on this line.
+       It was aimed at a drop shadow that no longer exists — the outline is
+       now an inset ring, and switching it off left four chips stacked in a
+       48px cell with no edges between them, reading as one solid block of
+       green. The ring is the only thing separating them at this size. */
   }
 
   /* One word, clipped with an ellipsis only if it's a very long one. */

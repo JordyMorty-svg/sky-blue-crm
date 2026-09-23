@@ -129,13 +129,13 @@ function MonthEvent({ event }) {
 function DayEvent({ event }) {
   const tall = (event.duration_hours || 0) >= 1.5;
   return (
-    <span className="calevent">
-      <span className="calevent__name">{event.title}</span>
+    <span className="dayevent">
+      <span className="dayevent__name">{event.title}</span>
       {tall && event.address && (
-        <span className="calevent__line">{event.address}</span>
+        <span className="dayevent__line">{event.address}</span>
       )}
       {tall && event.crew && (
-        <span className="calevent__line">{event.crew}</span>
+        <span className="dayevent__line">{event.crew}</span>
       )}
     </span>
   );
@@ -475,21 +475,22 @@ export default function Schedule() {
     };
   });
 
-  // Color events by status: scheduled = blue, completed = light green.
-  function eventStyle(event) {
-    const isDone = event.status === "completed";
-    return {
-      style: {
-        backgroundColor: isDone ? "#dcfce7" : "#2563eb",
-        color: isDone ? "#166534" : "#ffffff",
-        border: isDone ? "1px solid #86efac" : "1px solid #1d4ed8",
-        borderRadius: "8px",
-        padding: "2px 6px",
-        fontSize: "0.8rem",
-        fontWeight: 600,
-        boxShadow: "0 1px 2px rgba(15,23,42,0.12)",
-      },
-    };
+  // Colour events by status: scheduled = blue, completed = light green.
+  //
+  // A class, not an inline style. Every one of those nine inline properties
+  // was a thing competing with the four react-big-calendar sets itself —
+  // `top`, `height`, `left`, `width` — and one of them, a width override,
+  // is what used to push a second concurrent job into the next day.
+  //
+  // Keeping the look in one CSS rule is also the only way the three views
+  // can be guaranteed to match. They didn't: an earlier attempt at a gap
+  // between blocks used clip-path, which trimmed the right and bottom off
+  // the outline and took the drop shadow with it — so the same job had
+  // half an outline in Week and a whole one in Month, and Month read as
+  // the darker view.
+  function eventClass(event) {
+    const kind = event.status === "completed" ? "done" : "booked";
+    return { className: `calevent calevent--${kind}` };
   }
 
   return (
@@ -676,11 +677,7 @@ export default function Schedule() {
           )}
         </div>
       ) : (
-        // The view is on the wrapper because how much of the screen the
-        // calendar should take depends on it: seven columns want every
-        // pixel, one column wants a readable width rather than a
-        // 1,200px-wide rectangle. See Schedule.css.
-        <div className={`schedule__calendar schedule__calendar--${calView}`}>
+        <div className="schedule__calendar">
           <div className="schedule__legend">
             <span className="schedule__legend-item">
               <span className="schedule__legend-dot" style={{ background: "#2563eb" }} />
@@ -751,7 +748,7 @@ export default function Schedule() {
             // the crew is two people — when both are out at once, that's
             // the plan, not a clash.
             dayLayoutAlgorithm="no-overlap"
-            eventPropGetter={eventStyle}
+            eventPropGetter={eventClass}
             onSelectEvent={openEvent}
             onDrillDown={(date) => {
               pickCalDate(date);

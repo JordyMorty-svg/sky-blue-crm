@@ -37,24 +37,40 @@ const OUT_HTML = "verify/.calendar-page.html";
 
 /* --- the week under test ---------------------------------------------------
  *
- * Monday is the interesting day: two jobs overlapping in time is what makes
- * react-big-calendar lay a column out in two halves, and a half-width block
- * is the one the old CSS pushed into the next day. Tuesday is the ordinary
- * case, and it has to keep working — a fix that stops the spill by making
- * every block half a column wide would be no fix at all.
+ * Every date is derived from TODAY, because the calendar opens on today and
+ * a fixture pinned to a literal week stops testing anything the moment that
+ * week passes — it would still run, still pass, and be looking at an empty
+ * grid. An earlier version of this file was pinned to 21-23 September 2026
+ * and had about four days of life left in it.
  *
- * A Wednesday job runs one hour, under the threshold at which the Day view
- * adds an address line. A three-line block inside a 48px box would spill
- * over the hour below it, which is the same class of bug pointed downwards.
+ * Today carries the two jobs the Day view is about: one three-hour job, and
+ * one of an hour, which is under the threshold where the block gains an
+ * address line. Neither overlaps the other, so today is also the ordinary
+ * case for the week grid — every block gets its whole column.
+ *
+ * A neighbouring day carries two jobs running at the same time. That is what
+ * makes react-big-calendar split a column in half, and a half-width block is
+ * the one the old CSS pushed into the next day. It sits beside today rather
+ * than on it, and steps backwards instead of forwards in the one case where
+ * forwards would fall out of the week.
  */
 const FIXTURE = `
-function at(day, hour) {
-  return new Date(2026, 8, day, hour, 0, 0).toISOString();
+const today = new Date();
+
+// Saturday is the last column, so its neighbour has to be the day before.
+const NEIGHBOUR = today.getDay() === 6 ? -1 : 1;
+
+function at(offsetDays, hour) {
+  const d = new Date(today);
+  d.setDate(d.getDate() + offsetDays);
+  d.setHours(hour, 0, 0, 0);
+  return d.toISOString();
 }
-function job(id, day, hour, hours, name, status, address, crew) {
+
+function job(id, offset, hour, hours, name, status, address, crew) {
   return {
     id: String(id),
-    starts_at: at(day, hour),
+    starts_at: at(offset, hour),
     duration_hours: hours,
     status,
     customer: { name, address },
@@ -62,16 +78,14 @@ function job(id, day, hour, hours, name, status, address, crew) {
     assignments: (crew || []).map((full_name) => ({ tech: { full_name } })),
   };
 }
+
 export const JOBS = [
-  // Monday: two at once.
-  job(1, 21, 9, 3, "Chris Rule", "completed", "1200 NW Polk Ave, Corvallis, OR", ["Hayden"]),
-  job(2, 21, 11, 3, "Trish Roark", "completed", "455 SW Madison Ave, Corvallis, OR", ["Jordan"]),
-  // Tuesday: one after another, the ordinary day.
-  job(3, 22, 9, 3, "Susan", "completed", "2100 NW Harrison Blvd, Corvallis, OR", ["Jordan"]),
-  job(4, 22, 12, 3, "Tom Wolpert", "completed", "780 NW Kings Blvd, Corvallis, OR", []),
-  // Wednesday: what the Day view shows, including a short job.
-  job(5, 23, 9, 3, "Chris", "scheduled", "300 Benton View Dr, Philomath, OR 97370", ["Jordan", "Hayden"]),
-  job(6, 23, 13, 1, "Quick touch-up", "scheduled", "99 SE Crystal Lake Dr, Corvallis, OR", ["Hayden"]),
+  // Today. Three hours, then one hour, back to back but never at once.
+  job(1, 0, 9, 3, "Chris", "scheduled", "300 Benton View Dr, Philomath, OR 97370", ["Jordan", "Hayden"]),
+  job(2, 0, 13, 1, "Quick touch-up", "completed", "99 SE Crystal Lake Dr, Corvallis, OR", ["Hayden"]),
+  // Next door. Two crews out at the same time.
+  job(3, NEIGHBOUR, 9, 3, "Chris Rule", "completed", "1200 NW Polk Ave, Corvallis, OR", ["Hayden"]),
+  job(4, NEIGHBOUR, 11, 3, "Trish Roark", "completed", "455 SW Madison Ave, Corvallis, OR", ["Jordan"]),
 ];
 `;
 
@@ -185,11 +199,6 @@ async function open(view, width) {
   return page;
 }
 
-function box(el) {
-  const b = el.getBoundingClientRect();
-  return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, w: b.width, h: b.height };
-}
-
 async function geometry(page) {
   return page.evaluate(() => {
     const r = (el) => {
@@ -207,16 +216,61 @@ async function geometry(page) {
   });
 }
 
+// What a "completed" block actually looks like once the browser has resolved
+// every rule that claims a piece of it. Read rather than assumed, because the
+// bug this catches was one rule quietly overriding another.
+async function lookOfADoneEvent(page) {
+  return page.evaluate(() => {
+    const el = [...document.querySelectorAll(".rbc-event")].find((e) =>
+      e.className.includes("calevent--done")
+    );
+    if (!el) return null;
+    const s = getComputedStyle(el);
+    return {
+      background: s.backgroundColor,
+      color: s.color,
+      radius: s.borderTopLeftRadius,
+      // The outline. An inset ring, so that trimming for a gap can't cut it.
+      shadow: s.boxShadow,
+      // Anything other than "none" here means part of the block isn't being
+      // drawn — which is exactly how Week ended up with half an outline.
+      clip: s.clipPath,
+      padding: s.padding,
+      fontSize: s.fontSize,
+    };
+  });
+}
+
+// The card the calendar sits in. Pressing a view tab must not resize it.
+async function cardWidth(page) {
+  return page.evaluate(() =>
+    Math.round(document.querySelector(".schedule__calendar").getBoundingClientRect().width)
+  );
+}
+
 /* ---- week, at a desktop width -------------------------------------------- */
+
+const look = {};
+const cards = {};
 
 {
   const page = await open("week", 1440);
   const { cols } = await geometry(page);
+  look.week = await lookOfADoneEvent(page);
+  cards.week = await cardWidth(page);
 
   ok("the week draws seven day columns", cols.length === 7, `saw ${cols.length}`);
 
-  const monday = cols[1];
-  ok("Monday holds both of its jobs", monday.events.length === 2, `saw ${monday.events.length}`);
+  // Which columns hold what is worked out from the grid, not assumed: the
+  // fixture is anchored to today, so which weekday a job lands on depends on
+  // when the suite is run.
+  const withJobs = cols.filter((c) => c.events.length > 0);
+  ok("two days of the week have work on them", withJobs.length === 2, `saw ${withJobs.length}`);
+
+  function clash(a, b) {
+    // Blocks that share any vertical space are jobs running at the same time.
+    return a.top < b.bottom - 1 && b.top < a.bottom - 1;
+  }
 
   // THE POINT. The old rule let the second of two concurrent jobs run past
   // the right-hand edge of its own day, into the next one.
@@ -232,42 +286,62 @@ async function geometry(page) {
 
   // THE POINT. Staying inside the column is not enough on its own: two
   // blocks could both be inside it and still be drawn on top of each other,
-  // which is the thing that made the name unreadable.
-  const [a, b] = monday.events;
-  ok(
-    "THE POINT: Monday's two concurrent jobs are side by side, not stacked",
-    a.right <= b.left + 1 || b.right <= a.left + 1,
-    `${Math.round(a.left)}–${Math.round(a.right)} and ${Math.round(b.left)}–${Math.round(b.right)}`
-  );
-
-  // And the ordinary day still gets the whole column — a fix that halved
-  // every block would satisfy everything above and be worse than the bug.
-  const tuesday = cols[2];
-  for (const e of tuesday.events) {
-    ok(
-      "a day with no clash gives each job the full column",
-      e.w > tuesday.w * 0.8,
-      `${Math.round(e.w)}px of ${Math.round(tuesday.w)}px`
-    );
+  // which is what made the name unreadable.
+  let clashes = 0;
+  for (const c of cols) {
+    for (let i = 0; i < c.events.length; i += 1) {
+      for (let j = i + 1; j < c.events.length; j += 1) {
+        const a = c.events[i];
+        const b = c.events[j];
+        if (!clash(a, b)) continue;
+        clashes += 1;
+        ok(
+          "THE POINT: two jobs at the same hour are side by side, not stacked",
+          a.right <= b.left + 1 || b.right <= a.left + 1,
+          `${Math.round(a.left)}–${Math.round(a.right)} and ${Math.round(b.left)}–${Math.round(b.right)}`
+        );
+      }
+    }
   }
+
+  // Without this the loop above is satisfied by a week with nothing to lay
+  // out, which is exactly the state a stale fixture leaves behind.
+  ok("the week actually contains a clash to lay out", clashes === 1, `saw ${clashes}`);
+
+  // And a job with nothing running against it still gets the whole column —
+  // a fix that halved every block would satisfy everything above and be
+  // worse than the bug.
+  let solos = 0;
+  for (const c of cols) {
+    for (const e of c.events) {
+      if (c.events.some((o) => o !== e && clash(o, e))) continue;
+      solos += 1;
+      ok(
+        "a job with no clash gets the full column",
+        e.w > c.w * 0.8,
+        `${Math.round(e.w)}px of ${Math.round(c.w)}px`
+      );
+    }
+  }
+  ok("and the week contains one of those too", solos === 2, `saw ${solos}`);
 
   // The width fix. At 900px these columns were ~113px, which is where
   // "Tom Wolpert" wrapped onto two lines and longer names truncated.
   ok(
     "THE POINT: a week column is wide enough for a name at 1440px",
-    tuesday.w > 150,
-    `${Math.round(tuesday.w)}px`
+    cols[0].w > 150,
+    `${Math.round(cols[0].w)}px`
   );
 
   // The week block stays a name and a time. The address belongs to the Day
   // view, where there is room for it.
-  const weekText = tuesday.events.map((e) => e.text).join(" ");
+  const weekText = cols.flatMap((c) => c.events.map((e) => e.text)).join(" ");
   ok(
     "the week grid does not try to fit an address into 170px",
-    !weekText.includes("NW Harrison"),
+    !weekText.includes("Benton View"),
     weekText
   );
-  ok("the week grid shows the start time only", /9:00 AM(?!\s*–)/.test(weekText), weekText);
+  ok("the week grid shows the start time only", !weekText.includes("–"), weekText);
 
   await page.close();
 }
@@ -277,6 +351,8 @@ async function geometry(page) {
 {
   const page = await open("day", 1440);
   const { cols } = await geometry(page);
+  look.day = await lookOfADoneEvent(page);
+  cards.day = await cardWidth(page);
 
   ok("the day draws one column", cols.length === 1, `saw ${cols.length}`);
 
@@ -284,7 +360,7 @@ async function geometry(page) {
   const long = day.events.find((e) => e.text.includes("Chris"));
   const short = day.events.find((e) => e.text.includes("Quick touch-up"));
 
-  ok("the day shows both of Wednesday's jobs", !!long && !!short);
+  ok("the day shows both of today's jobs", !!long && !!short, day.events.map((e) => e.text).join(" | "));
 
   // THE POINT. The complaint that started this: a three-hour job in Day view
   // is a full-width, 144px-tall rectangle, and it held a name and nothing
@@ -310,15 +386,61 @@ async function geometry(page) {
     short.text
   );
 
-  // The day view is deliberately NOT widened — one column means every extra
-  // pixel goes into a wider empty rectangle.
+  await page.close();
+}
+
+/* ---- month, and then the three views against each other ------------------- */
+
+{
+  const page = await open("month", 1440);
+  look.month = await lookOfADoneEvent(page);
+  cards.month = await cardWidth(page);
+  await page.close();
+}
+
+{
+  ok("a completed block was found in every view", !!look.day && !!look.week && !!look.month, JSON.stringify(look));
+
+  // THE POINT. Pressing a view tab used to resize the card: Day was held at
+  // 900px while Week and Month went to 1360, so the whole page jumped when
+  // you switched. The tabs change what's in the frame, not the frame.
   ok(
-    "the day column is not stretched across the whole screen",
-    day.w < 900,
-    `${Math.round(day.w)}px`
+    "THE POINT: the card is the same width in all three views",
+    cards.day === cards.week && cards.week === cards.month,
+    JSON.stringify(cards)
   );
 
-  await page.close();
+  // THE POINT. The same job has to look the same whichever view you're in.
+  // It didn't: a clip-path meant to leave a gap trimmed the right and bottom
+  // off the block in Day and Week, taking the outline and the drop shadow
+  // with it — so Month, the only view drawing the block completely, read as
+  // the darker one.
+  for (const prop of ["background", "color", "radius", "shadow", "padding", "fontSize"]) {
+    ok(
+      `THE POINT: a finished job's ${prop} is the same in Day, Week and Month`,
+      look.day?.[prop] === look.week?.[prop] && look.week?.[prop] === look.month?.[prop],
+      `day ${look.day?.[prop]} | week ${look.week?.[prop]} | month ${look.month?.[prop]}`
+    );
+  }
+
+  // THE POINT, at the mechanism. Equal computed values above could still be
+  // equal-and-both-clipped; this is the one that says the whole block is
+  // drawn, outline included.
+  for (const view of ["day", "week", "month"]) {
+    ok(
+      `THE POINT: nothing is trimmed off the block in ${view}`,
+      look[view]?.clip === "none",
+      look[view]?.clip
+    );
+  }
+
+  // And the outline is a ring inside the box, which is what makes it
+  // survivable: a border would have to fight the inline sizing.
+  ok(
+    "the outline is an inset ring, not a border",
+    look.week?.shadow?.includes("inset"),
+    look.week?.shadow
+  );
 }
 
 /* ---- the phone, which must not have changed ------------------------------- */
@@ -338,6 +460,19 @@ async function geometry(page) {
   );
   ok("nothing pushes the page sideways on a phone", !spill);
 
+  // Month is the one grid that survives a phone, and its chips are 20px tall
+  // and stacked with no vertical margin — so their outline is the only thing
+  // separating one job from the next. A `box-shadow: none` left over from
+  // when the outline was a drop shadow turned four jobs in a day into one
+  // solid block of green.
+  await page.getByRole("button", { name: /^month$/i }).click();
+  await page.waitForTimeout(250);
+  const chip = await page.evaluate(() => {
+    const el = document.querySelector(".rbc-month-view .rbc-event");
+    return el ? getComputedStyle(el).boxShadow : null;
+  });
+  ok("THE POINT: a month chip keeps its outline on a phone", !!chip && chip.includes("inset"), chip);
+
   await page.close();
 }
 
@@ -348,5 +483,3 @@ await browser.close();
 console.log(`${passed} passed, ${failures.length} failed`);
 for (const f of failures) console.log(`  FAIL  ${f}`);
 process.exit(failures.length ? 1 : 0);
-
-void box;
