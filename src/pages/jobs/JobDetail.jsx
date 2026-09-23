@@ -24,7 +24,7 @@ export default function JobDetail() {
   const navigate = useNavigate();
   // Where to return to. Set by whoever linked here; the Jobs board is the
   // default because that's where most job links come from.
-  const { state } = useLocation();
+  const { pathname, state } = useLocation();
   const returnTo = state?.from || "/jobs";
   const returnLabel = returnTo.startsWith("/customers")
     ? "← Back to customer"
@@ -103,6 +103,11 @@ export default function JobDetail() {
   // extraBooking in ScheduleForCustomer: the early returns below would
   // otherwise leave it in the temporal dead zone on renders that bail out.
   const isCancelled = job?.status === "cancelled";
+
+  // A job booked straight off a lead has no customer row yet, and there is
+  // nothing to link to until it's completed. The card stays a plain card in
+  // that case rather than offering a press that goes nowhere.
+  const customerLink = job?.customer_id ? `/customers/${job.customer_id}` : null;
 
   async function handleSave() {
     setError("");
@@ -204,11 +209,39 @@ export default function JobDetail() {
         {job.lead?.name || job.customer?.name || "Job"}
       </h1>
 
-      <div className="jobDetail__lead">
-        <span>{job.lead?.address || job.customer?.address || "No address"}</span>
-        <span>{job.lead?.phone || job.customer?.phone}</span>
-        <span>{job.services}</span>
-      </div>
+      {/* Address, phone, services — and, when there's a customer behind the
+          job, a way through to them.
+
+          Everything this card doesn't say lives on the customer: the gate
+          code, what they were charged last time, whether they're on a plan,
+          the note about the dog. Reading a job and wanting that is common
+          enough that the card is the obvious place to press, so it may as
+          well go somewhere.
+
+          `pathname` rather than "/jobs/:id" so the customer's back arrow
+          returns to this job, and `state` so the job's own back arrow still
+          knows where it came from. A job reached from the calendar keeps
+          the calendar behind it all the way down. */}
+      {customerLink ? (
+        <button
+          type="button"
+          className="jobDetail__lead jobDetail__lead--link"
+          onClick={() =>
+            navigate(customerLink, { state: { from: pathname, fromState: state } })
+          }
+        >
+          <span>{job.lead?.address || job.customer?.address || "No address"}</span>
+          <span>{job.lead?.phone || job.customer?.phone}</span>
+          <span>{job.services}</span>
+          <span className="jobDetail__leadgo">View customer →</span>
+        </button>
+      ) : (
+        <div className="jobDetail__lead">
+          <span>{job.lead?.address || job.customer?.address || "No address"}</span>
+          <span>{job.lead?.phone || job.customer?.phone}</span>
+          <span>{job.services}</span>
+        </div>
+      )}
 
       {error && <p className="jobDetail__error">{error}</p>}
 

@@ -49,6 +49,40 @@
   color: #475569;
 }
 
+/* The same card, when it's a way through to the customer. A <button>
+   inherits none of the text settings a <div> gets for free, so they're
+   restated rather than assumed — and `text-align` especially, because a
+   button centres its contents and the three lines would stop lining up
+   with everything else on the page. */
+.jobDetail__lead--link {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: var(--text-base);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .jobDetail__lead--link:hover {
+    border-color: #2563eb;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+  }
+}
+
+.jobDetail__lead--link:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Says where the press goes. Quiet — the card is information first and a
+   link second. */
+.jobDetail__leadgo {
+  margin-top: 4px;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: var(--text-md);
+}
+
 .jobDetail__error {
   color: #dc2626;
   font-size: var(--text-base);

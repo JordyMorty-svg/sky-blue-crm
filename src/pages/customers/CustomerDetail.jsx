@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   fetchCustomer,
   updateCustomer,
@@ -55,6 +55,27 @@ function formatDue(iso) {
 export default function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+
+  /* Where "back" goes.
+   *
+   * The customer list is the default because that's where most links here
+   * come from, but a job links here too, and landing on the customer list
+   * from a job you were reading is a dead end — the job is gone and you
+   * have to find it again.
+   *
+   * `fromState` is the state of the page that sent us, handed back when we
+   * return to it. A job's own "back" is in its state, so carrying it means
+   * Calendar -> job -> customer -> back -> job -> back lands on the
+   * calendar, not on the jobs board. */
+  const { state } = useLocation();
+  const returnTo = state?.from || "/customers";
+  const returnState = state?.fromState;
+  const returnLabel = returnTo.startsWith("/jobs")
+    ? "← Back to job"
+    : returnTo.startsWith("/schedule")
+      ? "← Back to schedule"
+      : "← Back to customers";
+
   const [customer, setCustomer] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [leadNotes, setLeadNotes] = useState([]);
@@ -334,8 +355,18 @@ export default function CustomerDetail() {
 
   return (
     <div className="custdetail">
-      <button className="custdetail__back" onClick={() => navigate("/customers")}>
-        ← Back to customers
+      {/* The edit form is this same page with its fields opened up, not a
+          page of its own — so while it's open, back means "put it away and
+          give me the customer again". Leaving for the customer list from
+          here is the one thing nobody wants: you came to change a phone
+          number and you're thrown back to the top of the list. */}
+      <button
+        className="custdetail__back"
+        onClick={() =>
+          editing ? handleCancel() : navigate(returnTo, { state: returnState })
+        }
+      >
+        {editing ? `← Back to ${customer.name}` : returnLabel}
       </button>
 
       {error && <p className="customers__error">{error}</p>}

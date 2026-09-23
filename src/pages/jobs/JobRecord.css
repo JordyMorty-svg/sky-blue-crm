@@ -61,6 +61,26 @@
   margin: 0;
 }
 
+/* Through to the customer behind this job. */
+.jobrec__whogo {
+  display: inline-block;
+  margin-top: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2563eb;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .jobrec__whogo:hover {
+    text-decoration: underline;
+  }
+}
+
 .jobrec__status {
   flex-shrink: 0;
   font-size: var(--text-xs);

@@ -50,7 +50,7 @@ function formatWhen(iso) {
 export default function JobRecord() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { state } = useLocation();
+  const { pathname, state } = useLocation();
 
   // Whoever linked here says where "back" goes. Jobs board is the default.
   const returnTo = state?.from || "/jobs";
@@ -202,6 +202,29 @@ export default function JobRecord() {
         <div>
           <h1 className="jobrec__title">{name}</h1>
           {address && <p className="jobrec__address">{address}</p>}
+          {/* Same move as JobDetail's card: from a finished job, the rest of
+              what the CRM knows about this person is one press away.
+
+              A link beside the name rather than the name itself being the
+              link — a <button> can't hold an <h1>, and the heading is worth
+              more than the convenience of pressing it.
+
+              `pathname` and `state` are what let the calendar stay behind
+              the job: Calendar -> record -> customer -> back -> record ->
+              back lands on the calendar, not on the jobs board. */}
+          {job.customer_id && (
+            <button
+              type="button"
+              className="jobrec__whogo"
+              onClick={() =>
+                navigate(`/customers/${job.customer_id}`, {
+                  state: { from: pathname, fromState: state },
+                })
+              }
+            >
+              View customer →
+            </button>
+          )}
         </div>
         <span className={`jobrec__status jobrec__status--${job.status}`}>
           {job.status === "completed" ? "Completed" : job.status}

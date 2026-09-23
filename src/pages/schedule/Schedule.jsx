@@ -75,6 +75,15 @@ const CAL_FORMATS = {
   weekdayFormat: (date) => format(date, "EEE"),
 };
 
+// Day view has one column and the whole page to draw it in, so the argument
+// above doesn't apply: there is room for the finish time, and knowing when
+// you're free again is most of why you open a single day.
+const DAY_FORMATS = {
+  ...CAL_FORMATS,
+  eventTimeRangeFormat: ({ start, end }) =>
+    `${format(start, "h:mm a")} – ${format(end, "h:mm a")}`,
+};
+
 const DAY_MIN = new Date(1970, 0, 1, 7, 0, 0);
 const DAY_MAX = new Date(1970, 0, 1, 21, 0, 0);
 
@@ -103,6 +112,33 @@ function formatTime(iso) {
 function MonthEvent({ event }) {
   const first = String(event?.title || "").trim().split(/\s+/)[0] || "Job";
   return <span className="rbcmonth__label">{first}</span>;
+}
+
+// Inside a block on the Day grid.
+//
+// One day is one column, and one column is the width of the page — so a
+// three-hour job was a 780x144 rectangle containing a name and a start time
+// in its top-left corner and nothing else. The block is that size whatever
+// we put in it; the only question is whether it says anything.
+//
+// Who, where, and who's going are the three things you open a day to check,
+// and the grid itself has already answered when. The address and the crew
+// go in whenever the block is tall enough for the extra lines — an hour and
+// a half of work — because clipping a street name halfway through is worse
+// than not starting it.
+function DayEvent({ event }) {
+  const tall = (event.duration_hours || 0) >= 1.5;
+  return (
+    <span className="calevent">
+      <span className="calevent__name">{event.title}</span>
+      {tall && event.address && (
+        <span className="calevent__line">{event.address}</span>
+      )}
+      {tall && event.crew && (
+        <span className="calevent__line">{event.crew}</span>
+      )}
+    </span>
+  );
 }
 
 // The toolbar for the phone list views. Same markup and classes as the
@@ -325,8 +361,12 @@ export default function Schedule() {
   const calComponents = useMemo(
     () =>
       isNarrow
-        ? { toolbar: CalendarToolbar, month: { event: MonthEvent } }
-        : { toolbar: CalendarToolbar },
+        ? {
+            toolbar: CalendarToolbar,
+            day: { event: DayEvent },
+            month: { event: MonthEvent },
+          }
+        : { toolbar: CalendarToolbar, day: { event: DayEvent } },
     [isNarrow]
   );
   const [calDate, setCalDate] = useState(
@@ -417,8 +457,14 @@ export default function Schedule() {
       end,
       status: j.status,
       duration_hours: j.duration_hours || 3,
-      // Only used by the mobile week list, where there's room for it.
+      // Read by the phone's week list and by the Day grid, both of which
+      // have room for a second line. The week grid does not, and doesn't
+      // ask for it.
       address: j.customer?.address || j.lead?.address || "",
+      crew: (j.assignments || [])
+        .map((a) => a.tech?.full_name)
+        .filter(Boolean)
+        .join(", "),
     };
   });
 
@@ -569,7 +615,11 @@ export default function Schedule() {
           )}
         </div>
       ) : (
-        <div className="schedule__calendar">
+        // The view is on the wrapper because how much of the screen the
+        // calendar should take depends on it: seven columns want every
+        // pixel, one column wants a readable width rather than a
+        // 1,200px-wide rectangle. See Schedule.css.
+        <div className={`schedule__calendar schedule__calendar--${calView}`}>
           <div className="schedule__legend">
             <span className="schedule__legend-item">
               <span className="schedule__legend-dot" style={{ background: "#2563eb" }} />
@@ -631,9 +681,15 @@ export default function Schedule() {
             date={calDate}
             onNavigate={pickCalDate}
             views={["day", "week", "month"]}
-            formats={CAL_FORMATS}
+            formats={calView === "day" ? DAY_FORMATS : CAL_FORMATS}
             min={DAY_MIN}
             max={DAY_MAX}
+            // Two jobs at the same hour split the column down the middle
+            // instead of the second being laid over the first at an offset.
+            // Overlapping blocks are how a calendar says "these clash", and
+            // the crew is two people — when both are out at once, that's
+            // the plan, not a clash.
+            dayLayoutAlgorithm="no-overlap"
             eventPropGetter={eventStyle}
             onSelectEvent={openEvent}
             onDrillDown={(date) => {
