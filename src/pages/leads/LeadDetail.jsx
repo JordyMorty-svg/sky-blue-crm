@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import AddressPicker from "../../components/AddressPicker";
 import {
   fetchLead,
   fetchLeadEvents,
@@ -128,6 +129,11 @@ export default function LeadDetail() {
         phone: form.phone || null,
         email: form.email || null,
         address: form.address || null,
+        // Named explicitly, like everything else here — see the comment
+        // below. Without these two the picker would appear to work and the
+        // pin would revert on reload.
+        latitude: form.latitude ?? null,
+        longitude: form.longitude ?? null,
         stories: form.stories,
         windows: Number(form.windows) || 1,
         interior: form.interior,
@@ -322,8 +328,19 @@ export default function LeadDetail() {
         </Field>
 
         <Field label="Address" full>
-          <input className="detail__input" value={form.address || ""}
-            onChange={(e) => set("address", e.target.value)} />
+          <AddressPicker
+            value={form.address || ""}
+            inputClassName="detail__input"
+            placeholder="Start typing an address…"
+            onChange={({ address, latitude, longitude }) => {
+              setForm((f) => ({ ...f, address, latitude, longitude }));
+            }}
+            // Text alone does not clear the coordinates. This is an EDIT
+            // form: the lead may already have a pin from the map or the
+            // website, and fixing a typo in the street name would otherwise
+            // throw it away. Picking a suggestion is how you move a pin.
+            onTextChange={(text) => set("address", text)}
+          />
         </Field>
 
         <Field label="Stories">

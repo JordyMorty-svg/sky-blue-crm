@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createLead, TEMPERATURES } from "../../services/leadService";
 import { useAuth } from "../../context/useAuth";
 import { defaultSourceFor } from "../../components/capabilities";
+import AddressPicker from "../../components/AddressPicker";
 import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO } from "../../components/appointmentUtils";
 import "../../components/AddLeadModal.css";
@@ -12,6 +13,18 @@ export default function MapAddLeadModal({ location, onClose, onCreated }) {
   const { user, profile } = useAuth();
   const [name, setName] = useState("");
   const [address, setAddress] = useState(location.address || "");
+  // Where the lead actually is. Starts as the point the rep tapped on the
+  // map, which is the most reliable thing we have — they are standing there.
+  //
+  // Picking an address from the list REPLACES it, because the reverse
+  // geocode that filled the box is a guess and can snap to the neighbour;
+  // an address chosen deliberately is better evidence than a tap.
+  //
+  // Typing free text does NOT clear it, which is the opposite of what the
+  // other forms do. There the coordinates came from the address, so stale
+  // text means stale coordinates. Here they came from the map, so they are
+  // still true no matter what gets typed in the box.
+  const [coords, setCoords] = useState({ lat: location.lat, lng: location.lng });
   const [phone, setPhone] = useState("");
   const [estimate, setEstimate] = useState("");
   const [temperature, setTemperature] = useState("");
@@ -47,8 +60,8 @@ export default function MapAddLeadModal({ location, onClose, onCreated }) {
           name: name.trim(),
           address: address.trim(),
           phone: phone.trim(),
-          latitude: location.lat,
-          longitude: location.lng,
+          latitude: coords.lat,
+          longitude: coords.lng,
           stories: "one",
           windows: 1,
           interior: false,
@@ -111,11 +124,15 @@ export default function MapAddLeadModal({ location, onClose, onCreated }) {
           />
 
           <label className="modal__label">Address</label>
-          <input
-            className="modal__input"
+          <AddressPicker
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
+            inputClassName="modal__input"
             placeholder="Address"
+            onChange={({ address: picked, latitude, longitude }) => {
+              setAddress(picked);
+              setCoords({ lat: latitude, lng: longitude });
+            }}
+            onTextChange={setAddress}
           />
 
           <label className="modal__label">Phone</label>

@@ -103,19 +103,19 @@ function installPlaces({ delayFor = () => 0 } = {}) {
         calls.push(req);
         const wait = delayFor(req.input);
         if (wait) await sleep(wait);
+        // Three of them, so the keyboard has somewhere to go and wrapping
+        // round the ends is observable.
         return {
-          suggestions: [
-            {
-              placePrediction: {
-                text: { text: `${req.input} — Corvallis, OR` },
-                toPlace: () => ({
-                  formattedAddress: `${req.input}, Corvallis, OR 97330`,
-                  location: { lat: () => 44.59, lng: () => -123.24 },
-                  async fetchFields() {},
-                }),
-              },
+          suggestions: ["Corvallis", "Albany", "Philomath"].map((town) => ({
+            placePrediction: {
+              text: { text: `${req.input} — ${town}, OR` },
+              toPlace: () => ({
+                formattedAddress: `${req.input}, ${town}, OR 97330`,
+                location: { lat: () => 44.59, lng: () => -123.24 },
+                async fetchFields() {},
+              }),
             },
-          ],
+          })),
         };
       },
     },
@@ -123,7 +123,7 @@ function installPlaces({ delayFor = () => 0 } = {}) {
   return calls;
 }
 
-async function mount() {
+async function mount(extraProps = {}) {
   // A fresh container per mount. Reusing one and calling createRoot on it
   // again warns, and leaves the previous root attached to the same node.
   const host = dom.window.document.createElement("div");
@@ -136,10 +136,11 @@ async function mount() {
         value: "",
         onChange: (v) => (state.address = v),
         onTextChange: (t) => (state.text = t),
+        ...extraProps,
       })
     );
   });
-  const input = host.querySelector(".addresspicker__input");
+  const input = host.querySelector("input");
   return { host, input, state, root };
 }
 
@@ -271,7 +272,7 @@ console.log("\n-- the things that must not have changed --\n");
     await sleep(400);
   });
 
-  chk("the dropdown appears", host.querySelectorAll(".addresspicker__option").length === 1);
+  chk("the dropdown appears", host.querySelectorAll(".addresspicker__option").length === 3);
   chk("typing still reports the text to the form as it goes",
     state.text === "1014 NE Diane Pl", state.text);
 
@@ -316,6 +317,146 @@ console.log("\n-- the things that must not have changed --\n");
     await sleep(400);
   });
   chk("a pending search is cancelled when the form closes", calls.length === 0);
+}
+
+
+// ---------------------------------------------------------------------------
+console.log("\n-- the keyboard --\n");
+
+async function press(input, key) {
+  await act(async () => {
+    input.dispatchEvent(
+      new dom.window.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true })
+    );
+  });
+}
+
+{
+  installPlaces();
+  const { host, input } = await mount();
+  await typeInto(input, "1014 NE");
+  await act(async () => {
+    await sleep(400);
+  });
+
+  chk("the input announces itself as a combobox",
+    input.getAttribute("role") === "combobox" &&
+      input.getAttribute("aria-expanded") === "true" &&
+      host.querySelector(".addresspicker__menu")?.getAttribute("role") === "listbox");
+
+  chk("nothing is highlighted before a key is pressed",
+    input.getAttribute("aria-activedescendant") === null,
+    "otherwise Enter would pick a row the person never chose");
+
+  await press(input, "ArrowDown");
+  const first = input.getAttribute("aria-activedescendant");
+  chk("arrowing down highlights a row, and names it for a screen reader",
+    Boolean(first) && Boolean(dom.window.document.getElementById(first)));
+  chk("the highlighted row is marked as such",
+    host.querySelector(".addresspicker__option--active")?.textContent.includes("Corvallis"));
+
+  await press(input, "ArrowDown");
+  chk("and again moves on",
+    host.querySelector(".addresspicker__option--active")?.textContent.includes("Albany"));
+
+  await press(input, "ArrowUp");
+  chk("up goes back",
+    host.querySelector(".addresspicker__option--active")?.textContent.includes("Corvallis"));
+
+  await press(input, "ArrowUp");
+  chk("and wraps round to the last one rather than sticking",
+    host.querySelector(".addresspicker__option--active")?.textContent.includes("Philomath"));
+
+  await press(input, "Escape");
+  chk("Escape closes the list",
+    host.querySelectorAll(".addresspicker__option").length === 0 &&
+      input.getAttribute("aria-expanded") === "false");
+}
+
+{
+  installPlaces();
+  const { host, input, state } = await mount();
+  await typeInto(input, "1014 NE");
+  await act(async () => {
+    await sleep(400);
+  });
+
+  await press(input, "ArrowDown");
+  await press(input, "ArrowDown");
+  await press(input, "Enter");
+  await act(async () => {
+    await sleep(50);
+  });
+
+  chk("THE POINT: Enter picks the highlighted row",
+    state.address?.address?.includes("Albany"), JSON.stringify(state.address));
+  chk("...with its coordinates, same as clicking",
+    state.address?.latitude === 44.59 && state.address?.longitude === -123.24);
+  chk("and the list closes",
+    host.querySelectorAll(".addresspicker__option").length === 0);
+}
+
+{
+  // The case that makes Enter tricky: a half-typed address with the list
+  // open but nothing highlighted. Enter must reach the form, not be eaten.
+  installPlaces();
+  const { input } = await mount();
+  await typeInto(input, "1014 NE");
+  await act(async () => {
+    await sleep(400);
+  });
+
+  let defaultPrevented = null;
+  await act(async () => {
+    const ev = new dom.window.KeyboardEvent("keydown", {
+      key: "Enter", bubbles: true, cancelable: true,
+    });
+    input.dispatchEvent(ev);
+    defaultPrevented = ev.defaultPrevented;
+  });
+
+  chk("THE POINT: Enter with nothing highlighted still submits the form",
+    defaultPrevented === false,
+    "swallowing it would make the form feel broken for anyone not using the list");
+}
+
+{
+  // Highlight a row, then keep typing. The new suggestions are a different
+  // list; carrying the old index over means the highlight points at an
+  // address nobody chose — and if the new list is shorter, at nothing at
+  // all, which Enter then tries to select.
+  installPlaces();
+  const { host, input } = await mount();
+  await typeInto(input, "1014 NE");
+  await act(async () => {
+    await sleep(400);
+  });
+
+  await press(input, "ArrowDown");
+  await press(input, "ArrowDown");
+  chk("a row is highlighted to begin with",
+    input.getAttribute("aria-activedescendant") !== null);
+
+  await typeInto(input, " Diane");
+  await act(async () => {
+    await sleep(400);
+  });
+
+  chk("THE POINT: new suggestions clear the highlight",
+    input.getAttribute("aria-activedescendant") === null &&
+      host.querySelector(".addresspicker__option--active") === null,
+    "a carried-over index highlights a row the person never looked at");
+}
+
+// ---------------------------------------------------------------------------
+console.log("\n-- borrowed styling --\n");
+
+{
+  installPlaces();
+  const { host } = await mount({ inputClassName: "detail__input" });
+  chk("a host page can keep its own field styling",
+    Boolean(host.querySelector("input.detail__input")),
+    "LeadDetail and the map modal both need their own input class");
 }
 
 console.log(bad === 0 ? "\nall ok — AddressPicker holds\n" : `\n${bad} FAILED\n`);

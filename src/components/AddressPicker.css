@@ -55,3 +55,12 @@
     color: #2563eb;
   }
 }
+
+/* Set from JavaScript for both the keyboard and the mouse, so arrowing down
+   and moving the pointer can never leave two rows looking chosen at once.
+   Not gated behind (hover: hover) like the rule above, because nothing here
+   is a :hover — it is state the component owns. */
+.addresspicker__option--active {
+  background: #eff6ff;
+  color: #2563eb;
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useId, useRef, useCallback } from "react";
 import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import "./AddressPicker.css";
 
@@ -38,11 +38,20 @@ export default function AddressPicker({
   onChange,
   onTextChange,
   placeholder = "Start typing an address…",
+  // Lets a host page keep its own field styling. LeadDetail's inputs are
+  // .detail__input and the map modal's are .modal__input; without this the
+  // picker would arrive looking like a different app's control.
+  inputClassName = "addresspicker__input",
 }) {
   const placesLib = useMapsLibrary("places");
   const [inputValue, setInputValue] = useState(value || "");
   const [suggestions, setSuggestions] = useState([]);
   const [open, setOpen] = useState(false);
+  // Which row the keyboard is on. -1 is "none", which is what Enter needs to
+  // see so that Enter on a half-typed address still submits the form instead
+  // of being swallowed by a list nobody is navigating.
+  const [active, setActive] = useState(-1);
+  const listId = useId();
   const sessionTokenRef = useRef(null);
   const containerRef = useRef(null);
   const timerRef = useRef(null);
@@ -108,6 +117,7 @@ export default function AddressPicker({
         if (mine !== seqRef.current) return;
 
         setSuggestions(results || []);
+        setActive(-1);
         setOpen((results || []).length > 0);
       } catch (err) {
         if (mine !== seqRef.current) return;
@@ -117,6 +127,26 @@ export default function AddressPicker({
       }
     }, DEBOUNCE_MS);
   }, []);
+
+  function handleKeyDown(e) {
+    if (!open || suggestions.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((i) => (i + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (e.key === "Enter") {
+      // Only swallowed when a row is highlighted — see `active` above.
+      if (active >= 0) {
+        e.preventDefault();
+        handleSelect(suggestions[active]);
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  }
 
   function handleInput(e) {
     const text = e.target.value;
@@ -153,20 +183,36 @@ export default function AddressPicker({
   return (
     <div className="addresspicker" ref={containerRef}>
       <input
-        className="addresspicker__input"
+        className={inputClassName}
         value={inputValue}
         onChange={handleInput}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         autoComplete="off"
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
       />
       {open && suggestions.length > 0 && (
-        <ul className="addresspicker__menu">
+        <ul className="addresspicker__menu" id={listId} role="listbox">
           {suggestions.map((s, i) => (
             <li
               key={i}
-              className="addresspicker__option"
+              id={`${listId}-${i}`}
+              role="option"
+              aria-selected={i === active}
+              className={`addresspicker__option ${
+                i === active ? "addresspicker__option--active" : ""
+              }`}
+              // Stays onClick rather than onMouseDown: there is no blur
+              // handler racing it here (outside clicks are caught on
+              // document), and onClick is the one that has been working on
+              // the phones this is used from.
               onClick={() => handleSelect(s)}
+              onMouseEnter={() => setActive(i)}
             >
               {s.placePrediction?.text?.text || "Unknown"}
             </li>
