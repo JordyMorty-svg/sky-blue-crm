@@ -57,6 +57,17 @@ begin
 end $$;
 
 -- How many rows `who` can actually see in `tbl`.
+--
+-- Returns 0 when the read is refused outright, because there are two ways to
+-- see nothing and the question here does not care which:
+--
+--   * RLS filtered every row away — the read succeeds, returns 0.
+--   * The GRANT was revoked — the read raises "permission denied".
+--
+-- db/rls-phase-1b.sql revokes anon's access to views, so the view assertions
+-- take the second path while the table assertions take the first. Treating
+-- an exception as anything other than "saw nothing" made this suite error
+-- out on a view that was correctly locked.
 create or replace function visible(who text, uid text, tbl text)
 returns bigint language plpgsql as $$
 declare n bigint;
@@ -66,6 +77,10 @@ begin
   execute format('select count(*) from public.%I', tbl) into n;
   execute 'reset role';
   return n;
+exception
+  when others then
+    execute 'reset role';
+    return 0;
 end $$;
 
 \set ADMIN   '''11111111-1111-1111-1111-111111111111'''
@@ -237,7 +252,46 @@ begin
     blocked('authenticated', '99999999-9999-9999-9999-999999999999',
       $q$delete from public.leads$q$));
 
-  perform chk('sb_role() names the signed-in person''s role', true);
+  -- =========================================================================
+  raise notice '';
+  raise notice '-- views, the window beside the locked door --';
+  raise notice '';
+
+  -- A view has no policies of its own and by default runs as its owner, who
+  -- bypasses RLS. Locking `leads` while leaving lead_status_age readable by
+  -- anon would hand out every lead it selects. Only meaningful once
+  -- verify/rls-legacy.sql has created the view; skipped otherwise.
+  if to_regclass('public.lead_status_age') is not null then
+    perform chk('THE POINT: anon cannot read leads through a view either',
+      visible('anon', null, 'lead_status_age') = 0,
+      format('saw %s rows through lead_status_age',
+             visible('anon', null, 'lead_status_age')));
+
+    perform chk('but a signed-in user still can — the Leads board needs it',
+      visible('authenticated', tech_id, 'lead_status_age') >= 1);
+
+    -- A STRUCTURAL check, and flagged as one because it is weaker than the
+    -- rest of this file: it inspects a setting rather than trying to get
+    -- past it.
+    --
+    -- Removing security_invoker breaks nothing today — every signed-in user
+    -- may read every lead in pass 1, so a view running as its owner returns
+    -- the same rows either way, and no behavioural assertion can tell the
+    -- difference. It starts mattering the moment pass 2 narrows what a rep
+    -- can read, at which point a view without it becomes the way around
+    -- every policy written. Mutation testing found exactly this: dropping
+    -- the line changed no observable behaviour.
+    --
+    -- So it is pinned here now, while the reason is fresh, rather than
+    -- discovered missing later.
+    if current_setting('server_version_num')::int >= 150000 then
+      perform chk('and the view is set to run as the caller (load-bearing in pass 2)',
+        (select 'security_invoker=true' = any (coalesce(c.reloptions, array[]::text[]))
+           from pg_class c
+          where c.relname = 'lead_status_age' and c.relkind = 'v'),
+        'without it, a view is a way to read rows the policies refuse');
+    end if;
+  end if;
 
   raise notice '';
 end;

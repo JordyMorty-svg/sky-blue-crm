@@ -9,7 +9,30 @@ import "./AddressPicker.css";
  *
  * onChange({ address, latitude, longitude }) when a suggestion is picked.
  * onTextChange(text) as the user types.
+ *
+ * ---------------------------------------------------------------------------
+ * Why the typing is throttled
+ * ---------------------------------------------------------------------------
+ *
+ * This used to call Google on every keystroke, starting at one character. A
+ * rep typing "1014 NE Diane Pl" at a door sent seventeen billable autocomplete
+ * requests where four would do, and a single character matches most of the
+ * country so the first few were never useful anyway.
+ *
+ * Nothing broke, which is what makes it worth a comment: the only symptom of
+ * that bug is a bill. Sky Blue is well inside Google's free allowance either
+ * way, so this is not a fix for a problem that was hurting — it is one that
+ * stops the cost scaling with the number of leads knocked.
+ *
+ * The same reasoning as the session token below: both exist because Google
+ * charges for something you cannot see happening.
  */
+
+// Three characters before asking, and a quarter-second of quiet after the
+// last one. Long enough to collapse a burst of typing into one request,
+// short enough that the list still feels like it is keeping up.
+const MIN_CHARS = 3;
+const DEBOUNCE_MS = 250;
 export default function AddressPicker({
   value,
   onChange,
@@ -22,13 +45,26 @@ export default function AddressPicker({
   const [open, setOpen] = useState(false);
   const sessionTokenRef = useRef(null);
   const containerRef = useRef(null);
+  const timerRef = useRef(null);
+  // Read inside the debounced callback rather than captured in its closure:
+  // the library can finish loading between a keystroke and the request it
+  // schedules, and a stale closure would skip that first real search.
+  const libRef = useRef(null);
+  // Guards against out-of-order replies. On a phone in a driveway a slow
+  // response for "1014 N" can land after a fast one for "1014 NE Diane" and
+  // replace the right suggestions with stale ones.
+  const seqRef = useRef(0);
 
   // Create a session token once the library is ready (and after each select).
   useEffect(() => {
+    libRef.current = placesLib ?? null;
     if (placesLib && !sessionTokenRef.current) {
       sessionTokenRef.current = new placesLib.AutocompleteSessionToken();
     }
   }, [placesLib]);
+
+  // A pending request must not fire after the form has gone.
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
   useEffect(() => {
     function onClickOutside(e) {
@@ -40,13 +76,25 @@ export default function AddressPicker({
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  const fetchSuggestions = useCallback(
-    async (text) => {
-      if (!placesLib || !text) {
-        setSuggestions([]);
-        setOpen(false);
-        return;
+  const fetchSuggestions = useCallback((text) => {
+    // Any keystroke cancels the request the previous one was about to make.
+    clearTimeout(timerRef.current);
+
+    if (text.trim().length < MIN_CHARS) {
+      setSuggestions([]);
+      setOpen(false);
+      return;
+    }
+
+    timerRef.current = setTimeout(async () => {
+      const lib = libRef.current;
+      if (!lib) return;
+
+      if (!sessionTokenRef.current) {
+        sessionTokenRef.current = new lib.AutocompleteSessionToken();
       }
+
+      const mine = ++seqRef.current;
       try {
         const request = {
           input: text,
@@ -54,17 +102,21 @@ export default function AddressPicker({
           includedRegionCodes: ["us"],
         };
         const { suggestions: results } =
-          await placesLib.AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
+          await lib.AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
+
+        // A slower earlier request must not overwrite a newer answer.
+        if (mine !== seqRef.current) return;
+
         setSuggestions(results || []);
         setOpen((results || []).length > 0);
       } catch (err) {
+        if (mine !== seqRef.current) return;
         console.error("Autocomplete error:", err);
         setSuggestions([]);
         setOpen(false);
       }
-    },
-    [placesLib]
-  );
+    }, DEBOUNCE_MS);
+  }, []);
 
   function handleInput(e) {
     const text = e.target.value;
