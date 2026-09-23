@@ -461,8 +461,41 @@
   text-transform: none;
 }
 
-.schedule__calendar .rbc-header + .rbc-header {
-  border-left: 1px solid #f1f5f9;
+/* ------------------------------------------------------------------
+   The lines between columns
+   ------------------------------------------------------------------
+   Every vertical divider in the calendar is PAINTED (an inset shadow),
+   never laid out (a border). That is not a style preference; it is what
+   keeps the columns lined up.
+
+   react-big-calendar draws a month week as three stacked layers of seven
+   cells: the header row, the background boxes, and the date numbers and
+   event chips on top. Each layer is its own flexbox. A border on one
+   layer's cells takes six pixels out of that layer and not the others, so
+   the layer divides its width differently and the three sets of columns
+   drift apart — about a pixel by the right-hand edge, which is exactly
+   what "Sun sits slightly off its box" looks like.
+
+   An inset shadow draws the same line and takes no width, so all three
+   layers divide the same number of pixels the same way.
+
+   The colour matters too: the background boxes were the one thing here
+   still using react-big-calendar's default #DDD, against #f1f5f9
+   everywhere else — which is why the month grid read as darker than the
+   week grid. */
+
+.schedule__calendar .rbc-header + .rbc-header,
+.schedule__calendar .rbc-day-bg + .rbc-day-bg {
+  border-left: none;
+  box-shadow: inset 1px 0 0 #f1f5f9;
+}
+
+/* The background boxes are positioned absolutely and react-big-calendar
+   insets them a pixel from the right, so they were sharing 1323px where
+   the header above them shared 1324. Six of seven columns inherited the
+   difference. */
+.schedule__calendar .rbc-month-view .rbc-row-bg {
+  right: 0;
 }
 
 .schedule__calendar .rbc-time-view,
@@ -1117,14 +1150,29 @@
   border-bottom: none;
 }
 
-/* One border, drawn by the header row, rather than the header and the
-   content each drawing their own — they were landing a pixel apart. */
+/* Transparent, not absent.
+
+   react-big-calendar pairs this border with an inline `margin-right: -1px`
+   so the header's right edge tucks under the view's own border instead of
+   doubling it. Removing the border left the negative margin behind, which
+   made the header row one pixel wider than the grid below it — and a row
+   of seven columns sharing one extra pixel is seven weekday labels each
+   sitting slightly off its own column.
+
+   Keeping the border and making it invisible leaves the arithmetic alone
+   and still draws only one line. */
 .schedule__calendar .rbc-time-header.rbc-overflowing {
-  border-right: none;
+  border-right-color: transparent;
 }
 
+/* The line between the time gutter and the first day column, in the header.
+   Painted, for the same reason as the rest: as a border it pushed the whole
+   header row one pixel right of the grid underneath it, so every weekday
+   label sat a pixel off its own column. The body draws its equivalent line
+   inside the day column, where it costs nothing. */
 .schedule__calendar .rbc-time-header-content {
-  border-left: 1px solid #f1f5f9;
+  border-left: none;
+  box-shadow: inset 1px 0 0 #f1f5f9;
 }
 
 /* react-big-calendar hides the column header when a time view shows only

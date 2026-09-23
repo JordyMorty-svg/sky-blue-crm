@@ -241,6 +241,50 @@ async function lookOfADoneEvent(page) {
   });
 }
 
+// Where the weekday labels sit, against the columns they label.
+//
+// Three stacked flexboxes make up a calendar week: the header row, the
+// background boxes, and the date numbers and chips on top. Each divides the
+// same width independently, so anything that takes pixels out of one layer
+// and not the others slides them apart.
+async function columnEdges(page) {
+  return page.evaluate(() => {
+    const edges = (els) =>
+      els.map((el) => {
+        const r = el.getBoundingClientRect();
+        return [Math.round(r.left * 10) / 10, Math.round(r.right * 10) / 10];
+      });
+    const headers = edges([...document.querySelectorAll(".rbc-header")]);
+    // Week and day label a time grid; month labels background boxes.
+    const body = document.querySelector(".rbc-month-view")
+      ? edges([...document.querySelector(".rbc-month-row").querySelectorAll(".rbc-day-bg")])
+      : edges([...document.querySelectorAll(".rbc-time-content .rbc-day-slot")]);
+    return { headers, body };
+  });
+}
+
+// react-big-calendar's own greys. Anything still wearing one is a line this
+// app never chose — which is how the month grid ended up darker than the
+// week grid without anybody writing a darker colour anywhere.
+async function rbcDefaultGreys(page) {
+  return page.evaluate(() => {
+    const DEFAULTS = ["rgb(221, 221, 221)", "rgb(204, 204, 204)"];
+    const found = [];
+    for (const el of document.querySelectorAll(".schedule__calendar *")) {
+      const s = getComputedStyle(el);
+      for (const side of ["Top", "Right", "Bottom", "Left"]) {
+        if (parseFloat(s[`border${side}Width`]) > 0 && DEFAULTS.includes(s[`border${side}Color`])) {
+          found.push(`${el.className.split(" ")[0]} border-${side.toLowerCase()}`);
+        }
+      }
+      if (DEFAULTS.some((d) => s.boxShadow.includes(d))) {
+        found.push(`${el.className.split(" ")[0]} box-shadow`);
+      }
+    }
+    return [...new Set(found)];
+  });
+}
+
 // The card the calendar sits in. Pressing a view tab must not resize it.
 async function cardWidth(page) {
   return page.evaluate(() =>
@@ -252,12 +296,16 @@ async function cardWidth(page) {
 
 const look = {};
 const cards = {};
+const edges = {};
+const greys = {};
 
 {
   const page = await open("week", 1440);
   const { cols } = await geometry(page);
   look.week = await lookOfADoneEvent(page);
   cards.week = await cardWidth(page);
+  edges.week = await columnEdges(page);
+  greys.week = await rbcDefaultGreys(page);
 
   ok("the week draws seven day columns", cols.length === 7, `saw ${cols.length}`);
 
@@ -353,6 +401,8 @@ const cards = {};
   const { cols } = await geometry(page);
   look.day = await lookOfADoneEvent(page);
   cards.day = await cardWidth(page);
+  edges.day = await columnEdges(page);
+  greys.day = await rbcDefaultGreys(page);
 
   ok("the day draws one column", cols.length === 1, `saw ${cols.length}`);
 
@@ -395,6 +445,8 @@ const cards = {};
   const page = await open("month", 1440);
   look.month = await lookOfADoneEvent(page);
   cards.month = await cardWidth(page);
+  edges.month = await columnEdges(page);
+  greys.month = await rbcDefaultGreys(page);
   await page.close();
 }
 
@@ -431,6 +483,38 @@ const cards = {};
       `THE POINT: nothing is trimmed off the block in ${view}`,
       look[view]?.clip === "none",
       look[view]?.clip
+    );
+  }
+
+  // THE POINT. Every weekday label has to sit exactly over the column it
+  // names. Two separate pixels were going missing: a border on the header
+  // row that the grid below didn't pay, and react-big-calendar insetting
+  // the month's background boxes one pixel from the right.
+  for (const view of ["day", "week", "month"]) {
+    const { headers, body } = edges[view];
+    ok(
+      `the ${view} header has one label per column`,
+      headers.length === body.length && headers.length > 0,
+      `${headers.length} labels, ${body.length} columns`
+    );
+    for (let i = 0; i < Math.min(headers.length, body.length); i += 1) {
+      ok(
+        `THE POINT: ${view} column ${i + 1} sits under its own label`,
+        Math.abs(headers[i][0] - body[i][0]) < 0.5 &&
+          Math.abs(headers[i][1] - body[i][1]) < 0.5,
+        `label ${headers[i]} vs column ${body[i]}`
+      );
+    }
+  }
+
+  // THE POINT. The month grid read as darker than the week grid, and nobody
+  // had written a darker colour: the background boxes were the last thing
+  // still wearing react-big-calendar's own #DDD.
+  for (const view of ["day", "week", "month"]) {
+    ok(
+      `THE POINT: nothing in ${view} is still using react-big-calendar's default grey`,
+      greys[view].length === 0,
+      greys[view].join(", ")
     );
   }
 
