@@ -1111,12 +1111,36 @@
   }
 }
 
-/* Belt and braces on the header alignment.
-   The container is now tall enough that the time grid doesn't scroll, so
-   there's usually no scrollbar at all. If one ever does appear — someone
-   books at 6am, or a browser renders rows taller — a zero-width scrollbar
-   keeps the body exactly as wide as the header above it. Scrolling still
-   works by wheel, trackpad and touch. */
+/* ------------------------------------------------------------------
+   The scrollbar that isn't there, and the space reserved for it
+   ------------------------------------------------------------------
+   The time grid overflows its container by a pixel or two, which is
+   enough for react-big-calendar to call the view "overflowing". The
+   scrollbar is hidden here, because one or two pixels of scroll is not
+   worth a scrollbar down the side of the week — the wheel, the trackpad
+   and touch all still work.
+
+   But hiding it is only half the job. When rbc thinks a time view is
+   overflowing it puts the OPERATING SYSTEM's scrollbar width onto the
+   header row as a margin (TimeGridHeader.js: `marginRight =
+   scrollbarSize() - 1`), on the reasonable assumption that the body
+   below has lost exactly that much width to a real scrollbar.
+
+   Here the body has lost nothing, because the scrollbar is hidden. So
+   the header row ends up ~16px narrower than the grid beneath it, its
+   seven columns each about 2.3px narrower, and every weekday label
+   drifts further from its own column across the week — 2px by Monday,
+   13px by Saturday, snapping back at the right-hand edge.
+
+   Cancelling the reservation is the other half. `!important` because
+   rbc sets that margin inline and nothing else can reach it.
+
+   This one hid for a while because it cannot happen on a machine whose
+   scrollbars take up no room: headless Chromium reports a scrollbar
+   width of 0, so `scrollbarSize() - 1` comes out at -1px, which the
+   border below cancels exactly. It only appears on a real desktop.
+   See verify/calendar-layout.mjs, which now fakes a 16px scrollbar. */
+
 .schedule__calendar .rbc-time-content {
   scrollbar-width: none;
 }
@@ -1124,6 +1148,11 @@
 .schedule__calendar .rbc-time-content::-webkit-scrollbar {
   width: 0;
   height: 0;
+}
+
+.schedule__calendar .rbc-time-header.rbc-overflowing {
+  margin-right: 0 !important;
+  border-right: none;
 }
 
 /* ============================================================
@@ -1150,20 +1179,13 @@
   border-bottom: none;
 }
 
-/* Transparent, not absent.
-
-   react-big-calendar pairs this border with an inline `margin-right: -1px`
-   so the header's right edge tucks under the view's own border instead of
-   doubling it. Removing the border left the negative margin behind, which
-   made the header row one pixel wider than the grid below it — and a row
-   of seven columns sharing one extra pixel is seven weekday labels each
-   sitting slightly off its own column.
-
-   Keeping the border and making it invisible leaves the arithmetic alone
-   and still draws only one line. */
-.schedule__calendar .rbc-time-header.rbc-overflowing {
-  border-right-color: transparent;
-}
+/* NOTE: the header's own margin and border are dealt with in one place,
+   above, under "The scrollbar that isn't there". There used to be a
+   second rule here setting `border-right-color: transparent`, from an
+   earlier attempt at the same misalignment that only ever worked on a
+   machine with zero-width scrollbars. Both halves have to be zero for
+   the columns to line up; splitting them across the file is how the
+   second half went missing. */
 
 /* The line between the time gutter and the first day column, in the header.
    Painted, for the same reason as the rest: as a border it pushed the whole

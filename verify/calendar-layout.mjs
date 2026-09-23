@@ -127,6 +127,20 @@ const STUBS = [
   stub(/services\/leadService$/, `export function planFor() { return null; }`),
   // navigation.js reaches into the Square helper purely for platform sniffing.
   stub(/squarePos$/, `export function isIOS() { return false; } export function isAndroid() { return false; }`),
+  // How wide the operating system draws a scrollbar.
+  //
+  // This one is not a convenience. react-big-calendar asks this question
+  // and puts the answer on the header row as a margin, so it decides
+  // whether the weekday labels line up with their columns — and headless
+  // Chromium answers 0, which is the one value at which the bug it causes
+  // cannot happen. Every alignment assertion in this file was measured on
+  // a machine that could not see the problem, and a real desktop could.
+  //
+  // So the answer is ours to choose, and the suite runs both.
+  stub(
+    /^dom-helpers\/scrollbarSize$/,
+    `export default function scrollbarSize() { return globalThis.__scrollbarWidth ?? 0; }`
+  ),
 ];
 
 const stubPlugin = {
@@ -182,10 +196,15 @@ const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium",
 });
 
-async function open(view, width) {
+async function open(view, width, scrollbarWidth = 0) {
   const page = await browser.newPage({ viewport: { width, height: 1000 } });
   const crashes = [];
   page.on("pageerror", (e) => crashes.push(String(e)));
+  // Set before any of the page's own scripts run, because rbc reads it
+  // while it renders.
+  await page.addInitScript((w) => {
+    globalThis.__scrollbarWidth = w;
+  }, scrollbarWidth);
   await page.goto(`file://${join(process.cwd(), OUT_HTML)}`);
   await page.waitForSelector(".rbc-calendar", { timeout: 10000 });
   await page.getByRole("button", { name: new RegExp(`^${view}$`, "i") }).click();
@@ -548,6 +567,63 @@ const greys = {};
     look.week?.shadow?.includes("inset"),
     look.week?.shadow
   );
+}
+
+/* ---- a desktop, where scrollbars take up room -----------------------------
+
+   The bug this catches, in full:
+
+   The time grid overflows its container by a pixel or two, so rbc marks the
+   view "overflowing" and puts the operating system's scrollbar width on the
+   header row as a margin — `marginRight = scrollbarSize() - 1` — assuming
+   the body below has lost that much width to a real scrollbar. Schedule.css
+   hides that scrollbar, so the body loses nothing, and the header ends up
+   ~16px narrower than the grid beneath it. Seven columns share the shortfall
+   and every weekday label drifts further from its own column across the
+   week: 2px by Monday, 13px by Saturday.
+
+   It cannot be reproduced on this machine by accident. Headless Chromium
+   reports a scrollbar width of 0, which makes the margin -1px, which the
+   header's border cancels exactly — so the one environment the suite runs
+   in is the one environment where the arithmetic comes out right. Hence the
+   stub: the width is an input now, and both answers are checked. */
+
+{
+  const page = await open("week", 1440, 16);
+
+  const reserved = await page.evaluate(() => {
+    const h = document.querySelector(".rbc-time-header");
+    return {
+      overflowing: h.className.includes("rbc-overflowing"),
+      inline: h.getAttribute("style") || "",
+      margin: getComputedStyle(h).marginRight,
+    };
+  });
+
+  // If rbc has stopped asking, or stopped calling this view overflowing,
+  // the assertion below would pass for the wrong reason.
+  ok(
+    "rbc does reserve scrollbar width on the header",
+    reserved.overflowing && reserved.inline.includes("margin-right: 15px"),
+    JSON.stringify(reserved)
+  );
+  ok(
+    "THE POINT: and the reservation is cancelled, because there is no scrollbar",
+    reserved.margin === "0px",
+    reserved.margin
+  );
+
+  const { headers, body } = await columnEdges(page);
+  for (let i = 0; i < Math.min(headers.length, body.length); i += 1) {
+    ok(
+      `THE POINT: week column ${i + 1} sits under its label on a desktop scrollbar`,
+      Math.abs(headers[i][0] - body[i][0]) < 0.5 &&
+        Math.abs(headers[i][1] - body[i][1]) < 0.5,
+      `label ${headers[i]} vs column ${body[i]}`
+    );
+  }
+
+  await page.close();
 }
 
 /* ---- the phone, which must not have changed ------------------------------- */
