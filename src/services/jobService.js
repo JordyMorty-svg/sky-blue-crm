@@ -382,7 +382,14 @@ export async function updateJobTechs(jobId, currentIds, nextIds) {
 
 // Jobs the given tech is assigned to (their personal schedule).
 // Filters via the job_assignments join, then returns the full job rows.
-export async function fetchMyJobs(techId, { status = "scheduled" } = {}) {
+//
+// `statuses` takes several; `status` takes one and is kept because callers
+// already pass it. The default stays "scheduled" on purpose — widening it
+// here would quietly change every caller, and a page that wants finished
+// work should have to say so. The daily schedule does, so that a job you
+// completed at 9am is still on your day at noon.
+export async function fetchMyJobs(techId, { status = "scheduled", statuses } = {}) {
+  const wanted = statuses?.length ? statuses : [status];
   const { data: assigns, error: aErr } = await supabase
     .from("job_assignments")
     .select("job_id")
@@ -401,7 +408,7 @@ export async function fetchMyJobs(techId, { status = "scheduled" } = {}) {
       assignments:job_assignments ( tech:tech_id ( id, full_name ) )
     `)
     .in("id", jobIds)
-    .eq("status", status)
+    .in("status", wanted)
     .order("starts_at", { ascending: true, nullsFirst: false });
 
   if (error) throw error;

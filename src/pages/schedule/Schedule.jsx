@@ -388,7 +388,13 @@ export default function Schedule() {
     try {
       setLoading(true);
       const [mine, all] = await Promise.all([
-        fetchMyJobs(user.id),
+        // Finished work stays on the day it was done. A day that empties
+        // itself as you work through it can't answer "what's left?" — by
+        // mid-afternoon it looks the same as a day with nothing booked,
+        // and there's no way to check what you already did without going
+        // looking for it. Cancelled jobs are still left out: those came
+        // off the schedule, which is the point of cancelling one.
+        fetchMyJobs(user.id, { statuses: ["scheduled", "completed"] }),
         fetchCalendarJobs(seeAllJobs ? null : user.id),
       ]);
       setJobs(mine);
@@ -445,6 +451,7 @@ export default function Schedule() {
   if (loading) return <div className="schedule__state">Loading your schedule…</div>;
 
   const dayJobs = jobs.filter((j) => sameDay(j.starts_at, selectedDay));
+  const doneCount = dayJobs.filter((j) => j.status === "completed").length;
 
   const events = calJobs.map((j) => {
     const start = new Date(j.starts_at);
@@ -542,12 +549,36 @@ export default function Schedule() {
             <p className="schedule__empty">No jobs scheduled for you this day.</p>
           ) : (
             <div className="schedule__list">
-              {dayJobs.map((job) => (
-                <div className="schedjob" key={job.id}>
+              {/* The reason finished jobs stay: the day can now say how far
+                  through it you are. A list that deletes what you've done
+                  can't — by three o'clock it looks like a quiet day rather
+                  than a finished one. */}
+              <p className="schedule__progress">
+                {doneCount === dayJobs.length
+                  ? `All ${dayJobs.length} done.`
+                  : `${doneCount} of ${dayJobs.length} done`}
+              </p>
+              {dayJobs.map((job) => {
+                const done = job.status === "completed";
+                return (
+                <div
+                  className={`schedjob ${done ? "schedjob--done" : ""}`}
+                  key={job.id}
+                >
                   <div className="schedjob__time">{formatTime(job.starts_at)}</div>
                   <div className="schedjob__body">
                     <div className="schedjob__name">
+                      {/* The tick, not a word. Standing in a driveway with
+                          the phone at arm's length, the question is "have I
+                          done this one?" and a mark answers it faster than a
+                          label you have to read. */}
+                      {done && (
+                        <span className="schedjob__tick" aria-hidden="true">
+                          ✓
+                        </span>
+                      )}
                       {job.lead?.name || job.customer?.name || "Job"}
+                      {done && <span className="visually-hidden"> — completed</span>}
                     </div>
                     <div className="schedjob__addr">
                       {job.lead?.address || job.customer?.address}
@@ -570,7 +601,13 @@ export default function Schedule() {
                           {" · "}
                         </>
                       )}
-                      ${job.price} · {job.duration_hours}h
+                      {/* Once it's done, what they actually paid is the
+                          true number — the quote is a guess that's been
+                          overtaken. `final_price` is only written on
+                          completion, so the fallback isn't hypothetical for
+                          jobs finished before that column existed. */}
+                      ${done ? (job.final_price ?? job.price) : job.price} ·{" "}
+                      {job.duration_hours}h
                     </div>
                     {job.notes && <div className="schedjob__notes">{job.notes}</div>}
                     <div className="schedjob__crew">
@@ -580,37 +617,61 @@ export default function Schedule() {
                       <JobPlanTag job={job} />
                     </div>
                   </div>
+                  {/* A finished job gets one control, not three. Directions
+                      to a house you've already left are noise, "Mark
+                      completed" on something already completed is a trap,
+                      and the editor would let you rewrite the price of work
+                      that has a Square payment behind it. Its record is
+                      read-only for exactly that reason — same routing the
+                      calendar uses. */}
                   <div className="schedjob__actions">
-                    {/* First in the stack because it's the one you need
-                        before arriving; the other two are for afterwards. */}
-                    <button
-                      className="schedjob__nav"
-                      onClick={() => handleNavigate(job)}
-                      disabled={!placeForJob(job).address}
-                    >
-                      Navigate
-                    </button>
-                    <button
-                      className="schedjob__complete"
-                      onClick={() => handleComplete(job)}
-                    >
-                      Mark completed
-                    </button>
-                    <button
-                      className="schedjob__edit"
-                      onClick={() =>
-                        // pathname, not a literal, so it returns to
-                        // whichever schedule view you were looking at.
-                        navigate(`/jobs/${job.id}`, {
-                          state: { from: pathname },
-                        })
-                      }
-                    >
-                      Edit
-                    </button>
+                    {done ? (
+                      <button
+                        className="schedjob__edit"
+                        onClick={() =>
+                          navigate(`/jobs/record/${job.id}`, {
+                            state: { from: pathname },
+                          })
+                        }
+                      >
+                        View record
+                      </button>
+                    ) : (
+                      <>
+                        {/* First in the stack because it's the one you need
+                            before arriving; the other two are for
+                            afterwards. */}
+                        <button
+                          className="schedjob__nav"
+                          onClick={() => handleNavigate(job)}
+                          disabled={!placeForJob(job).address}
+                        >
+                          Navigate
+                        </button>
+                        <button
+                          className="schedjob__complete"
+                          onClick={() => handleComplete(job)}
+                        >
+                          Mark completed
+                        </button>
+                        <button
+                          className="schedjob__edit"
+                          onClick={() =>
+                            // pathname, not a literal, so it returns to
+                            // whichever schedule view you were looking at.
+                            navigate(`/jobs/${job.id}`, {
+                              state: { from: pathname },
+                            })
+                          }
+                        >
+                          Edit
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
