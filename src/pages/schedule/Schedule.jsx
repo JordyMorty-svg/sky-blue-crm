@@ -742,12 +742,21 @@ export default function Schedule() {
             formats={calView === "day" ? DAY_FORMATS : CAL_FORMATS}
             min={DAY_MIN}
             max={DAY_MAX}
-            // Two jobs at the same hour split the column down the middle
-            // instead of the second being laid over the first at an offset.
-            // Overlapping blocks are how a calendar says "these clash", and
-            // the crew is two people — when both are out at once, that's
-            // the plan, not a clash.
-            dayLayoutAlgorithm="no-overlap"
+            // Overlapping blocks, not a split column.
+            //
+            // "no-overlap" was tried first, and it is the more orderly of
+            // the two: two jobs that clash each take half the column and
+            // never touch. The trouble is that they take half the column
+            // for their WHOLE length, so a 9am job that runs half an hour
+            // into a noon booking spends the entire morning drawn at half
+            // width with nothing beside it — and the day reads as broken
+            // rather than as double-booked.
+            //
+            // Here the first job keeps most of the column and the second is
+            // laid over its tail. The overlap is the point: the only reason
+            // the drawing is untidy is that the bookings are, and a clash
+            // you can see at a glance is worth more than a tidy grid.
+            dayLayoutAlgorithm="overlap"
             eventPropGetter={eventClass}
             onSelectEvent={openEvent}
             onDrillDown={(date) => {

@@ -48,11 +48,11 @@ const OUT_HTML = "verify/.calendar-page.html";
  * address line. Neither overlaps the other, so today is also the ordinary
  * case for the week grid — every block gets its whole column.
  *
- * A neighbouring day carries two jobs running at the same time. That is what
- * makes react-big-calendar split a column in half, and a half-width block is
- * the one the old CSS pushed into the next day. It sits beside today rather
- * than on it, and steps backwards instead of forwards in the one case where
- * forwards would fall out of the week.
+ * A neighbouring day carries two jobs running at the same time. That is the
+ * case where react-big-calendar lays one block over another at an offset,
+ * and the offset block is the one the old CSS pushed into the next day. It
+ * sits beside today rather than on it, and steps backwards instead of
+ * forwards in the one case where forwards would fall out of the week.
  */
 const FIXTURE = `
 const today = new Date();
@@ -332,9 +332,18 @@ const greys = {};
     }
   }
 
-  // THE POINT. Staying inside the column is not enough on its own: two
-  // blocks could both be inside it and still be drawn on top of each other,
-  // which is what made the name unreadable.
+  // Two jobs that clash are drawn overlapping, deliberately.
+  //
+  // The tidier "no-overlap" layout was tried first and rejected in use: it
+  // gives each of two clashing jobs half the column for their WHOLE length,
+  // so a 9am job that runs half an hour into a noon booking spends the
+  // entire morning at half width with nothing beside it, and the day reads
+  // as broken rather than as double-booked.
+  //
+  // So the second block is offset over the first's tail. What has to stay
+  // true is that it is offset — one block exactly on top of another hides a
+  // job completely — and that the first keeps most of its column, which is
+  // the whole reason for choosing this layout.
   let clashes = 0;
   for (const c of cols) {
     for (let i = 0; i < c.events.length; i += 1) {
@@ -344,9 +353,23 @@ const greys = {};
         if (!clash(a, b)) continue;
         clashes += 1;
         ok(
-          "THE POINT: two jobs at the same hour are side by side, not stacked",
-          a.right <= b.left + 1 || b.right <= a.left + 1,
+          "THE POINT: a clashing job is offset, never drawn exactly over the other",
+          Math.abs(a.left - b.left) > 8,
           `${Math.round(a.left)}–${Math.round(a.right)} and ${Math.round(b.left)}–${Math.round(b.right)}`
+        );
+        ok(
+          "THE POINT: the job underneath keeps most of its column",
+          Math.max(a.w, b.w) > c.w * 0.7,
+          `${Math.round(Math.max(a.w, b.w))}px of ${Math.round(c.w)}px`
+        );
+        // Both still have to be readable: whichever sits on top must leave
+        // the other's left edge — where its name starts — uncovered.
+        const under = a.left <= b.left ? a : b;
+        const over = under === a ? b : a;
+        ok(
+          "THE POINT: the block on top does not cover the other's name",
+          over.left > under.left + 40,
+          `name starts at ${Math.round(under.left)}, cover starts at ${Math.round(over.left)}`
         );
       }
     }
