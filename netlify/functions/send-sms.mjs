@@ -12,17 +12,44 @@
 // Quo, the number could not legitimately send anyway.
 
 import { runSms } from "../lib/smsRun.mjs";
+import { reconcileSms } from "../lib/smsReconcile.mjs";
 
 export default async () => {
   const started = Date.now();
 
   try {
+    /*
+     * Ask Quo what happened to yesterday's texts BEFORE sending today's.
+     *
+     * The order is not arbitrary. Quo has no failure webhook, so a carrier
+     * rejection is only ever discovered by asking — and until it has been
+     * asked about, a refused quote still occupies its slot in the
+     * double-send index as an ordinary 'sent' row. Reconciling first means
+     * tonight's nudge run sees the true state of last night's sends, and a
+     * number the carrier has closed is out of the way before anything else
+     * is aimed at it.
+     *
+     * Never fails the run. The sending is the job; catching up on verdicts
+     * is bookkeeping, and bookkeeping that takes the night's texts down with
+     * it would be a much worse trade.
+     */
+    let verdicts = null;
+    try {
+      verdicts = await reconcileSms({ days: 7, limit: 200 });
+    } catch (err) {
+      console.error("[sms] could not reconcile with Quo", err);
+      verdicts = { error: String(err?.message || err) };
+    }
+
     const summary = await runSms();
 
     // One JSON object rather than several lines: Netlify keeps function
     // logs, and this is the audit trail for "did we text anyone on the
     // 14th?" It names every number touched and why each one was skipped.
-    console.log("[sms]", JSON.stringify({ ...summary, ms: Date.now() - started }));
+    console.log(
+      "[sms]",
+      JSON.stringify({ ...summary, verdicts, ms: Date.now() - started })
+    );
 
     return new Response(null, { status: 204 });
   } catch (err) {

@@ -47,7 +47,17 @@
 -- having on its own, because "was this customer ever actually emailed" has
 -- no answer today — but nothing will ever be marked bounced.
 
-\set ON_ERROR_STOP on
+-- NOTE: no `\set ON_ERROR_STOP on` here, deliberately.
+--
+-- That is a psql meta-command, not SQL. The Supabase SQL editor sends what
+-- you paste straight to Postgres, which answers
+--
+--     ERROR: 42601: syntax error at or near "\"
+--
+-- on the very first line and runs nothing. Every other file in db/ is plain
+-- SQL for exactly this reason; the flag belongs in verify/*.sql, which are
+-- run through psql.
+
 
 -- ---------------------------------------------------------------------------
 -- 1. Every email that went out

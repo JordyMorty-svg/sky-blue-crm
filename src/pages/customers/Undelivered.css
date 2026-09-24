@@ -314,3 +314,90 @@
     width: 100%;
   }
 }
+
+/* --- asking Quo ------------------------------------------------------------
+
+   Quo has no webhook for a failed message, so this list is only ever as
+   current as the last time somebody asked. The bar says so, because a screen
+   that looks live and isn't is worse than one that admits it. */
+
+.undel__check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 20px;
+}
+
+.undel__checkbtn {
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: var(--text-md);
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .undel__checkbtn:hover:not(:disabled) {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+  }
+}
+
+.undel__checkbtn:disabled {
+  background: #93c5fd;
+  border-color: #93c5fd;
+  cursor: default;
+}
+
+.undel__checknote {
+  flex: 1 1 260px;
+  min-width: 0;
+  font-size: var(--text-md);
+  color: #64748b;
+  line-height: 1.45;
+}
+
+/* --- dealt with ------------------------------------------------------------
+
+   Quiet, and at the bottom of the row. The row's job is to tell you what to
+   do; clearing it is what you press once you have. */
+
+.undelrow__dismiss {
+  margin-top: 10px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: #94a3b8;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .undelrow__dismiss:hover:not(:disabled) {
+    color: #2563eb;
+  }
+}
+
+.undelrow__dismiss:disabled {
+  cursor: default;
+  text-decoration: none;
+}
+
+@media (max-width: 620px) {
+  .undel__checkbtn {
+    width: 100%;
+  }
+}

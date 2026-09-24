@@ -575,8 +575,10 @@ const chk = (what, pass, detail = "") => {
     marked?.args?.p_error
   );
 
-  // And the thing the gate was there for in the first place has to survive:
-  // an ordinary outbound copy must still be ignored.
+  // A successful outbound copy. This used to assert that NOTHING happened,
+  // which was right when message.delivered was not handled — and is no
+  // longer. Quo publishes exactly two message webhooks and this is the only
+  // one that ever fires about our own sends, so it is now recorded.
   calls.length = 0;
   const copy = signed({
     type: "message.delivered",
@@ -590,8 +592,31 @@ const chk = (what, pass, detail = "") => {
     })
   );
   chk(
-    "THE POINT: a successful outbound copy is still ignored",
-    calls.length === 0,
+    "a delivery confirmation is recorded",
+    calls.some((c) => c.fn === "mark_sms_delivered"),
+    "calls: " + calls.map((c) => c.fn).join(", ")
+  );
+  chk(
+    "against the right message",
+    calls.find((c) => c.fn === "mark_sms_delivered")?.args?.p_sid === "ACok"
+  );
+
+  // THE POINT, and the thing the gate was there for in the first place: a
+  // copy of a message WE sent must never be written to the customer's
+  // history as something they said.
+  chk(
+    "THE POINT: and is never logged as an inbound reply",
+    !calls.some((c) => c.fn === "record_inbound_sms"),
+    "calls: " + calls.map((c) => c.fn).join(", ")
+  );
+
+  // THE POINT. Delivery is a timestamp, never a status — a 'delivered'
+  // status would drop the row out of the double-send index and free its
+  // dedupe slot, so confirming delivery would cause a second send. Nothing
+  // here may touch the status.
+  chk(
+    "THE POINT: confirming delivery does not touch the status",
+    !calls.some((c) => c.fn === "mark_sms_sent" || c.fn === "mark_sms_failed"),
     "calls: " + calls.map((c) => c.fn).join(", ")
   );
 

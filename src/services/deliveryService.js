@@ -128,6 +128,60 @@ export async function fetchQuoteDelivery(quoteIds = []) {
   }
 }
 
+/**
+ * Ask Quo what became of the texts it accepted.
+ *
+ * THE reason this exists: Quo has no failure webhook. It publishes exactly
+ * two message events — message.received and message.delivered — so a
+ * carrier rejection is never announced and a quote to a landline sits on the
+ * board as "sent" forever. The CRM has to ask.
+ *
+ * Asking is also the only thing that can fix HISTORY. A webhook, even if one
+ * existed, would only ever tell us about the next failure; this brings every
+ * send of the last week up to date on the first press.
+ *
+ * The browser never talks to Quo directly — the API key would be in the
+ * bundle — so this goes through a Netlify function holding the key.
+ */
+export async function checkQuo({ days = 7 } = {}) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const res = await fetch("/api/check-delivery", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access_token || ""}`,
+    },
+    body: JSON.stringify({ days }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Couldn't reach Quo.");
+  return data;
+}
+
+/**
+ * Hide a row that has been dealt with.
+ *
+ * Hidden, not deleted. sms_messages is the record of what this business sent
+ * to which number, which is what answers a carrier complaint — "we tidied
+ * the screen" is not a reason to lose it. delivery_dismissed has everything
+ * that has been hidden, so nothing is unfindable.
+ */
+export async function dismissFailure(row) {
+  const fn =
+    row?.channel === "email" ? "dismiss_email_failure" : "dismiss_sms_failure";
+  const { data, error } = await supabase.rpc(fn, {
+    // The view casts both id types to text so the two channels can be one
+    // list. A bigint has to go back as a number or PostgREST rejects it.
+    p_id: row?.channel === "email" ? row.id : Number(row.id),
+  });
+  if (error) throw error;
+  return Boolean(data);
+}
+
 /** Numbers currently closed to texts. */
 export async function fetchUnreachable() {
   const { data, error } = await supabase

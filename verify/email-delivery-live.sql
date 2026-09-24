@@ -1,4 +1,7 @@
--- Did db/quote-sender-name.sql and db/email-delivery.sql actually land?
+-- Did the delivery migrations actually land?
+--
+-- Covers db/quote-sender-name.sql, db/email-delivery.sql and
+-- db/delivery-controls.sql. One paste answers for all three.
 --
 -- READ ONLY. Nothing here writes, deletes or alters anything, so it is safe
 -- to paste into the Supabase SQL editor — which is the whole point of it
@@ -89,26 +92,81 @@ from (
     public.sb_email_permanent('Permanent: mailbox does not exist'),
     'the bounce classifier is too strict and nothing will ever be suppressed', 10
 
+  union all select
+    'the CRM can ask Quo for a verdict',
+    exists (
+      select 1 from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = 'sms_awaiting_verdict'
+    ),
+    're-run db/delivery-controls.sql. Without this nothing ever learns a text '
+    'was refused — Quo has no failure webhook to tell us', 11
+
+  union all select
+    'delivery is a timestamp, not a status',
+    exists (
+      select 1 from information_schema.columns
+       where table_schema = 'public' and table_name = 'sms_messages'
+         and column_name = 'delivered_at'
+    )
+    and not exists (
+      select 1 from pg_constraint
+       where conname = 'sms_messages_status_check'
+         and pg_get_constraintdef(oid) like '%''delivered''%'
+    ),
+    'a ''delivered'' STATUS would drop the row out of the double-send index '
+    'and free its dedupe slot — confirming delivery would cause a second send', 12
+
+  union all select
+    'failures can be cleared off the list',
+    exists (
+      select 1 from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = 'dismiss_sms_failure'
+    ),
+    're-run db/delivery-controls.sql', 13
+
+  union all select
+    'quotes can be deleted, except accepted ones',
+    coalesce((
+      select prosrc like '%accepted%'
+        from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = 'delete_quote'
+       limit 1
+    ), false),
+    're-run db/delivery-controls.sql', 14
+
   -- Not checks, just what it has found so far. Zeroes are the right answer
   -- until the Resend webhook is added and an email actually bounces.
   union all select
     'emails recorded so far: ' ||
       (select count(*) from public.sent_emails),
-    true, '', 11
+    true, '', 20
 
   union all select
     'emails that bounced: ' ||
       (select count(*) from public.sent_emails where status = 'bounced'),
-    true, '', 12
+    true, '', 21
 
   union all select
     'spam complaints: ' ||
       (select count(*) from public.sent_emails where status = 'complained'),
-    true, '', 13
+    true, '', 22
 
   union all select
     'addresses now closed to email: ' ||
       (select count(*) from public.email_unreachable where cleared_at is null),
-    true, '', 14
+    true, '', 23
+
+  union all select
+    'texts still waiting on a verdict from Quo: ' ||
+      (select count(*) from public.sms_awaiting_verdict(1000, 7)),
+    true, 'press "Check with Quo" on the Undelivered page to settle these', 24
+
+  union all select
+    'failures cleared by hand: ' ||
+      (select count(*) from public.sms_messages where dismissed_at is not null),
+    true, '', 25
 ) checks
 order by ord;

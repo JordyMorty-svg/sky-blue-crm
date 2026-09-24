@@ -230,3 +230,75 @@
   color: #b91c1c;
   opacity: 0.85;
 }
+
+/* --- deleting a quote ------------------------------------------------------
+
+   Its own row, under the actions, and deliberately quiet until asked. A red
+   button living permanently beside "Copy link" is one slip away from
+   deleting a live quote; this one has to be pressed twice, and only the
+   second press looks dangerous. */
+
+.quoterow__danger {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.quoterow__delete {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: #94a3b8;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .quoterow__delete:hover {
+    color: #dc2626;
+  }
+}
+
+.quoterow__confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.quoterow__confirmtext {
+  font-size: var(--text-md);
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.quoterow__btn--danger {
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+@media (hover: hover) {
+  .quoterow__btn--danger:hover:not(:disabled) {
+    background: #fef2f2;
+    border-color: #ef4444;
+  }
+}
+
+/* Why the button isn't there. A missing control is a puzzle; the reason is
+   an answer. */
+.quoterow__nodelete {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.quoterow__deleteerr {
+  margin: 0 0 8px;
+  font-size: var(--text-md);
+  color: #b91c1c;
+  line-height: 1.45;
+}

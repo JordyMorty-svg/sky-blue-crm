@@ -93,16 +93,39 @@ export function readEvent(payload) {
 /**
  * Is this Quo telling us a message did not arrive?
  *
- * Read from two places because Quo says it in two ways — a `message.failed`
- * event type, and a `status` of failed or undelivered on a `message.updated`.
- * Either one is the carrier's verdict and both have to count, because
- * missing it means the CRM goes on believing a quote was delivered.
+ * KEPT, BUT IT NEVER FIRES. Quo publishes exactly two message webhooks —
+ * `message.received` and `message.delivered` — and no failure event of any
+ * kind. This branch was written against an event that does not exist, which
+ * is why a quote to a landline still said "sent" days later: nothing was
+ * ever going to tell us otherwise.
  *
- * `message.delivered` is deliberately NOT handled. It would be nice to
- * record, but 'sent' already leaves the double-send guard closed and adding
- * a 'delivered' state would mean widening that index again — a lot of risk
- * for a green tick. See the note at the top of db/sms-delivery.sql.
+ * The verdict is fetched instead, by netlify/lib/smsReconcile.mjs asking
+ * GET /v1/messages/{id}. This is left in place because it costs nothing, it
+ * is already tested, and if Quo ever does publish a failure event the CRM
+ * will pick it up the day it is ticked — a webhook beats polling when one is
+ * available, because it arrives in seconds rather than at the next run.
  */
+/**
+ * The one delivery event Quo actually sends.
+ *
+ * Matched on the status as well as the type, because readEvent() pulls the
+ * status out of several shapes and a payload that says `status: "delivered"`
+ * means the same thing whatever its type is called.
+ *
+ * "delivery_delayed" must not match. A delayed message has not arrived, and
+ * treating it as delivered would stop the reconciler ever asking about it
+ * again — the message would be marked as having reached a handset it never
+ * reached, permanently, which is the exact failure this whole feature
+ * exists to prevent.
+ */
+export function isDelivered(evt) {
+  const status = String(evt.status || "").toLowerCase();
+  if (status === "delivered") return true;
+
+  const type = String(evt.type || "").toLowerCase();
+  return /message\.delivered/.test(type) && !/delay/.test(type);
+}
+
 export function isDeliveryFailure(evt) {
   const status = String(evt.status || "").toLowerCase();
   if (status === "failed" || status === "undelivered") return true;
@@ -178,6 +201,23 @@ export default async (req) => {
   // gate below, which exists to throw away outbound copies — and a failure
   // receipt is an outbound copy, so it was being thrown away with them.
   // That is why a quote to a landline sat on the board as sent.
+  // It arrived. A real Quo event, and worth subscribing to: every delivery
+  // confirmed here is a message the nightly reconciler then never has to ask
+  // about, and the answer arrives in seconds instead of at 4pm tomorrow.
+  //
+  // Recorded as a TIMESTAMP, never as a status. A 'delivered' status would
+  // drop the row out of the double-send index and free its dedupe slot —
+  // confirming delivery would cause a second send. See the header of
+  // db/delivery-controls.sql.
+  if (isDelivered(evt)) {
+    try {
+      if (evt.id) await rpc("mark_sms_delivered", { p_sid: evt.id });
+    } catch (err) {
+      console.error("[sms-inbound] could not record a delivery", err);
+    }
+    return new Response(null, { status: 200 });
+  }
+
   if (isDeliveryFailure(evt)) {
     try {
       const row = await recordUndelivered(evt);

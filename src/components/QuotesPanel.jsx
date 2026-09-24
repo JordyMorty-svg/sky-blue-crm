@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import QuoteModal from "./QuoteModal";
 import {
   SERVICE_LABELS,
+  deletable,
+  deleteQuote,
   describeLoadError,
   fetchQuotes,
   money,
@@ -143,6 +145,7 @@ export default function QuotesPanel({
               quote={q}
               customerName={customerName}
               customerPhone={customerPhone}
+              onDeleted={load}
             />
           ))}
         </ul>
@@ -166,9 +169,45 @@ export default function QuotesPanel({
   );
 }
 
-function QuoteRow({ quote, customerName, customerPhone, undelivered = null }) {
+function QuoteRow({
+  quote,
+  customerName,
+  customerPhone,
+  undelivered = null,
+  onDeleted,
+}) {
   const state = quoteState(quote);
   const [copied, setCopied] = useState(false);
+  // Three states, not two: idle, asking, deleting. A single confirm() would
+  // have been less code and is a modal that blocks the whole tab — and the
+  // one thing worse than an accidental delete is a confirm box somebody
+  // dismisses by reflex.
+  const [asking, setAsking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const canDelete = deletable(quote);
+
+  async function remove() {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await deleteQuote(quote.id);
+      setAsking(false);
+      // Reload rather than splice it out of local state. The panel shows
+      // "N quotes are still live for this person", which is computed from
+      // the list — dropping a row locally would leave that sentence counting
+      // a quote that no longer exists.
+      await onDeleted?.();
+    } catch (e) {
+      console.error("Couldn't delete that quote:", e);
+      // The database writes this sentence for the person reading it — see
+      // delete_quote() in db/delivery-controls.sql — so it is shown as-is
+      // rather than replaced with something generic.
+      setDeleteError(e?.message || "Couldn't delete that quote.");
+      setDeleting(false);
+    }
+  }
 
   // Built here rather than stored, so a quote sent before the domain moved
   // still produces a link on today's domain.
@@ -282,6 +321,52 @@ function QuoteRow({ quote, customerName, customerPhone, undelivered = null }) {
           </a>
         </div>
       )}
+
+      {/* Delete sits in its own row, below the actions, and is rendered for
+          EVERY quote rather than only the resendable ones — a declined quote
+          and a stack of test quotes are exactly what somebody wants to clear,
+          and those are the two states with no other buttons at all.
+
+          Quiet by default and destructive-looking only once it has been
+          asked. A red button sitting permanently next to "Copy link" is one
+          slip away from deleting a live quote. */}
+      <div className="quoterow__danger">
+        {deleteError && <p className="quoterow__deleteerr">{deleteError}</p>}
+
+        {!canDelete.ok ? (
+          // Shown, not hidden. A missing button is a puzzle; a disabled one
+          // with the reason under it is an answer.
+          <p className="quoterow__nodelete">{canDelete.why}</p>
+        ) : asking ? (
+          <span className="quoterow__confirm">
+            <span className="quoterow__confirmtext">Delete this quote?</span>
+            <button
+              className="quoterow__btn quoterow__btn--danger"
+              onClick={remove}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting…" : "Yes, delete"}
+            </button>
+            <button
+              className="quoterow__btn"
+              onClick={() => {
+                setAsking(false);
+                setDeleteError("");
+              }}
+              disabled={deleting}
+            >
+              Keep it
+            </button>
+          </span>
+        ) : (
+          <button
+            className="quoterow__delete"
+            onClick={() => setAsking(true)}
+          >
+            Delete
+          </button>
+        )}
+      </div>
     </li>
   );
 }

@@ -4,8 +4,10 @@ import ViewSwitcher from "../../components/ViewSwitcher";
 import { CUSTOMER_VIEWS } from "../../components/navViews";
 import {
   channelWord,
+  checkQuo,
   clearClosedEmail,
   clearUnreachable,
+  dismissFailure,
   failureLabel,
   fetchClosedEmails,
   fetchFailures,
@@ -45,6 +47,8 @@ export default function Undelivered() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(null);
+  const [checking, setChecking] = useState(false);
+  const [checked, setChecked] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -74,6 +78,58 @@ export default function Undelivered() {
       await load();
     })();
   }, [load]);
+
+  /**
+   * Ask Quo what happened.
+   *
+   * The button exists because Quo has no failure webhook — it publishes
+   * message.received and message.delivered and nothing else — so a carrier
+   * rejection is never announced and this list can only ever be as current
+   * as the last time somebody asked.
+   *
+   * It runs automatically before the nightly send too. The button is for the
+   * moment you are standing there wondering whether the quote you sent ten
+   * minutes ago actually landed.
+   */
+  async function check() {
+    setChecking(true);
+    setChecked("");
+    try {
+      const out = await checkQuo({ days: 7 });
+      await load();
+
+      // Say what it found, including when it found nothing. "Checked 12,
+      // all fine" and a button that silently does nothing look identical,
+      // and only one of them means the feature is working.
+      const bits = [];
+      if (out.undelivered) bits.push(`${out.undelivered} did not arrive`);
+      if (out.delivered) bits.push(`${out.delivered} confirmed delivered`);
+      if (out.still_waiting) bits.push(`${out.still_waiting} still in flight`);
+      setChecked(
+        out.checked === 0
+          ? "Nothing waiting on a verdict — everything recent is already accounted for."
+          : `Checked ${out.checked} with Quo: ${bits.join(", ") || "no change"}.`
+      );
+    } catch (e) {
+      console.error("Couldn't check with Quo:", e);
+      setError(e?.message || "Couldn't reach Quo.");
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function dismiss(row) {
+    setBusy(`${row.channel}:${row.id}`);
+    try {
+      await dismissFailure(row);
+      await load();
+    } catch (e) {
+      console.error("Couldn't dismiss that:", e);
+      setError(e?.message || "Couldn't dismiss that.");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function reopen(kind, value) {
     setBusy(value);
@@ -112,6 +168,24 @@ export default function Undelivered() {
     <div className="undel">
       <h1 className="visually-hidden">Messages that didn&rsquo;t arrive</h1>
       <ViewSwitcher views={CUSTOMER_VIEWS} section="customers" />
+
+      {/* Quo does not announce a failure — it has no webhook for one — so
+          this list is only ever as current as the last time somebody asked.
+          Said out loud, because a screen that looks live and isn't is worse
+          than one that admits it. */}
+      <div className="undel__check">
+        <button
+          className="undel__checkbtn"
+          onClick={check}
+          disabled={checking}
+        >
+          {checking ? "Asking Quo…" : "Check with Quo"}
+        </button>
+        <span className="undel__checknote">
+          {checked ||
+            "Quo doesn't announce failures, so the CRM asks. This runs automatically before the nightly texts."}
+        </span>
+      </div>
 
       {error && <p className="undel__error">{error}</p>}
 
@@ -226,8 +300,8 @@ export default function Undelivered() {
           <p className="undel__state">Loading…</p>
         ) : rows.length === 0 ? (
           <p className="undel__empty">
-            Every message has reached the person it was sent to. Nothing to do
-            here.
+            Nothing outstanding. Either every message arrived, or the ones
+            that didn&rsquo;t have been dealt with.
           </p>
         ) : (
           <ul className="undel__list">
@@ -296,6 +370,26 @@ export default function Undelivered() {
                     </p>
                   )}
                   {r.detail && <p className="undelrow__body">{r.detail}</p>}
+
+                  {/* Dealt with. Hides the row; the message itself is kept,
+                      because sms_messages is the record of what this
+                      business sent to which number and that is what answers
+                      a carrier complaint.
+
+                      stopPropagation, or pressing it also opens the record
+                      underneath — the row itself is a button. */}
+                  <button
+                    className="undelrow__dismiss"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void dismiss(r);
+                    }}
+                    disabled={busy === `${r.channel}:${r.id}`}
+                  >
+                    {busy === `${r.channel}:${r.id}`
+                      ? "Clearing…"
+                      : "I've dealt with this"}
+                  </button>
                 </li>
               );
             })}

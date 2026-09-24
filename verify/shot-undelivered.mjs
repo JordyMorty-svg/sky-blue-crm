@@ -117,6 +117,7 @@ const row = (r) => `
     </p>
     ${r.error ? `<p class="undelrow__carrier">${r.channel === "email" ? "Mail server" : "Carrier"}: ${r.error}</p>` : ""}
     <p class="undelrow__body">${r.detail}</p>
+    <button class="undelrow__dismiss">I've dealt with this</button>
   </li>`;
 
 const blocked = (b) => `
@@ -136,6 +137,11 @@ const html = `<!doctype html><meta charset=utf-8><style>
   .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 </style>
 <div class="undel">
+  <div class="undel__check">
+    <button class="undel__checkbtn">Check with Quo</button>
+    <span class="undel__checknote">Quo doesn't announce failures, so the CRM asks. This runs automatically before the nightly texts.</span>
+  </div>
+
   <p class="undel__alarm">One customer has not been told we're coming. Call them today.</p>
 
   <section class="undel__section">
@@ -222,6 +228,23 @@ for (const width of [390, 1100]) {
     els.filter((el) => el.scrollWidth > el.clientWidth + 1).length
   );
   chk(`${width}px: nothing overflows its card`, spill === 0, `${spill} rows`);
+
+  // The button that fixes history. A page whose only route to a fresh
+  // verdict is "wait until 4pm tomorrow" is the problem this was built for.
+  const btn = await page.$eval(".undel__checkbtn", (b) => ({
+    text: b.textContent.trim(),
+    w: Math.round(b.getBoundingClientRect().width),
+    h: Math.round(b.getBoundingClientRect().height),
+  }));
+  chk(`${width}px: the Check with Quo button is there and tappable`,
+      /Quo/.test(btn.text) && btn.h >= 32 && btn.w >= 44,
+      JSON.stringify(btn));
+
+  // Every row must be clearable, or the list fills with things nobody can
+  // remove and stops being read.
+  const rows = await page.$$eval(".undelrow", (els) => els.length);
+  const dismissers = await page.$$eval(".undelrow__dismiss", (els) => els.length);
+  chk(`${width}px: every row can be cleared`, rows === dismissers, `${dismissers}/${rows}`);
 
   await page.screenshot({ path: `verify/shot-undel-${width}.png`, fullPage: true });
   await page.close();

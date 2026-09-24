@@ -131,6 +131,50 @@ export async function fetchQuotes({ leadId = null, customerId = null }) {
  * pin on the map) that both ask this question. Two copies of it would
  * eventually answer differently.
  */
+/**
+ * Delete a quote.
+ *
+ * Through delete_quote() rather than a DELETE from the browser, and the
+ * reason is one case: an ACCEPTED quote has a job and a booking fee hanging
+ * off it. Accepting is what creates the job, and the commission trigger
+ * reads the quote to decide who gets paid — so deleting an accepted quote
+ * removes the evidence of a payment somebody is owed, quietly, with the job
+ * still sitting on the calendar.
+ *
+ * The database refuses that one and says why in a sentence written for the
+ * person who pressed the button. Everything else — draft, sent, viewed,
+ * declined — has nothing attached and goes.
+ *
+ * The texts about it are kept and unlinked, not deleted: quote_id is
+ * `on delete set null` so the record that this number was texted survives
+ * the tidying up, along with any STOP that came back.
+ */
+export async function deleteQuote(id) {
+  const { data, error } = await supabase.rpc("delete_quote", { p_id: id });
+  if (error) throw error;
+  // false means it was already gone — two clicks, or two people tidying at
+  // once. The end state is the one that was wanted, so it is not an error.
+  return Boolean(data);
+}
+
+/**
+ * Can this one be deleted, and if not, why not?
+ *
+ * Asked here as well as enforced in the database, so the button can be
+ * disabled with an explanation rather than looking available and then
+ * throwing. The database is still the thing that decides — this is the
+ * courtesy, not the rule.
+ */
+export function deletable(quote) {
+  if (quote?.status === "accepted") {
+    return {
+      ok: false,
+      why: "This quote was accepted, so a job and a booking fee depend on it. Cancel the job first if it isn't going ahead.",
+    };
+  }
+  return { ok: true, why: null };
+}
+
 export function quotable(lead) {
   return Boolean(
     lead &&
