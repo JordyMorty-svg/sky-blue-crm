@@ -21,6 +21,7 @@
 
 import { rpc } from "./db.mjs";
 import { QUO_BASE } from "./sms.mjs";
+import { sendItAnotherWay } from "./anotherWay.mjs";
 
 /**
  * One message's verdict, straight from Quo.
@@ -122,9 +123,32 @@ export async function reconcileSms({ limit = 100, days = 7, fetchImpl = fetch } 
       const rec = Array.isArray(result) ? result[0] : result;
       if (rec) {
         undelivered += 1;
+
+        /*
+         * Now try the other address.
+         *
+         * THIS is the line that was missing, and it made the whole "email it
+         * instead" feature dead code. The fallback only existed inside the
+         * delivery-failure webhook branch — and Quo has no delivery-failure
+         * webhook. It was written, tested and shipped, and could never once
+         * have run.
+         *
+         * It matters most for the day-before confirmation, which is the one
+         * message that expires overnight: discovering at 4pm that this
+         * afternoon's reminder was refused is only useful if something then
+         * emails it.
+         *
+         * Safe to call on every pass because mark_sms_undelivered() only
+         * returns a row the FIRST time. A repeat gives nothing back and we
+         * never get here, so a customer cannot be emailed the same fallback
+         * quote once every fifteen minutes.
+         */
+        const second = await sendItAnotherWay(rec);
+
         failures.push({
           kind: rec.out_kind,
           permanent: rec.out_permanent,
+          emailed: second?.sent === true,
           // Last four only. The rest of this codebase logs numbers the same
           // way; a full number in a build log is a number in a build log.
           to: String(rec.out_phone || "").slice(-4),

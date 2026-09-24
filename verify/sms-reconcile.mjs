@@ -53,6 +53,7 @@ await build({
         b.onLoad({ filter: /.*/, namespace: "e" }, () => ({
           contents: `
             export { askQuo, reconcileSms } from "${process.cwd()}/netlify/lib/smsReconcile.mjs";
+            export { sendItAnotherWay } from "${process.cwd()}/netlify/lib/anotherWay.mjs";
             export { isDelivered, isDeliveryFailure } from "${process.cwd()}/netlify/functions/sms-inbound.mjs";
           `,
           loader: "js",
@@ -300,6 +301,192 @@ chk("a failure is not a delivery",
     !M.isDelivered({ status: "undelivered" }));
 chk("and the two branches never both fire",
     !(M.isDelivered({ status: "undelivered" }) && !M.isDeliveryFailure({ status: "undelivered" })));
+
+// ---------------------------------------------------------------------------
+// Finding a failure has to DO something about it
+// ---------------------------------------------------------------------------
+//
+// THE POINT of this whole block, and the bug it was written for.
+//
+// "Email it instead" lived only inside the delivery-failure branch of
+// sms-inbound.mjs — a branch fired by a webhook Quo does not publish. The
+// feature was written, tested, shipped, and could never once have run. The
+// only thing that actually discovers a refusal is this reconciler, and it
+// marked the row and stopped there.
+//
+// Nothing about that was visible from either side: the webhook tests passed
+// (the branch works, when something calls it) and the reconciler tests passed
+// (it records the failure correctly). Only asking "and then what happens?"
+// finds it.
+
+{
+  const realFetch = globalThis.fetch;
+  process.env.RESEND_API_KEY = "re_test";
+  process.env.RECEIPT_FROM = "hello@skybluecleaningco.com";
+  process.env.PUBLIC_URL = "https://crm.skybluecleaningco.com";
+
+  let emailed = null;
+  // Installed as the GLOBAL fetch as well as passed to the reconciler.
+  // askQuo() takes an injected fetchImpl, but sendEmail() — three modules
+  // down, inside the fallback — calls global fetch. Stubbing only the
+  // injected one left the email path reaching for the real network, which is
+  // why the first run of this block asserted "no Resend call was made"
+  // against code that was working.
+  const quoAnd = (byId) => {
+    const quo = quoSaying(byId);
+    const impl = async (url, init) => {
+      if (String(url).includes("api.resend.com")) {
+        emailed = JSON.parse(init.body);
+        return { ok: true, status: 200, json: async () => ({ id: "re_fb" }) };
+      }
+      return quo(url, init);
+    };
+    globalThis.fetch = impl;
+    return impl;
+  };
+
+  // --- a refused quote ---
+  emailed = null;
+  globalThis.__rpc = async (fn) => {
+    if (fn === "sms_awaiting_verdict") return [{ out_sid: "q1" }];
+    if (fn === "mark_sms_undelivered") {
+      return [{
+        out_kind: "quote", out_quote_id: "quote-1", out_lead_id: "lead-1",
+        out_phone: "+15415551234", out_permanent: true,
+      }];
+    }
+    if (fn === "quote_for_email") {
+      return [{
+        out_token: "tok-judy", out_name: "Judy", out_email: "judy@example.com",
+        out_amount: 449, out_expires: null, out_sender_name: "Hayden Mortensen",
+      }];
+    }
+    if (fn === "sb_email_unreachable") return false;
+    return null;
+  };
+
+  let summary = await M.reconcileSms({ fetchImpl: quoAnd({ q1: "undelivered" }) });
+
+  chk("THE POINT: a refusal found by asking is emailed instead",
+      emailed !== null, "no Resend call was made");
+  chk("to the address on the record",
+      emailed?.to?.[0] === "judy@example.com", JSON.stringify(emailed?.to));
+  chk("and signed by whoever sent the quote",
+      /Hayden/.test(emailed?.html || "") && !/Jordan/.test(emailed?.html || ""));
+  chk("and the pass reports that it went",
+      summary.failures[0]?.emailed === true, JSON.stringify(summary.failures));
+
+  // --- a refused day-before confirmation ---
+  //
+  // The case the fifteen-minute poll exists for. Discovering at 4pm that this
+  // afternoon's reminder was refused is only useful if something then emails
+  // it — otherwise the CRM has a tidy record of a job nobody was told about.
+  emailed = null;
+  const tomorrow = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  globalThis.__rpc = async (fn) => {
+    if (fn === "sms_awaiting_verdict") return [{ out_sid: "r1" }];
+    if (fn === "mark_sms_undelivered") {
+      return [{
+        out_kind: "reminder", out_job_id: "job-1", out_customer_id: "cust-1",
+        out_phone: "+15415552222", out_permanent: true,
+      }];
+    }
+    if (fn === "reminder_for_email") {
+      return [{
+        out_name: "Trish", out_email: "trish@example.com",
+        out_starts_at: tomorrow, out_address: "14 Oak St",
+        out_services: "Exterior windows",
+      }];
+    }
+    if (fn === "sb_email_unreachable") return false;
+    return null;
+  };
+
+  summary = await M.reconcileSms({ fetchImpl: quoAnd({ r1: "undelivered" }) });
+
+  chk("THE POINT: a refused day-before confirmation is emailed the same pass",
+      emailed !== null, "no Resend call was made");
+  chk("with the day and time in the subject",
+      /cleaning your windows/i.test(emailed?.subject || ""), emailed?.subject);
+  chk("and it is not the quote email",
+      !/Accept this quote/i.test(emailed?.html || ""));
+
+  // --- the second pass ---
+  //
+  // THE POINT. This now runs every fifteen minutes. If a repeat could resend,
+  // a customer whose number is a landline would get the same quote email
+  // ninety-six times a day.
+  emailed = null;
+  globalThis.__rpc = async (fn) => {
+    if (fn === "sms_awaiting_verdict") return [{ out_sid: "q1" }];
+    // Already recorded: mark_sms_undelivered gives nothing back the second
+    // time, and that is the only thing standing between this and a mailbox
+    // full of identical quotes.
+    if (fn === "mark_sms_undelivered") return [];
+    if (fn === "quote_for_email") {
+      return [{
+        out_token: "tok-judy", out_name: "Judy", out_email: "judy@example.com",
+        out_amount: 449, out_expires: null,
+      }];
+    }
+    if (fn === "sb_email_unreachable") return false;
+    return null;
+  };
+
+  await M.reconcileSms({ fetchImpl: quoAnd({ q1: "undelivered" }) });
+  chk("THE POINT: a second pass does not email it again", emailed === null);
+
+  // --- no link to send ---
+  //
+  // A quote email whose Accept button goes nowhere is worse than none: the
+  // customer believes they have been sent something and that we are waiting
+  // on them.
+  emailed = null;
+  const savedUrl = process.env.PUBLIC_URL;
+  delete process.env.PUBLIC_URL;
+  delete process.env.URL;
+
+  const out = await M.sendItAnotherWay({
+    out_kind: "quote", out_quote_id: "quote-1", out_lead_id: "lead-1",
+  });
+  chk("THE POINT: with no site URL set, no broken link is emailed",
+      emailed === null && out.sent === false, JSON.stringify(out));
+
+  process.env.PUBLIC_URL = savedUrl;
+
+  globalThis.fetch = realFetch;
+  delete globalThis.__rpc;
+  delete process.env.RESEND_API_KEY;
+  delete process.env.RECEIPT_FROM;
+  delete process.env.PUBLIC_URL;
+}
+
+// ---------------------------------------------------------------------------
+// The schedule is what it says it is
+// ---------------------------------------------------------------------------
+//
+// Read off disk rather than imported: the value is a string in a config
+// export and a typo in it is a poller that runs once a day, or once a month,
+// and looks exactly like one that works.
+
+{
+  const { readFileSync } = await import("node:fs");
+  const poll = readFileSync("netlify/functions/poll-delivery.mjs", "utf8");
+  const nightly = readFileSync("netlify/functions/send-sms.mjs", "utf8");
+
+  chk("the poller runs every fifteen minutes",
+      /schedule:\s*"\*\/15 \* \* \* \*"/.test(poll),
+      (poll.match(/schedule:.*/) || [])[0]);
+
+  // A short window on purpose. The poller is the fast path for something
+  // that just happened; the nightly run is the catch-up, and if the poller
+  // took the seven-day window too it would ask Quo about the same old
+  // messages ninety-six times a day.
+  chk("THE POINT: the poller asks about a SHORT window",
+      /days:\s*2\b/.test(poll), (poll.match(/days:.*/) || [])[0]);
+  chk("and the nightly run keeps the long one",
+      /days:\s*7\b/.test(nightly), (nightly.match(/days:.*/) || [])[0]);
+}
 
 console.log(bad === 0 ? "\nReconciling holds" : `\n${bad} failure(s)`);
 process.exitCode = bad === 0 ? 0 : 1;

@@ -20,8 +20,7 @@
 
 import { rpc } from "../lib/followUps.mjs";
 import { sendSms, smsMode, toE164, postToQuo } from "../lib/sms.mjs";
-import { emailTheQuote } from "../lib/quoteEmail.mjs";
-import { emailTheReminder } from "../lib/reminderEmail.mjs";
+import { sendItAnotherWay } from "../lib/anotherWay.mjs";
 
 // Standard Webhooks signature checking now lives in netlify/lib/webhooks.mjs,
 // shared with the Resend endpoint. Re-exported so every existing import of
@@ -221,7 +220,7 @@ export default async (req) => {
   if (isDeliveryFailure(evt)) {
     try {
       const row = await recordUndelivered(evt);
-      if (row) await sendItAnotherWay(row, req);
+      if (row) await sendItAnotherWay(row, { origin: new URL(req.url).origin });
     } catch (err) {
       // Same rule as everything else here: never 5xx at Quo. A retry of a
       // receipt we have already recorded is harmless — mark_sms_undelivered
@@ -380,130 +379,4 @@ async function recordUndelivered(evt) {
   });
 
   return row;
-}
-
-/**
- * The text didn't arrive, so try the other address we have.
- *
- * Two things get a second route, and nothing else:
- *
- *   quote     — there is money on the table and a link the customer has to
- *               open to accept it.
- *   reminder  — the day-before confirmation. This one is the more urgent of
- *               the two despite being worth nothing, because it EXPIRES
- *               OVERNIGHT. A quote the customer never saw can be chased next
- *               week; a confirmation they never saw means two people drive
- *               to a house in the morning that wasn't expecting them, and
- *               the only trace is a line in a webhook log.
- *
- * A nudge is left alone deliberately. It is already the second attempt at
- * something, and emailing a chase-up to a customer who never got the first
- * message reads as pestering about a quote they have never seen.
- *
- * Runs once per failure and not once per webhook retry, because
- * mark_sms_undelivered() only returns a row the first time. That is the
- * whole reason it returns anything at all.
- *
- * Never throws. Every caller of this is a webhook handler that must answer
- * 200 or Quo will send the receipt again.
- */
-async function sendItAnotherWay(row, req) {
-  try {
-    if (row.out_kind === "reminder" && row.out_job_id) {
-      await emailTheConfirmation(row);
-      return;
-    }
-
-    if (row.out_kind !== "quote" || !row.out_quote_id) return;
-
-    const rows = await rpc("quote_for_email", { p_quote_id: row.out_quote_id });
-    const q = Array.isArray(rows) ? rows[0] : rows;
-
-    // No row means no address to send to, which is ordinary for a lead taken
-    // over the phone — not a failure, and nothing to log loudly.
-    if (!q?.out_email || !q?.out_token) return;
-
-    const base = (
-      process.env.PUBLIC_URL ||
-      process.env.URL ||
-      new URL(req.url).origin
-    ).replace(/\/$/, "");
-
-    const sent = await emailTheQuote({
-      to: q.out_email,
-      customerName: q.out_name,
-      amount: Number(q.out_amount) || 0,
-      link: `${base}/q/${q.out_token}`,
-      expires: q.out_expires
-        ? new Date(q.out_expires).toLocaleDateString("en-US", {
-            month: "long",
-            day: "numeric",
-          })
-        : null,
-      // The person who sent the original quote signs the email too. The
-      // customer is receiving the same quote by a different route; it should
-      // not arrive from a different name because the first route failed.
-      sentByName: q.out_sender_name,
-      // So the email is recorded against the same records the text was, and
-      // a bounce lands on the right customer in the failures list rather
-      // than as an orphan with an address and nothing else.
-      leadId: row.out_lead_id,
-      customerId: row.out_customer_id,
-      quoteId: row.out_quote_id,
-      // This IS the rescue attempt. If it bounces too, the failures list
-      // should say plainly that both routes to this customer are closed
-      // rather than showing what looks like an ordinary quote email.
-      kind: "quote_fallback",
-    });
-
-    console.log("[sms-inbound] quote fell back to email", {
-      ok: sent.ok,
-      reason: sent.reason || null,
-    });
-  } catch (err) {
-    // The status is already recorded and the failures list will show it.
-    // Losing the fallback is a smaller failure than losing the record of
-    // why the fallback was needed.
-    console.error("[sms-inbound] could not send it another way", err);
-  }
-}
-
-/**
- * Email tomorrow's confirmation, because the text was refused.
- *
- * reminder_for_email() answers with nothing at all unless the job is still
- * scheduled, still in the future, and the customer has an address — so a
- * cancelled job cannot be confirmed by a late-arriving webhook, which would
- * be a worse outcome than saying nothing.
- *
- * When it answers with nothing there is no second route, and that is exactly
- * the row the Undelivered screen exists to put in front of somebody: a
- * person has to pick up the phone.
- */
-async function emailTheConfirmation(row) {
-  const rows = await rpc("reminder_for_email", { p_job_id: row.out_job_id });
-  const j = Array.isArray(rows) ? rows[0] : rows;
-
-  if (!j?.out_email || !j?.out_starts_at) {
-    console.log("[sms-inbound] reminder had no second route", {
-      job: row.out_job_id,
-    });
-    return;
-  }
-
-  const sent = await emailTheReminder({
-    to: j.out_email,
-    customerName: j.out_name,
-    startsAt: j.out_starts_at,
-    address: j.out_address,
-    services: j.out_services,
-    leadId: row.out_lead_id,
-    customerId: row.out_customer_id,
-    jobId: row.out_job_id,
-  });
-
-  console.log("[sms-inbound] reminder fell back to email", {
-    ok: sent.ok,
-    reason: sent.reason || null,
-  });
 }
