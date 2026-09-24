@@ -64,13 +64,31 @@
 }
 
 @media (max-width: 640px) {
-  /* Full width on phones — the two halves become equal tap targets. */
+  /* Full width on phones — two halves become equal tap targets.
+     
+     It scrolls, because it can no longer be assumed there are two. The
+     Customers section gained a third view and three labels do not fit in
+     390px: with `flex: 1` and `white-space: nowrap` the tabs cannot shrink
+     below their text, so the row pushed the whole PAGE sideways — the
+     switcher looked fine and everything under it was 20px too wide.
+     
+     `flex: 1 0 auto` keeps the old behaviour whenever they fit (grow to
+     fill, equal targets) and lets them keep their natural width when they
+     don't, with the overflow contained here instead of escaping into the
+     document. */
   .viewswitch {
     width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .viewswitch::-webkit-scrollbar {
+    width: 0;
+    height: 0;
   }
 
   .viewswitch__tab {
-    flex: 1;
+    flex: 1 0 auto;
     text-align: center;
     padding: 8px 10px;
   }

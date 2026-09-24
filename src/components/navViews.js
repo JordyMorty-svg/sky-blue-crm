@@ -36,6 +36,10 @@ export const JOB_VIEWS = [
 export const CUSTOMER_VIEWS = [
   { to: "/customers", label: "Customers", end: true },
   { to: "/customers/communication", label: "Communication" },
+  // Texts the carrier refused. Sitting beside Communication because it is
+  // the same question asked the other way round — that view is what the CRM
+  // sent, this one is what never arrived.
+  { to: "/customers/undelivered", label: "Undelivered" },
 ];
 
 // The books, and who is owed out of them. Two views rather than two tabs

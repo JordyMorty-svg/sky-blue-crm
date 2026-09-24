@@ -1,0 +1,256 @@
+.undel {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.undel__error {
+  color: #dc2626;
+  font-size: var(--text-base);
+  margin-bottom: 16px;
+}
+
+.undel__section {
+  margin-bottom: 32px;
+}
+
+.undel__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-xl);
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.undel__count {
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.undel__lede {
+  font-size: var(--text-md);
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0 0 14px;
+  max-width: 62ch;
+}
+
+.undel__state,
+.undel__empty {
+  color: #94a3b8;
+  font-size: var(--text-base);
+  padding: 16px 0;
+}
+
+.undel__list,
+.undel__blocked {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* --- a number that is closed ---------------------------------------------- */
+
+.blockedrow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #f87171;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.blockedrow__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.blockedrow__phone {
+  font-weight: 700;
+  font-size: var(--text-base);
+  color: #0f172a;
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .blockedrow__phone:hover {
+    text-decoration: underline;
+  }
+}
+
+.blockedrow__reason {
+  font-size: var(--text-sm);
+  color: #94a3b8;
+  overflow-wrap: break-word;
+}
+
+.blockedrow__when {
+  font-size: var(--text-sm);
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.blockedrow__reopen {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: var(--text-md);
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .blockedrow__reopen:hover:not(:disabled) {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
+}
+
+.blockedrow__reopen:disabled {
+  color: #94a3b8;
+  cursor: default;
+}
+
+/* --- one message that didn't arrive --------------------------------------- */
+
+.undelrow {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+
+/* The carrier refused it. Red, because nothing further will happen on its
+   own and somebody has to do something. */
+.undelrow--undelivered {
+  border-left: 3px solid #ef4444;
+}
+
+/* It never left the CRM. Amber: worth knowing, and safe to send again, which
+   is a materially smaller problem. */
+.undelrow--failed {
+  border-left: 3px solid #f59e0b;
+}
+
+@media (hover: hover) {
+  .undelrow:hover {
+    border-color: #2563eb;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+  }
+}
+
+.undelrow__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.undelrow__who {
+  font-weight: 700;
+  font-size: var(--text-lg);
+  color: #0f172a;
+}
+
+.undelrow__tag {
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.undelrow__tag--undelivered {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.undelrow__tag--failed {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.undelrow__when {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+/* What to do, before what happened. The carrier's wording is evidence; this
+   is the instruction, and it goes first. */
+.undelrow__do {
+  margin: 6px 0 0;
+  font-size: var(--text-base);
+  color: #334155;
+  line-height: 1.45;
+}
+
+.undelrow__meta {
+  margin: 6px 0 0;
+  font-size: var(--text-md);
+  color: #64748b;
+}
+
+.undelrow__phone,
+.undelrow__email {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .undelrow__phone:hover,
+  .undelrow__email:hover {
+    text-decoration: underline;
+  }
+}
+
+.undelrow__carrier {
+  margin: 6px 0 0;
+  font-size: var(--text-sm);
+  color: #94a3b8;
+}
+
+/* The message itself, quoted. Knowing WHICH text didn't arrive is most of
+   deciding what to do about it. */
+.undelrow__body {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: var(--text-md);
+  color: #475569;
+  line-height: 1.45;
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 620px) {
+  .undelrow__when {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .blockedrow__reopen {
+    width: 100%;
+  }
+}

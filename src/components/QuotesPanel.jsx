@@ -11,6 +11,11 @@ import {
   viewSummary,
   smsText,
 } from "../services/quoteService";
+import {
+  fetchQuoteDelivery,
+  failureLabel,
+  whatToDo,
+} from "../services/deliveryService";
 import "./QuotesPanel.css";
 
 /**
@@ -49,6 +54,7 @@ export default function QuotesPanel({
   onOpenChange,
 }) {
   const [quotes, setQuotes] = useState([]);
+  const [delivery, setDelivery] = useState({});
   const [selfOpen, setSelfOpen] = useState(false);
   const [loadError, setLoadError] = useState("");
 
@@ -58,7 +64,14 @@ export default function QuotesPanel({
 
   const load = useCallback(async () => {
     try {
-      setQuotes(await fetchQuotes({ leadId, customerId }));
+      const rows = await fetchQuotes({ leadId, customerId });
+      setQuotes(rows);
+      // Second query rather than a join, because it must not be able to stop
+      // the quotes rendering. A panel that says "couldn't load quotes"
+      // because a delivery lookup failed is worse than one with no badges:
+      // an empty quote list is the one wrong answer that makes somebody send
+      // a second quote at a different price.
+      setDelivery(await fetchQuoteDelivery(rows.map((q) => q.id)));
       setLoadError("");
     } catch (e) {
       console.error("Couldn't load quotes:", e);
@@ -125,6 +138,7 @@ export default function QuotesPanel({
         <ul className="quotes__list">
           {quotes.map((q) => (
             <QuoteRow
+              undelivered={delivery[q.id]}
               key={q.id}
               quote={q}
               customerName={customerName}
@@ -152,7 +166,7 @@ export default function QuotesPanel({
   );
 }
 
-function QuoteRow({ quote, customerName, customerPhone }) {
+function QuoteRow({ quote, customerName, customerPhone, undelivered = null }) {
   const state = quoteState(quote);
   const [copied, setCopied] = useState(false);
 
@@ -186,6 +200,20 @@ function QuoteRow({ quote, customerName, customerPhone }) {
       </div>
 
       {services && <p className="quoterow__services">{services}</p>}
+
+      {/* Above the meta line, not inside it. "Sent 22 Sep" and "the text
+          never arrived" are contradictory facts and burying the second one
+          in the small print under the first is how somebody reads the row,
+          believes the quote landed, and waits for a reply that is never
+          coming. */}
+      {undelivered && (
+        <p className="quoterow__undelivered">
+          <strong>{failureLabel(undelivered)}</strong> — {whatToDo(undelivered)}
+          {undelivered.error && (
+            <span className="quoterow__carrier"> Carrier said: {undelivered.error}.</span>
+          )}
+        </p>
+      )}
 
       <p className="quoterow__meta">
         Sent {shortDate(quote.sent_at || quote.created_at)}

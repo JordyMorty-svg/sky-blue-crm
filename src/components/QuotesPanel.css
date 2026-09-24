@@ -201,3 +201,32 @@
     background: #e2e8f0;
   }
 }
+
+/* ------------------------------------------------------------------
+   A quote whose text never arrived
+   ------------------------------------------------------------------
+   Red, and above the "Sent 22 Sep" line rather than tucked into it.
+   The row is otherwise making a claim that is not true, and the
+   correction has to be at least as loud as the claim. */
+.quoterow__undelivered {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: var(--text-md);
+  line-height: 1.45;
+}
+
+.quoterow__undelivered strong {
+  font-weight: 700;
+}
+
+/* The carrier's own words. Kept, because "destination not found" is what
+   you quote at Quo support, but quieter than the sentence that tells you
+   what to do about it. */
+.quoterow__carrier {
+  color: #b91c1c;
+  opacity: 0.85;
+}

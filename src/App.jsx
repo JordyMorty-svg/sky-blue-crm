@@ -22,6 +22,7 @@ import Commission from "./pages/commission/Commission";
 import TaxExport from "./pages/income/TaxExport";
 import Customers from "./pages/customers/Customers";
 import Communication from "./pages/customers/Communication";
+import Undelivered from "./pages/customers/Undelivered";
 import CustomerDetail from "./pages/customers/CustomerDetail";
 import AddPastJobs from "./pages/customers/AddPastJobs";
 import MapView from "./pages/map/MapView";
@@ -264,6 +265,7 @@ export default function App() {
       {/* Static segment, so React Router ranks it above /customers/:id —
           same reason /customers/add-past already works. */}
       <Route path="/customers/communication" element={<Page section="customers"><Communication /></Page>} />
+      <Route path="/customers/undelivered" element={<Page section="customers"><Undelivered /></Page>} />
       <Route path="/customers/add-past" element={<Page section="customers"><AddPastJobs /></Page>} />
       <Route path="/customers/:id/schedule" element={<Page section="customers"><ScheduleForCustomer /></Page>} />
       {/* Same split as the job pages: the map's customer pins open this
