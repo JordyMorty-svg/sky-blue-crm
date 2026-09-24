@@ -20,15 +20,27 @@ import { join } from "node:path";
 const stub = {
   name: "stub",
   setup(b) {
-    b.onResolve({ filter: /followUps\.mjs$/ }, (a) => ({ path: a.path, namespace: "fu" }));
+    // db.mjs as well as followUps.mjs. The email path reaches the database
+    // through db.mjs directly, and leaving it unstubbed meant those calls
+    // threw a real "SUPABASE_URL is not set" that the code then handled —
+    // so the test would have been exercising the error path without saying
+    // so.
+    b.onResolve({ filter: /(followUps|db)\.mjs$/ }, (a) => ({ path: a.path, namespace: "fu" }));
     b.onLoad({ filter: /.*/, namespace: "fu" }, () => ({
       // Routed through a global so a test can make the database fail in a
       // specific way. rpc() throws — that is the behaviour sendSms has to
       // survive — so the default is a throw too.
+      //
+      // rpcQuietly never throws by contract, and recorded calls are kept so
+      // a test can assert that a send was written down.
       contents:
         "export async function rpc(fn, args) { " +
         "  if (globalThis.__rpc) return globalThis.__rpc(fn, args); " +
-        "  throw new Error('no network in tests'); }",
+        "  throw new Error('no network in tests'); } " +
+        "export async function rpcQuietly(fn, args) { " +
+        "  (globalThis.__recorded ||= []).push({ fn, args }); " +
+        "  try { return await rpc(fn, args); } catch { return null; } } " +
+        "export function supabaseHeaders() { return {}; }",
       loader: "js",
     }));
   },
@@ -613,6 +625,10 @@ const chk = (what, pass, detail = "") => {
   };
   process.env.RESEND_API_KEY = "re_test";
   process.env.QUOTE_FROM = "quotes@skybluecleaningco.com";
+  // The base default every email falls back to. Set here because the
+  // reminder email deliberately does NOT carry its own copy of this
+  // fallback — see netlify/lib/reminderEmail.mjs.
+  process.env.RECEIPT_FROM = "hello@skybluecleaningco.com";
   process.env.PUBLIC_URL = "https://crm.skybluecleaningco.com";
 
   calls.length = 0;
@@ -658,15 +674,30 @@ const chk = (what, pass, detail = "") => {
   chk("THE POINT: a repeated receipt does not email the quote again",
       emailed === null, "the customer would get one email per webhook retry");
 
-  // A reminder is not a quote. Knowing it failed is useful; emailing "your
-  // appointment is tomorrow" to an inbox nobody reads is not.
+  // A refused day-before confirmation now gets the same second route a quote
+  // does — and it is the more urgent of the two, because it expires
+  // overnight. This used to assert the opposite ("recorded but not
+  // emailed"), which was true and is no longer.
   emailed = null;
+  const tomorrow = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
   globalThis.__rpc = async (fn) => {
     if (fn === "mark_sms_undelivered") {
-      return [{ out_id: 3, out_phone: "+15417577066", out_kind: "reminder", out_quote_id: null, out_permanent: true }];
+      return [{
+        out_id: 3, out_phone: "+15417577066", out_kind: "reminder",
+        out_job_id: "job-1", out_customer_id: "cust-1",
+        out_quote_id: null, out_permanent: true,
+      }];
     }
-    // Same again: answering here means the only reason no email goes out is
-    // that a reminder is not a quote.
+    if (fn === "reminder_for_email") {
+      return [{
+        out_name: "Trish", out_email: "trish@example.com",
+        out_starts_at: tomorrow, out_address: "14 Oak St",
+        out_services: "Exterior windows",
+      }];
+    }
+    // Deliberately still answering, so that if the reminder branch were
+    // removed the test would fail rather than quietly pass because the
+    // lookup returned nothing.
     if (fn === "quote_for_email") {
       return [{
         out_token: "tok-judy", out_name: "Judy", out_email: "judy@example.com",
@@ -678,11 +709,70 @@ const chk = (what, pass, detail = "") => {
   await M.webhook(new Request("https://example.test/api/sms-inbound", {
     method: "POST", headers: quoteFail.headers, body: quoteFail.body,
   }));
-  chk("a failed reminder is recorded but not emailed", emailed === null);
+
+  // THE POINT of the whole reminder branch. Without it, the customer whose
+  // number is a landline is simply never told we are coming, and two people
+  // drive to a locked gate.
+  chk("THE POINT: a refused day-before confirmation is emailed instead",
+      Boolean(emailed), "no Resend call was made");
+  chk("to the address on the record",
+      emailed?.to?.[0] === "trish@example.com", JSON.stringify(emailed?.to));
+  chk("and the subject carries the day and time, not just 'reminder'",
+      /cleaning your windows/i.test(emailed?.subject || "") &&
+        /\d/.test(emailed?.subject || ""),
+      emailed?.subject);
+  chk("and it is NOT the quote email",
+      !/Accept this quote/i.test(emailed?.html || ""));
+
+  // No email on file means no second route, and the Undelivered screen is
+  // the only thing that will surface it. Sending nothing is correct here;
+  // sending the confirmation to nobody is not.
+  emailed = null;
+  globalThis.__rpc = async (fn) => {
+    if (fn === "mark_sms_undelivered") {
+      return [{
+        out_id: 4, out_phone: "+15417577066", out_kind: "reminder",
+        out_job_id: "job-2", out_quote_id: null, out_permanent: true,
+      }];
+    }
+    // reminder_for_email returns NO ROW when the customer has no address —
+    // that is the signal, and it is the whole reason it filters in SQL.
+    if (fn === "reminder_for_email") return [];
+    return [];
+  };
+  await M.webhook(new Request("https://example.test/api/sms-inbound", {
+    method: "POST", headers: quoteFail.headers, body: quoteFail.body,
+  }));
+  chk("a reminder with no address on file emails nobody", emailed === null);
+
+  // A nudge is left alone on purpose: it is already the second attempt at
+  // something, and emailing a chase-up to somebody who never saw the first
+  // message reads as pestering about a quote they have never seen.
+  emailed = null;
+  globalThis.__rpc = async (fn) => {
+    if (fn === "mark_sms_undelivered") {
+      return [{
+        out_id: 5, out_phone: "+15417577066", out_kind: "nudge_sent",
+        out_quote_id: "q-9", out_permanent: true,
+      }];
+    }
+    if (fn === "quote_for_email") {
+      return [{
+        out_token: "tok-judy", out_name: "Judy", out_email: "judy@example.com",
+        out_amount: 449, out_expires: null,
+      }];
+    }
+    return [];
+  };
+  await M.webhook(new Request("https://example.test/api/sms-inbound", {
+    method: "POST", headers: quoteFail.headers, body: quoteFail.body,
+  }));
+  chk("THE POINT: a failed nudge is still not emailed", emailed === null);
 
   globalThis.fetch = realFetch2;
   delete process.env.RESEND_API_KEY;
   delete process.env.QUOTE_FROM;
+  delete process.env.RECEIPT_FROM;
   delete process.env.PUBLIC_URL;
 
   delete globalThis.__rpc;

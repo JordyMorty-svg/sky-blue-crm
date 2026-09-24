@@ -170,9 +170,42 @@ export function quoteLink(token) {
 // with unsubscribe instructions.
 const OPT_OUT = " Reply STOP to opt out.";
 
-export function quoteSms({ customerName, amount, token }) {
+/*
+ * Who the message is from.
+ *
+ * These templates used to say "Jordan" in the source, because for a while
+ * Jordan was the only person who could send a quote. Hayden sending one that
+ * introduces him as Jordan is worse than a text with no name in it at all:
+ * the customer replies expecting Jordan, or assumes they have been handed to
+ * somebody else halfway through.
+ *
+ * The fallback is the COMPANY, never a default first name. "It's Sky Blue
+ * Cleaning" is plain and true; picking a name when we don't know whose it is
+ * is a lie that happens to be right half the time.
+ *
+ * Two shapes because the sentences want different prepositions, and
+ * "Hi Judy, Jordan with Sky Blue Cleaning - just making sure" reads like it
+ * was assembled by a machine, which it was.
+ */
+// Not firstName(): that answers "there" for an empty string, which is the
+// right greeting for a customer we can't name and a nonsense signature.
+function signer(full) {
+  return String(full || "").trim().split(/\s+/)[0] || "";
+}
+
+export function itsUs(sentByName) {
+  const who = signer(sentByName);
+  return who ? `it's ${who} with Sky Blue Cleaning` : `it's Sky Blue Cleaning`;
+}
+
+export function usAt(sentByName) {
+  const who = signer(sentByName);
+  return who ? `${who} at Sky Blue Cleaning` : `Sky Blue Cleaning`;
+}
+
+export function quoteSms({ customerName, amount, token, sentByName }) {
   return gsmSafe(
-    `Hey ${firstName(customerName)}, it's Jordan with Sky Blue Cleaning. ` +
+    `Hey ${firstName(customerName)}, ${itsUs(sentByName)}. ` +
       `Here's your quote for ${money(amount)} - screens and sills included. ` +
       `Accept it here: ${quoteLink(token)}` +
       OPT_OUT
@@ -180,9 +213,9 @@ export function quoteSms({ customerName, amount, token }) {
 }
 
 // Never opened. Assume it got buried rather than that they said no.
-export function nudgeUnopenedSms({ customerName, amount, token }) {
+export function nudgeUnopenedSms({ customerName, amount, token, sentByName }) {
   return gsmSafe(
-    `Hi ${firstName(customerName)}, Jordan at Sky Blue Cleaning - just making ` +
+    `Hi ${firstName(customerName)}, ${usAt(sentByName)} - just making ` +
       `sure this reached you. Your quote for ${money(amount)}: ${quoteLink(token)}` +
       OPT_OUT
   );
@@ -190,9 +223,9 @@ export function nudgeUnopenedSms({ customerName, amount, token }) {
 
 // They looked. Different message, because "did you get it" is plainly wrong
 // when we know they opened it, and sounds like we aren't paying attention.
-export function nudgeOpenedSms({ customerName, amount, token }) {
+export function nudgeOpenedSms({ customerName, amount, token, sentByName }) {
   return gsmSafe(
-    `Hi ${firstName(customerName)}, Jordan at Sky Blue Cleaning. Any questions ` +
+    `Hi ${firstName(customerName)}, ${usAt(sentByName)}. Any questions ` +
       `on the ${money(amount)} quote? Happy to adjust it. ${quoteLink(token)}` +
       OPT_OUT
   );

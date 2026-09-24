@@ -29,6 +29,12 @@ function composeNudge(row) {
     customerName: row.customer_name,
     amount: row.amount,
     token: row.token,
+    // Whoever sent the original quote, carried through by
+    // sms_due_quote_nudges. A chase-up signed by the other brother reads as
+    // a different person picking the thread up, which is not what happened.
+    // Null when the quote's sender has left profiles; the template then
+    // signs as the company rather than guessing.
+    sentByName: row.sender_name,
   };
   return row.kind === "nudge_viewed" ? nudgeOpenedSms(args) : nudgeUnopenedSms(args);
 }

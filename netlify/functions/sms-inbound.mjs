@@ -18,70 +18,22 @@
 // who learns the URL can forge a STOP for any number in the CRM, or write
 // whatever they like onto a customer's history.
 
-import crypto from "node:crypto";
 import { rpc } from "../lib/followUps.mjs";
 import { sendSms, smsMode, toE164, postToQuo } from "../lib/sms.mjs";
 import { emailTheQuote } from "../lib/quoteEmail.mjs";
+import { emailTheReminder } from "../lib/reminderEmail.mjs";
 
-// How far out of date a request may be. Standard Webhooks asks for a
-// tolerance without naming one; five minutes is the usual choice and is what
-// stops a captured request being replayed tomorrow.
-const TOLERANCE_SECONDS = 5 * 60;
-
-/**
- * Standard Webhooks, which is what Quo moved to when it replaced the older
- * OpenPhone-Signature header.
- *
- * The signed string is `id.timestamp.body` — the RAW body, exactly as it
- * arrived. Re-serialising the JSON first is the classic way to break this:
- * key order and whitespace both change the bytes and therefore the hash.
- *
- * Implemented here rather than pulling in the Svix SDK: it is thirty lines,
- * it is the only part of that package we would use, and a signature verifier
- * whose implementation you cannot read is a strange thing to trust.
- */
-export function signatureValid({ id, timestamp, body, header, secret, now = Date.now() }) {
-  if (!id || !timestamp || !header || !secret) return false;
-
-  // Replay guard, before any cryptography.
-  const ts = Number(timestamp);
-  if (!Number.isFinite(ts)) return false;
-  if (Math.abs(now / 1000 - ts) > TOLERANCE_SECONDS) return false;
-
-  // whsec_ prefixes a base64 secret. The bytes it decodes to are the HMAC
-  // key — hashing the printable string instead produces a signature that is
-  // wrong in a way nothing reports.
-  const raw = String(secret).startsWith("whsec_") ? String(secret).slice(6) : String(secret);
-  let key;
-  try {
-    key = Buffer.from(raw, "base64");
-  } catch {
-    return false;
-  }
-  if (key.length === 0) return false;
-
-  const expected = crypto
-    .createHmac("sha256", key)
-    .update(`${id}.${timestamp}.${body}`, "utf8")
-    .digest("base64");
-
-  // The header is a space-delimited list, so a secret can be rotated without
-  // downtime — both the old and the new signature ride along until the old
-  // one is retired. Any one matching is a pass.
-  for (const part of String(header).split(" ")) {
-    const [version, value] = part.split(",");
-    if (version !== "v1" || !value) continue;
-
-    const a = Buffer.from(expected);
-    const b = Buffer.from(value);
-    // Length-checked first: timingSafeEqual throws on a mismatch, and an
-    // attacker sending one character would otherwise 500 the endpoint —
-    // which Quo treats as retryable and hammers.
-    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
-  }
-
-  return false;
-}
+// Standard Webhooks signature checking now lives in netlify/lib/webhooks.mjs,
+// shared with the Resend endpoint. Re-exported so every existing import of
+// it from this module — including verify/sms-js.mjs — keeps working.
+//
+// IMPORTED as well as re-exported, deliberately. `export { x } from "y"` is a
+// re-export and does NOT put x in this module's scope — the handler below
+// calls signatureValid() directly, and with only the re-export it threw
+// "signatureValid is not defined" on every request. Which is to say: the SMS
+// webhook was completely broken and nothing but verify/sms-js.mjs said so.
+import { signatureValid, TOLERANCE_SECONDS } from "../lib/webhooks.mjs";
+export { signatureValid, TOLERANCE_SECONDS };
 
 // The carrier keyword sets, as the CTIA defines them. Matched on the whole
 // message with punctuation and case stripped: "Stop." and "STOP!" are both
@@ -393,11 +345,20 @@ async function recordUndelivered(evt) {
 /**
  * The text didn't arrive, so try the other address we have.
  *
- * Quotes only. A reminder or a nudge that doesn't arrive is worth knowing
- * about — that is what the failures list is for — but it is not worth
- * inventing an email template for, and "your appointment is tomorrow" landing
- * in an inbox nobody checks is not better than nothing, it just looks like
- * it is.
+ * Two things get a second route, and nothing else:
+ *
+ *   quote     — there is money on the table and a link the customer has to
+ *               open to accept it.
+ *   reminder  — the day-before confirmation. This one is the more urgent of
+ *               the two despite being worth nothing, because it EXPIRES
+ *               OVERNIGHT. A quote the customer never saw can be chased next
+ *               week; a confirmation they never saw means two people drive
+ *               to a house in the morning that wasn't expecting them, and
+ *               the only trace is a line in a webhook log.
+ *
+ * A nudge is left alone deliberately. It is already the second attempt at
+ * something, and emailing a chase-up to a customer who never got the first
+ * message reads as pestering about a quote they have never seen.
  *
  * Runs once per failure and not once per webhook retry, because
  * mark_sms_undelivered() only returns a row the first time. That is the
@@ -407,9 +368,14 @@ async function recordUndelivered(evt) {
  * 200 or Quo will send the receipt again.
  */
 async function sendItAnotherWay(row, req) {
-  if (row.out_kind !== "quote" || !row.out_quote_id) return;
-
   try {
+    if (row.out_kind === "reminder" && row.out_job_id) {
+      await emailTheConfirmation(row);
+      return;
+    }
+
+    if (row.out_kind !== "quote" || !row.out_quote_id) return;
+
     const rows = await rpc("quote_for_email", { p_quote_id: row.out_quote_id });
     const q = Array.isArray(rows) ? rows[0] : rows;
 
@@ -434,6 +400,20 @@ async function sendItAnotherWay(row, req) {
             day: "numeric",
           })
         : null,
+      // The person who sent the original quote signs the email too. The
+      // customer is receiving the same quote by a different route; it should
+      // not arrive from a different name because the first route failed.
+      sentByName: q.out_sender_name,
+      // So the email is recorded against the same records the text was, and
+      // a bounce lands on the right customer in the failures list rather
+      // than as an orphan with an address and nothing else.
+      leadId: row.out_lead_id,
+      customerId: row.out_customer_id,
+      quoteId: row.out_quote_id,
+      // This IS the rescue attempt. If it bounces too, the failures list
+      // should say plainly that both routes to this customer are closed
+      // rather than showing what looks like an ordinary quote email.
+      kind: "quote_fallback",
     });
 
     console.log("[sms-inbound] quote fell back to email", {
@@ -444,6 +424,46 @@ async function sendItAnotherWay(row, req) {
     // The status is already recorded and the failures list will show it.
     // Losing the fallback is a smaller failure than losing the record of
     // why the fallback was needed.
-    console.error("[sms-inbound] could not email the quote instead", err);
+    console.error("[sms-inbound] could not send it another way", err);
   }
+}
+
+/**
+ * Email tomorrow's confirmation, because the text was refused.
+ *
+ * reminder_for_email() answers with nothing at all unless the job is still
+ * scheduled, still in the future, and the customer has an address — so a
+ * cancelled job cannot be confirmed by a late-arriving webhook, which would
+ * be a worse outcome than saying nothing.
+ *
+ * When it answers with nothing there is no second route, and that is exactly
+ * the row the Undelivered screen exists to put in front of somebody: a
+ * person has to pick up the phone.
+ */
+async function emailTheConfirmation(row) {
+  const rows = await rpc("reminder_for_email", { p_job_id: row.out_job_id });
+  const j = Array.isArray(rows) ? rows[0] : rows;
+
+  if (!j?.out_email || !j?.out_starts_at) {
+    console.log("[sms-inbound] reminder had no second route", {
+      job: row.out_job_id,
+    });
+    return;
+  }
+
+  const sent = await emailTheReminder({
+    to: j.out_email,
+    customerName: j.out_name,
+    startsAt: j.out_starts_at,
+    address: j.out_address,
+    services: j.out_services,
+    leadId: row.out_lead_id,
+    customerId: row.out_customer_id,
+    jobId: row.out_job_id,
+  });
+
+  console.log("[sms-inbound] reminder fell back to email", {
+    ok: sent.ok,
+    reason: sent.reason || null,
+  });
 }

@@ -210,7 +210,14 @@ function QuoteRow({ quote, customerName, customerPhone, undelivered = null }) {
         <p className="quoterow__undelivered">
           <strong>{failureLabel(undelivered)}</strong> — {whatToDo(undelivered)}
           {undelivered.error && (
-            <span className="quoterow__carrier"> Carrier said: {undelivered.error}.</span>
+            <span className="quoterow__carrier">
+              {" "}
+              {/* Whose words these are. "Carrier said" on a bounced email is
+                  a small lie that sends somebody to the phone company about
+                  a mail server. */}
+              {undelivered.channel === "email" ? "Mail server" : "Carrier"} said:{" "}
+              {undelivered.error}.
+            </span>
           )}
         </p>
       )}

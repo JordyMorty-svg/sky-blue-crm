@@ -26,8 +26,8 @@
 // deliberately switched on.
 
 import { sendSms, quoteSms } from "../lib/sms.mjs";
-import { esc, money, SERVICE_LABELS } from "../lib/html.mjs";
-import { quoteHtml } from "../lib/quoteEmail.mjs";
+import { SERVICE_LABELS } from "../lib/html.mjs";
+import { emailTheQuote } from "../lib/quoteEmail.mjs";
 import { notify, notifyConfigured, quoteSentNotification } from "../lib/notify.mjs";
 
 // Identifies the caller AND tells us who they are — the quote has to record a
@@ -263,6 +263,19 @@ export default async (req) => {
   const origin = process.env.PUBLIC_URL || new URL(req.url).origin;
   const link = `${origin}/q/${quote.token}`;
 
+  /*
+   * Whose name goes on it.
+   *
+   * Resolved ONCE here, not at each of the three places that need it: the
+   * text, the email and the internal notification. It was already being
+   * looked up for the notification, so this is the same round trip serving
+   * everybody instead of three of them — and, more to the point, it means
+   * the customer and the inbox cannot end up being told different names.
+   *
+   * Null is a fine answer. The templates fall back to the company name.
+   */
+  const sentByName = await senderName(senderId);
+
   // Not emailing is a normal case, not a failure — either there is no address
   // or the sender chose to text. Text it where we can, and hand the link back
   // either way so the CRM can offer it however this went.
@@ -296,7 +309,7 @@ export default async (req) => {
       note,
       // Deliberately no `link` — see the note in netlify/lib/notify.mjs.
       expiresAt: expiresLabel,
-      sentByName: await senderName(senderId),
+      sentByName,
       leadId,
       customerId,
     });
@@ -318,6 +331,7 @@ export default async (req) => {
       leadId,
       customerId,
       senderId,
+      sentByName,
     });
 
     // Only when it actually went. A quote that fell back to a copied link was
@@ -342,50 +356,54 @@ export default async (req) => {
     (k) => SERVICE_LABELS[k] || k
   );
 
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: process.env.QUOTE_FROM || process.env.RECEIPT_FROM,
-        reply_to:
-          process.env.REPLY_TO || process.env.FOLLOW_UP_REPLY_TO || undefined,
-        to: [customerEmail],
-        subject: `Your Sky Blue Cleaning quote — ${money(value)}`,
-        html: quoteHtml({
-          customerName,
-          amount: value,
-          services,
-          note,
-          address,
-          link,
-          expires: expiresLabel,
-        }),
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.message || "Resend error");
+  /*
+   * Through the shared sender, not a fetch written out again here.
+   *
+   * This function used to post to Resend itself, with its own copy of the
+   * from address, the reply-to chain and the subject line — while
+   * netlify/lib/quoteEmail.mjs held a second copy for the delivery webhook's
+   * "the text was refused, email it instead" path. Two copies of the same
+   * email is how a customer gets a quote that looks one way when a person
+   * sends it and another way when the CRM does, and it is also two places to
+   * remember when the send has to start being recorded.
+   */
+  const mailed = await emailTheQuote({
+    to: customerEmail,
+    customerName,
+    amount: value,
+    services,
+    note,
+    address,
+    link,
+    expires: expiresLabel,
+    sentByName,
+    leadId,
+    customerId,
+    quoteId: quote.id,
+    sentBy: senderId,
+    // A person is standing there having just pressed Send. If the address is
+    // on the closed list they may well know something it doesn't — they just
+    // spoke to the customer, or corrected the address in front of them.
+    force: true,
+  });
 
+  if (mailed.ok) {
     await announceSent("email");
-
     return Response.json({ id: quote.id, token: quote.token, link, emailed: true });
-  } catch (err) {
-    // The quote EXISTS at this point. Reporting a flat failure would leave a
-    // real, valid quote in the database that the user believes never happened
-    // — and they'd make a second one. So the link comes back regardless, and
-    // the UI offers it as a text instead.
-    console.error("Quote saved but email failed:", err);
-    return Response.json({
-      id: quote.id,
-      token: quote.token,
-      link,
-      emailed: false,
-      emailError: err.message,
-    });
   }
+
+  // The quote EXISTS at this point. Reporting a flat failure would leave a
+  // real, valid quote in the database that the user believes never happened
+  // — and they'd make a second one. So the link comes back regardless, and
+  // the UI offers it as a text instead.
+  console.error("Quote saved but email failed:", mailed.reason);
+  return Response.json({
+    id: quote.id,
+    token: quote.token,
+    link,
+    emailed: false,
+    emailError: mailed.reason,
+  });
 };
 
 
@@ -406,13 +424,22 @@ export default async (req) => {
  * link is already on its way back to the browser; a failure here means the
  * rep texts it by hand, not that anything is lost.
  */
-async function textTheQuote({ quote, customerName, customerPhone, amount, leadId, customerId, senderId }) {
+async function textTheQuote({
+  quote,
+  customerName,
+  customerPhone,
+  amount,
+  leadId,
+  customerId,
+  senderId,
+  sentByName,
+}) {
   if (!customerPhone) return { ok: false, reason: "no_phone" };
 
   const result = await sendSms({
     kind: "quote",
     phone: customerPhone,
-    body: quoteSms({ customerName, amount, token: quote.token }),
+    body: quoteSms({ customerName, amount, token: quote.token, sentByName }),
     leadId,
     customerId,
     quoteId: quote.id,

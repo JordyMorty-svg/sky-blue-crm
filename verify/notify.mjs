@@ -528,9 +528,19 @@ const baseQuote = {
   const out = await (
     await M.sendQuote(sendRequest({ ...baseQuote, customerEmail: "jane@example.com", channel: "email" }))
   ).json();
-  chk("with no NOTIFY_TO the quote still sends and no profile is read",
-    out.emailed === true && !calls.some((c) => c.url.includes("/rest/v1/profiles")),
-    "building a notification nobody receives is wasted work on every send");
+  // This used to assert that NO profile was read — the sender's name was
+  // only ever used for the internal notification, so looking it up with
+  // nowhere to send that notification was wasted work on every quote.
+  //
+  // db/quote-sender-name.sql changed what the name is FOR. It now signs the
+  // customer's own quote, so it is needed whether or not anybody is being
+  // notified, and reading it exactly once is the point of resolving it up
+  // front rather than at each of the three places that want it.
+  chk("with no NOTIFY_TO the quote still sends",
+    out.emailed === true);
+  const profileReads = calls.filter((c) => c.url.includes("/rest/v1/profiles")).length;
+  chk("THE POINT: the sender's name is read once, and still read with nobody to notify",
+    profileReads === 1, `${profileReads} profile lookups`);
   process.env.NOTIFY_TO = saved;
 }
 

@@ -17,8 +17,22 @@
 //                     inbox somebody reads.
 
 import { esc, money } from "./html.mjs";
+import { sendEmail } from "./email.mjs";
 
-function quoteHtml({ customerName, amount, services, note, address, link, expires }) {
+/**
+ * The name on the bottom of it.
+ *
+ * Same reasoning as the texts in netlify/lib/sms.mjs: the person who pressed
+ * Send signs it, and when we don't know who that was the company signs it.
+ * Never a hardcoded first name — a quote from Hayden signed "Jordan" sends
+ * the reply to the wrong brother.
+ */
+function signOff(sentByName) {
+  const who = String(sentByName || "").trim().split(/\s+/)[0];
+  return who ? `${esc(who)}<br/>Sky Blue Cleaning Co.` : "Sky Blue Cleaning Co.";
+}
+
+function quoteHtml({ customerName, amount, services, note, address, link, expires, sentByName }) {
   return `
   <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#0f172a;">
     <div style="background:#2563eb;padding:24px;border-radius:14px 14px 0 0;">
@@ -44,7 +58,12 @@ function quoteHtml({ customerName, amount, services, note, address, link, expire
       <p style="margin:24px 0 0;font-size:0.85rem;color:#64748b;">
         Every job includes the screens scrubbed and rinsed, plus the sills and tracks.<br/><br/>
         Family-owned, right here in Corvallis.<br/>
-        Questions? Just reply to this email.
+        Questions? Just reply to this email &mdash; it comes straight to us.
+      </p>
+
+      <p style="margin:18px 0 0;font-size:0.85rem;color:#0f172a;">
+        Thanks,<br/>
+        ${signOff(sentByName)}
       </p>
     </div>
   </div>`;
@@ -67,43 +86,49 @@ export async function emailTheQuote({
   address = null,
   link,
   expires = null,
+  sentByName = null,
+  leadId = null,
+  customerId = null,
+  quoteId = null,
+  sentBy = null,
+  // 'quote' when a person pressed Send, 'quote_fallback' when the delivery
+  // webhook is emailing one whose text the carrier refused. Two words rather
+  // than one because the failures list reads very differently when the thing
+  // that bounced was itself a rescue attempt.
+  kind = "quote",
+  force = false,
 }) {
-  if (!process.env.RESEND_API_KEY) {
-    return { ok: false, reason: "RESEND_API_KEY is not set" };
-  }
-  if (!to) return { ok: false, reason: "no email address" };
-
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: process.env.QUOTE_FROM || process.env.RECEIPT_FROM,
-        reply_to:
-          process.env.REPLY_TO || process.env.FOLLOW_UP_REPLY_TO || undefined,
-        to: [to],
-        subject: `Your Sky Blue Cleaning quote — ${money(amount)}`,
-        html: quoteHtml({
-          customerName,
-          amount,
-          services,
-          note,
-          address,
-          link,
-          expires,
-        }),
-      }),
-    });
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) return { ok: false, reason: data?.message || "Resend error" };
-    return { ok: true, id: data?.id || null };
-  } catch (err) {
-    return { ok: false, reason: err?.message || "Resend unreachable" };
-  }
+  // Through sendEmail(), not a fetch of its own: that is what records the
+  // send and refuses an address we already know is dead. See
+  // netlify/lib/email.mjs.
+  return sendEmail({
+    kind,
+    to,
+    subject: `Your Sky Blue Cleaning quote — ${money(amount)}`,
+    html: quoteHtml({
+      customerName,
+      amount,
+      services,
+      note,
+      address,
+      link,
+      expires,
+      sentByName,
+    }),
+    from: process.env.QUOTE_FROM || process.env.RECEIPT_FROM,
+    replyTo: process.env.REPLY_TO || process.env.FOLLOW_UP_REPLY_TO || undefined,
+    leadId,
+    customerId,
+    quoteId,
+    sentBy,
+    // A quote is sent because a person decided to send it. If they are
+    // emailing an address the automation gave up on, they have a reason —
+    // they just spoke to the customer, or the address has been corrected.
+    //
+    // The automatic fallback path does NOT force: it passes force: false,
+    // because nothing there knows anything the bounce didn't.
+    force,
+  });
 }
 
 export { quoteHtml };

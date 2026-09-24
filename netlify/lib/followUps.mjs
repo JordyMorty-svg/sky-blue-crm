@@ -24,9 +24,7 @@
 //   UNSUBSCRIBE_SECRET    — any random string; signs the opt-out links
 
 import crypto from "node:crypto";
-
-const SUPABASE_URL =
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+import { sendEmail } from "./email.mjs";
 
 // Jordan's Google Maps listing, with the write-a-review dialog opened
 // (that's what the `12e1` in the path does).
@@ -43,68 +41,12 @@ const DEFAULT_REVIEW_URL =
 const reviewUrl = () => process.env.REVIEW_URL || DEFAULT_REVIEW_URL;
 
 // --- talking to Supabase ----------------------------------------------------
-
-// Works with either generation of Supabase key.
 //
-// The legacy `service_role` key is a JWT, and PostgREST reads the role it
-// should act as out of the Authorization header — so that one has to be sent
-// twice, as apikey AND as a bearer token.
-//
-// The newer `sb_secret_...` keys are NOT JWTs, and Supabase's docs are
-// explicit that they go on the apikey header ONLY. Sending one as a bearer
-// token makes the gateway try to parse it as a JWT and reject the request,
-// which would show up as a 401 on every follow-up run with a key that is
-// perfectly valid.
-//
-// Sniffing for the JWT prefix rather than asking which kind it is: there is
-// no third option, the check can't go stale, and the legacy keys are being
-// retired at the end of 2026 — so this file needs to keep working across a
-// swap that happens in the dashboard with no deploy.
-function supabaseHeaders(key) {
-  const headers = { apikey: key, "Content-Type": "application/json" };
-  if (key.startsWith("eyJ")) headers.Authorization = `Bearer ${key}`;
-  return headers;
-}
-
-// Runs on a schedule with no user logged in, so it uses a key that bypasses
-// RLS. That is exactly why nothing here writes to tables directly — every
-// call is one of the security-definer functions in db/follow-ups.sql, so the
-// rules stay in one place rather than being re-implemented by a caller that
-// happens to be able to ignore them.
-export async function rpc(fn, body = {}) {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!SUPABASE_URL || !key) {
-    throw new Error(
-      "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must both be set"
-    );
-  }
-
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
-    method: "POST",
-    headers: supabaseHeaders(key),
-    body: JSON.stringify(body),
-  });
-
-  const text = await res.text();
-
-  if (!res.ok) {
-    // PostgREST wraps a `raise exception` as
-    // {"code":"P0001","message":"Dana has unsubscribed…","details":null}.
-    // Those messages are written as sentences for whoever pressed the
-    // button, so pull the message out rather than throwing the envelope —
-    // otherwise the CRM shows the customer's own name buried in JSON next
-    // to an error code that means nothing to anyone.
-    let message = "";
-    try {
-      message = JSON.parse(text)?.message || "";
-    } catch {
-      message = "";
-    }
-    throw new Error(message || `${fn}: ${res.status} ${text}`);
-  }
-
-  return text ? JSON.parse(text) : null;
-}
+// Moved to netlify/lib/db.mjs. Re-exported here because sms.mjs, smsRun.mjs
+// and sms-inbound.mjs all import rpc from this module, and a rename that
+// touches four files to move fifteen lines is a rename that breaks one of
+// them.
+export { rpc, supabaseHeaders } from "./db.mjs";
 
 // --- the unsubscribe link ---------------------------------------------------
 //
@@ -241,35 +183,44 @@ async function sendOne(row, siteUrl) {
     siteUrl,
   });
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
+  // Through sendEmail() rather than its own fetch, so this is recorded and
+  // a bounce on it shows up in the CRM's failures list like everything else.
+  // Before this, a review request to a dead address was the most invisible
+  // email the business sent: nobody is waiting for a reply to one, so there
+  // was nothing to notice.
+  const result = await sendEmail({
+    kind: "follow_up",
+    to: row.email,
+    subject,
+    html,
+    text,
+    from: process.env.FOLLOW_UP_FROM || process.env.RECEIPT_FROM,
+    // FOLLOW_UP_REPLY_TO first, then the general REPLY_TO that receipts
+    // also read. One address set in either place covers both emails; two
+    // only if you want them split.
+    replyTo: process.env.FOLLOW_UP_REPLY_TO || process.env.REPLY_TO || undefined,
+    // Gmail and Outlook both surface a one-click unsubscribe from these,
+    // which keeps complaints off the domain's reputation.
     headers: {
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
+      "List-Unsubscribe": `<${unsubUrl(row.customer_id, siteUrl)}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
     },
-    body: JSON.stringify({
-      from: process.env.FOLLOW_UP_FROM || process.env.RECEIPT_FROM,
-      to: [row.email],
-      // FOLLOW_UP_REPLY_TO first, then the general REPLY_TO that receipts
-      // also read. One address set in either place covers both emails; two
-      // only if you want them split.
-      reply_to:
-        process.env.FOLLOW_UP_REPLY_TO || process.env.REPLY_TO || undefined,
-      subject,
-      html,
-      text,
-      // Gmail and Outlook both surface a one-click unsubscribe from these,
-      // which keeps complaints off the domain's reputation.
-      headers: {
-        "List-Unsubscribe": `<${unsubUrl(row.customer_id, siteUrl)}>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-      },
-    }),
+    customerId: row.customer_id,
+    jobId: row.job_id || null,
   });
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.message || `Resend ${res.status}`);
-  return data.id;
+  // Thrown, not returned, because deliver() above is built around a throw:
+  // it releases the claimed row and records the reason in the catch. A
+  // silent false here would mark the follow-up sent and it would never go.
+  if (!result.ok) {
+    throw new Error(
+      result.skipped === "unreachable"
+        ? `not sent: ${result.reason}`
+        : result.reason || "Resend error"
+    );
+  }
+
+  return result.id;
 }
 
 /**

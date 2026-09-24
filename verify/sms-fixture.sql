@@ -44,6 +44,7 @@ create table customers (
   name              text,
   phone             text,
   email             text,
+  address           text,
   last_contacted_at timestamptz,
   contact_attempts  int not null default 0,
   created_at        timestamptz not null default now()
@@ -54,6 +55,7 @@ create table leads (
   name              text,
   phone             text,
   email             text,
+  address           text,
   status            text not null default 'new',
   estimate          numeric,
   last_contacted_at timestamptz,
@@ -68,6 +70,9 @@ create table jobs (
   status      text not null default 'scheduled',
   starts_at   timestamptz,
   price       numeric,
+  -- Written by the jobs_sync_services trigger in the real schema; a plain
+  -- column here because nothing under test writes it.
+  services    text,
   created_at  timestamptz not null default now()
 );
 
@@ -78,6 +83,10 @@ create table quotes (
   customer_id   uuid references customers (id),
   customer_name text,
   amount        numeric,
+  -- Who pressed Send. Real since the beginning — it decides who gets the
+  -- booking fee — and read back out by db/quote-sender-name.sql so the
+  -- message signs itself with the right brother's name.
+  sent_by       uuid references profiles (id),
   status        text not null default 'sent',
   sent_at       timestamptz,
   viewed_at     timestamptz,
