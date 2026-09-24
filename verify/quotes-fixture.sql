@@ -107,3 +107,8 @@ $$;
 create trigger leads_status_change
   after insert or update of status on leads
   for each row execute function log_lead_status_change();
+
+-- The token that lets verify/*.sql run at all. Nothing else creates this,
+-- so a real database can never satisfy the guard at the top of those files.
+create table if not exists public._scratch_db (created_at timestamptz default now());
+

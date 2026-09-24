@@ -21,6 +21,7 @@
 import crypto from "node:crypto";
 import { rpc } from "../lib/followUps.mjs";
 import { sendSms, smsMode, toE164, postToQuo } from "../lib/sms.mjs";
+import { emailTheQuote } from "../lib/quoteEmail.mjs";
 
 // How far out of date a request may be. Standard Webhooks asks for a
 // tolerance without naming one; five minutes is the usual choice and is what
@@ -121,7 +122,68 @@ export function readEvent(payload) {
   const id = obj.id || payload?.id || null;
   const direction = obj.direction || null;
 
-  return { type, from, body, id, direction };
+  // Delivery receipts. Same defensiveness as the rest of this function and
+  // then some: the field that carries the carrier's REASON is the one we
+  // have never seen, because it only exists on a payload that only arrives
+  // when something has gone wrong.
+  const status = obj.status || obj.deliveryStatus || null;
+  const error =
+    obj.error ||
+    obj.errorMessage ||
+    obj.errorCode ||
+    obj.failureReason ||
+    obj.reason ||
+    null;
+
+  return { type, from, body, id, direction, status, error, raw: obj };
+}
+
+/**
+ * Is this Quo telling us a message did not arrive?
+ *
+ * Read from two places because Quo says it in two ways — a `message.failed`
+ * event type, and a `status` of failed or undelivered on a `message.updated`.
+ * Either one is the carrier's verdict and both have to count, because
+ * missing it means the CRM goes on believing a quote was delivered.
+ *
+ * `message.delivered` is deliberately NOT handled. It would be nice to
+ * record, but 'sent' already leaves the double-send guard closed and adding
+ * a 'delivered' state would mean widening that index again — a lot of risk
+ * for a green tick. See the note at the top of db/sms-delivery.sql.
+ */
+export function isDeliveryFailure(evt) {
+  const status = String(evt.status || "").toLowerCase();
+  if (status === "failed" || status === "undelivered") return true;
+
+  const type = String(evt.type || "").toLowerCase();
+  return /message\.(failed|undelivered)/.test(type);
+}
+
+/**
+ * The carrier's reason, in the carrier's words, or an honest admission that
+ * we could not find one.
+ *
+ * When nothing matches, the keys of the payload are logged once. Quo owns
+ * this shape and has changed it before; a guess that silently resolves to
+ * "unknown" would leave sb_sms_permanent() unable to tell a landline from a
+ * spam filter forever, and nobody would ever find out why. The log is how
+ * the first real failure tells us what the field is actually called.
+ */
+export function failureReason(evt) {
+  if (typeof evt.error === "string" && evt.error.trim()) return evt.error.trim();
+
+  if (evt.error && typeof evt.error === "object") {
+    const nested = evt.error.message || evt.error.description || evt.error.code;
+    if (nested) return String(nested);
+  }
+
+  console.warn("[sms-inbound] delivery failure with no reason field", {
+    type: evt.type,
+    status: evt.status,
+    keys: Object.keys(evt.raw || {}),
+  });
+
+  return evt.status ? `carrier reported ${evt.status}` : "carrier did not deliver it";
 }
 
 export default async (req) => {
@@ -159,6 +221,23 @@ export default async (req) => {
   }
 
   const evt = readEvent(payload);
+
+  // A delivery receipt saying the message did not arrive. Handled BEFORE the
+  // gate below, which exists to throw away outbound copies — and a failure
+  // receipt is an outbound copy, so it was being thrown away with them.
+  // That is why a quote to a landline sat on the board as sent.
+  if (isDeliveryFailure(evt)) {
+    try {
+      const row = await recordUndelivered(evt);
+      if (row) await sendItAnotherWay(row, req);
+    } catch (err) {
+      // Same rule as everything else here: never 5xx at Quo. A retry of a
+      // receipt we have already recorded is harmless — mark_sms_undelivered
+      // is idempotent — but a retry storm is not.
+      console.error("[sms-inbound] could not record a delivery failure", err);
+    }
+    return new Response(null, { status: 200 });
+  }
 
   // Quo sends delivery receipts and outbound copies through the same hook.
   // Acting on those would log every message the CRM itself sent a second
@@ -262,3 +341,109 @@ async function mirror(evt) {
 export const config = {
   path: "/api/sms-inbound",
 };
+
+/**
+ * Write the carrier's verdict against the message it belongs to.
+ *
+ * Quo's message id is the only handle we have — the webhook knows nothing
+ * about leads or quotes — and it is stored on sms_messages.provider_sid by
+ * mark_sms_sent() when the send was accepted. mark_sms_undelivered() does
+ * the rest: flips the row, decides whether the refusal was permanent, and
+ * closes the number if it was.
+ *
+ * Returns the row it changed, or null when there was nothing to change —
+ * an id we have never seen, or a receipt that already arrived. The caller
+ * needs that difference, because "send the quote by email instead" must
+ * happen once and not once per webhook retry.
+ */
+async function recordUndelivered(evt) {
+  if (!evt.id) {
+    console.warn("[sms-inbound] a delivery failure with no message id", {
+      type: evt.type,
+    });
+    return null;
+  }
+
+  const reason = failureReason(evt);
+  const rows = await rpc("mark_sms_undelivered", {
+    p_sid: evt.id,
+    p_error: reason,
+  });
+
+  const row = Array.isArray(rows) ? rows[0] : rows;
+
+  if (!row?.out_id) {
+    // Not an error. Quo delivers at least once and retries anything that
+    // isn't a 2xx, so a second receipt for a message already marked is the
+    // normal case, not a surprise.
+    return null;
+  }
+
+  console.log("[sms-inbound] undelivered", {
+    kind: row.out_kind,
+    permanent: row.out_permanent,
+    reason,
+    // Last four only. The rest of this file logs numbers the same way.
+    to: String(row.out_phone || "").slice(-4),
+  });
+
+  return row;
+}
+
+/**
+ * The text didn't arrive, so try the other address we have.
+ *
+ * Quotes only. A reminder or a nudge that doesn't arrive is worth knowing
+ * about — that is what the failures list is for — but it is not worth
+ * inventing an email template for, and "your appointment is tomorrow" landing
+ * in an inbox nobody checks is not better than nothing, it just looks like
+ * it is.
+ *
+ * Runs once per failure and not once per webhook retry, because
+ * mark_sms_undelivered() only returns a row the first time. That is the
+ * whole reason it returns anything at all.
+ *
+ * Never throws. Every caller of this is a webhook handler that must answer
+ * 200 or Quo will send the receipt again.
+ */
+async function sendItAnotherWay(row, req) {
+  if (row.out_kind !== "quote" || !row.out_quote_id) return;
+
+  try {
+    const rows = await rpc("quote_for_email", { p_quote_id: row.out_quote_id });
+    const q = Array.isArray(rows) ? rows[0] : rows;
+
+    // No row means no address to send to, which is ordinary for a lead taken
+    // over the phone — not a failure, and nothing to log loudly.
+    if (!q?.out_email || !q?.out_token) return;
+
+    const base = (
+      process.env.PUBLIC_URL ||
+      process.env.URL ||
+      new URL(req.url).origin
+    ).replace(/\/$/, "");
+
+    const sent = await emailTheQuote({
+      to: q.out_email,
+      customerName: q.out_name,
+      amount: Number(q.out_amount) || 0,
+      link: `${base}/q/${q.out_token}`,
+      expires: q.out_expires
+        ? new Date(q.out_expires).toLocaleDateString("en-US", {
+            month: "long",
+            day: "numeric",
+          })
+        : null,
+    });
+
+    console.log("[sms-inbound] quote fell back to email", {
+      ok: sent.ok,
+      reason: sent.reason || null,
+    });
+  } catch (err) {
+    // The status is already recorded and the failures list will show it.
+    // Losing the fallback is a smaller failure than losing the record of
+    // why the fallback was needed.
+    console.error("[sms-inbound] could not email the quote instead", err);
+  }
+}

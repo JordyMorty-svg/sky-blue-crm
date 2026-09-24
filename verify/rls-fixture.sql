@@ -102,3 +102,8 @@ insert into jobs (id, customer_id, status, price, final_price) values
 insert into job_assignments (job_id, tech_id) values
   ('cccccccc-0000-0000-0000-000000000001',
    '33333333-3333-3333-3333-333333333333');
+
+-- The token that lets verify/*.sql run at all. Nothing else creates this,
+-- so a real database can never satisfy the guard at the top of those files.
+create table if not exists public._scratch_db (created_at timestamptz default now());
+

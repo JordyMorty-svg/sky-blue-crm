@@ -27,6 +27,7 @@
 
 import { sendSms, quoteSms } from "../lib/sms.mjs";
 import { esc, money, SERVICE_LABELS } from "../lib/html.mjs";
+import { quoteHtml } from "../lib/quoteEmail.mjs";
 import { notify, notifyConfigured, quoteSentNotification } from "../lib/notify.mjs";
 
 // Identifies the caller AND tells us who they are — the quote has to record a
@@ -91,37 +92,6 @@ async function senderName(senderId) {
   }
 }
 
-function quoteHtml({ customerName, amount, services, note, address, link, expires }) {
-  return `
-  <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#0f172a;">
-    <div style="background:#2563eb;padding:24px;border-radius:14px 14px 0 0;">
-      <h1 style="color:#ffffff;margin:0;font-size:1.4rem;">Sky Blue Cleaning Co.</h1>
-      <p style="color:#dbeafe;margin:6px 0 0;font-size:0.9rem;">Your quote</p>
-    </div>
-    <div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 14px 14px;padding:24px;">
-      <p style="margin:0 0 18px;">Hi ${esc(customerName) || "there"}, thanks for having us out. Here's your quote.</p>
-
-      <table style="width:100%;border-collapse:collapse;font-size:0.95rem;">
-        ${address ? `<tr><td style="padding:8px 0;color:#64748b;">Address</td><td style="padding:8px 0;text-align:right;">${esc(address)}</td></tr>` : ""}
-        <tr><td style="padding:8px 0;color:#64748b;vertical-align:top;">Service</td><td style="padding:8px 0;text-align:right;">${services.map(esc).join("<br/>")}</td></tr>
-        <tr><td style="padding:14px 0 0;font-weight:700;font-size:1.15rem;">Total</td><td style="padding:14px 0 0;text-align:right;font-weight:700;font-size:1.15rem;color:#2563eb;">${money(amount)}</td></tr>
-      </table>
-
-      ${note ? `<p style="margin:18px 0 0;padding:12px 14px;background:#f8fafc;border-radius:10px;font-size:0.9rem;color:#475569;">${esc(note)}</p>` : ""}
-
-      <div style="text-align:center;margin:26px 0 8px;">
-        <a href="${link}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:14px 30px;border-radius:999px;font-weight:700;font-size:1rem;">Accept this quote</a>
-      </div>
-      <p style="margin:0;text-align:center;font-size:0.8rem;color:#94a3b8;">Good through ${expires}. No deposit required.</p>
-
-      <p style="margin:24px 0 0;font-size:0.85rem;color:#64748b;">
-        Every job includes the screens scrubbed and rinsed, plus the sills and tracks.<br/><br/>
-        Family-owned, right here in Corvallis.<br/>
-        Questions? Just reply to this email.
-      </p>
-    </div>
-  </div>`;
-}
 
 /**
  * How this quote goes out.

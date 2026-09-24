@@ -104,3 +104,8 @@ create table contact_log (
 insert into profiles (id, full_name) values
   ('11111111-1111-1111-1111-111111111111', 'Jordan Mortensen'),
   ('22222222-2222-2222-2222-222222222222', 'Hayden Mortensen');
+
+-- The token that lets verify/*.sql run at all. Nothing else creates this,
+-- so a real database can never satisfy the guard at the top of those files.
+create table if not exists public._scratch_db (created_at timestamptz default now());
+

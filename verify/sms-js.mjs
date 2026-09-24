@@ -51,7 +51,8 @@ await build({
         b.onLoad({ filter: /.*/, namespace: "e" }, () => ({
           contents: `
             export * from "${process.cwd()}/netlify/lib/sms.mjs";
-            export { signatureValid, keyword, readEvent } from "${process.cwd()}/netlify/functions/sms-inbound.mjs";
+            export { signatureValid, keyword, readEvent, isDeliveryFailure, failureReason } from "${process.cwd()}/netlify/functions/sms-inbound.mjs";
+            export { default as webhook } from "${process.cwd()}/netlify/functions/sms-inbound.mjs";
           `,
           loader: "js",
           resolveDir: process.cwd(),
@@ -448,6 +449,245 @@ const chk = (what, pass, detail = "") => {
 
   if (was === undefined) delete process.env.SMS_MODE;
   else process.env.SMS_MODE = was;
+}
+
+/* ---------------------------------------------------------------------------
+   Delivery receipts
+   ---------------------------------------------------------------------------
+   The webhook's job here is small and the consequence of getting it wrong is
+   not: a quote to a landline that the CRM records as sent looks, from the
+   inside, exactly like one the customer has read.
+
+   The bug these cover was a single line of routing. sms-inbound.mjs throws
+   away outbound copies, because logging them would record every text the CRM
+   sent as though the customer had said it — and a delivery-failure receipt IS
+   an outbound copy, so it went in the bin with them.
+--------------------------------------------------------------------------- */
+
+{
+  chk("a failed status is a delivery failure", M.isDeliveryFailure({ status: "failed" }));
+  chk("so is undelivered", M.isDeliveryFailure({ status: "undelivered" }));
+  chk("and a message.failed event type", M.isDeliveryFailure({ type: "message.failed" }));
+  chk("case doesn't matter", M.isDeliveryFailure({ status: "UNDELIVERED" }));
+
+  // THE POINT, pointed the other way. Treating a delivered message as failed
+  // would close a working number and stop texting a real customer.
+  chk("a delivered message is NOT a failure", !M.isDeliveryFailure({ status: "delivered", type: "message.delivered" }));
+  chk("an incoming message is NOT a failure", !M.isDeliveryFailure({ type: "message.received", direction: "incoming" }));
+  chk("neither is an empty event", !M.isDeliveryFailure({}));
+
+  // The reason, from wherever Quo has decided to put it this year.
+  chk("a plain error string is used", M.failureReason({ error: "destination not found" }) === "destination not found");
+  chk("so is errorMessage", M.readEvent({ data: { object: { errorMessage: "landline" } } }).error === "landline");
+  chk("and a nested error object",
+      M.failureReason({ error: { message: "no route to destination" } }) === "no route to destination");
+
+  // When none of them match we still have to say SOMETHING, or
+  // sb_sms_permanent() gets a null and treats a landline as retryable.
+  const guessed = M.failureReason({ status: "undelivered", raw: {} });
+  chk("an unrecognised payload still yields a reason", /undelivered/.test(guessed), guessed);
+
+  // readEvent has to find the status inside Quo's envelope, not just at the
+  // top level, or every receipt looks like an empty event.
+  const parsed = M.readEvent({
+    type: "message.updated",
+    data: { object: { id: "AC123", status: "undelivered", error: "destination not found", direction: "outgoing" } },
+  });
+  chk("readEvent finds the status inside data.object", parsed.status === "undelivered", parsed.status);
+  chk("readEvent finds the message id", parsed.id === "AC123");
+  chk("readEvent finds the carrier's reason", parsed.error === "destination not found");
+}
+
+/* ---- and the routing, which is where the bug actually lived -------------- */
+
+{
+  const crypto = await import("node:crypto");
+  const secret = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw";
+
+  function signed(payload) {
+    const body = JSON.stringify(payload);
+    const id = "msg_test";
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const mac = crypto
+      .createHmac("sha256", Buffer.from(secret.split("_")[1], "base64"))
+      .update(`${id}.${timestamp}.${body}`)
+      .digest("base64");
+    return {
+      body,
+      headers: new Headers({
+        "webhook-id": id,
+        "webhook-timestamp": timestamp,
+        "webhook-signature": `v1,${mac}`,
+      }),
+    };
+  }
+
+  const was = process.env.QUO_WEBHOOK_SECRET;
+  process.env.QUO_WEBHOOK_SECRET = secret;
+
+  const calls = [];
+  globalThis.__rpc = async (fn, args) => {
+    calls.push({ fn, args });
+    if (fn === "mark_sms_undelivered") {
+      return [{ out_id: 1, out_phone: "+15417577066", out_kind: "quote", out_permanent: true }];
+    }
+    return [];
+  };
+
+  // A carrier rejection, in the shape Quo sends it: an OUTGOING message.
+  const receipt = signed({
+    type: "message.failed",
+    data: { object: { id: "ACjudy", direction: "outgoing", status: "undelivered", error: "destination not found" } },
+  });
+
+  const res = await M.webhook(
+    new Request("https://example.test/api/sms-inbound", {
+      method: "POST",
+      headers: receipt.headers,
+      body: receipt.body,
+    })
+  );
+
+  chk("the webhook answers 200", res.status === 200, String(res.status));
+
+  const marked = calls.find((c) => c.fn === "mark_sms_undelivered");
+  chk(
+    "THE POINT: an outgoing failure receipt is recorded, not discarded",
+    Boolean(marked),
+    "calls: " + calls.map((c) => c.fn).join(", ") || "(none)"
+  );
+  chk("it is recorded against Quo's message id", marked?.args?.p_sid === "ACjudy", marked?.args?.p_sid);
+  chk(
+    "with the carrier's own words",
+    marked?.args?.p_error === "destination not found",
+    marked?.args?.p_error
+  );
+
+  // And the thing the gate was there for in the first place has to survive:
+  // an ordinary outbound copy must still be ignored.
+  calls.length = 0;
+  const copy = signed({
+    type: "message.delivered",
+    data: { object: { id: "ACok", direction: "outgoing", status: "delivered" } },
+  });
+  await M.webhook(
+    new Request("https://example.test/api/sms-inbound", {
+      method: "POST",
+      headers: copy.headers,
+      body: copy.body,
+    })
+  );
+  chk(
+    "THE POINT: a successful outbound copy is still ignored",
+    calls.length === 0,
+    "calls: " + calls.map((c) => c.fn).join(", ")
+  );
+
+  /* ---- and then the quote goes out the other way ------------------------ */
+
+  const realFetch2 = globalThis.fetch;
+  let emailed = null;
+
+  globalThis.__rpc = async (fn, args) => {
+    calls.push({ fn, args });
+    if (fn === "mark_sms_undelivered") {
+      return [{
+        out_id: 2, out_phone: "+15417577066", out_kind: "quote",
+        out_quote_id: "11111111-1111-1111-1111-111111111111", out_permanent: true,
+      }];
+    }
+    if (fn === "quote_for_email") {
+      return [{
+        out_token: "tok-judy", out_name: "Judy", out_email: "judy@example.com",
+        out_amount: 449, out_expires: "2026-10-24T00:00:00Z",
+      }];
+    }
+    return [];
+  };
+  globalThis.fetch = async (url, opts) => {
+    if (String(url).includes("resend.com")) {
+      emailed = JSON.parse(opts.body);
+      return new Response(JSON.stringify({ id: "re_1" }), { status: 200 });
+    }
+    return realFetch2(url, opts);
+  };
+  process.env.RESEND_API_KEY = "re_test";
+  process.env.QUOTE_FROM = "quotes@skybluecleaningco.com";
+  process.env.PUBLIC_URL = "https://crm.skybluecleaningco.com";
+
+  calls.length = 0;
+  const quoteFail = signed({
+    type: "message.failed",
+    data: { object: { id: "ACjudy2", direction: "outgoing", status: "undelivered", error: "destination not found" } },
+  });
+  await M.webhook(new Request("https://example.test/api/sms-inbound", {
+    method: "POST", headers: quoteFail.headers, body: quoteFail.body,
+  }));
+
+  chk("THE POINT: a quote that could not be texted is emailed instead",
+      Boolean(emailed), "no Resend call was made");
+  chk("to the address on the record", emailed?.to?.[0] === "judy@example.com", JSON.stringify(emailed?.to));
+  chk("with the same amount the text carried", /449/.test(emailed?.subject || ""), emailed?.subject);
+  chk("and a working link to the quote",
+      /crm\.skybluecleaningco\.com\/q\/tok-judy/.test(emailed?.html || ""),
+      (emailed?.html || "").slice(0, 80));
+
+  // THE POINT. Quo retries any receipt it does not get a 2xx for, and
+  // mark_sms_undelivered returning nothing the second time is the ONLY thing
+  // stopping the customer getting the same quote email over and over.
+  emailed = null;
+  globalThis.__rpc = async (fn) => {
+    // Only the FIRST call changes anything — that is the real behaviour of
+    // mark_sms_undelivered, and the only thing standing between a webhook
+    // retry and a second email.
+    if (fn === "mark_sms_undelivered") return [];   // already recorded
+    // Deliberately still answering. The quote has not gone anywhere, so if
+    // this returned nothing the assertion below would pass because the
+    // LOOKUP failed rather than because the guard held.
+    if (fn === "quote_for_email") {
+      return [{
+        out_token: "tok-judy", out_name: "Judy", out_email: "judy@example.com",
+        out_amount: 449, out_expires: null,
+      }];
+    }
+    return [];
+  };
+  await M.webhook(new Request("https://example.test/api/sms-inbound", {
+    method: "POST", headers: quoteFail.headers, body: quoteFail.body,
+  }));
+  chk("THE POINT: a repeated receipt does not email the quote again",
+      emailed === null, "the customer would get one email per webhook retry");
+
+  // A reminder is not a quote. Knowing it failed is useful; emailing "your
+  // appointment is tomorrow" to an inbox nobody reads is not.
+  emailed = null;
+  globalThis.__rpc = async (fn) => {
+    if (fn === "mark_sms_undelivered") {
+      return [{ out_id: 3, out_phone: "+15417577066", out_kind: "reminder", out_quote_id: null, out_permanent: true }];
+    }
+    // Same again: answering here means the only reason no email goes out is
+    // that a reminder is not a quote.
+    if (fn === "quote_for_email") {
+      return [{
+        out_token: "tok-judy", out_name: "Judy", out_email: "judy@example.com",
+        out_amount: 449, out_expires: null,
+      }];
+    }
+    return [];
+  };
+  await M.webhook(new Request("https://example.test/api/sms-inbound", {
+    method: "POST", headers: quoteFail.headers, body: quoteFail.body,
+  }));
+  chk("a failed reminder is recorded but not emailed", emailed === null);
+
+  globalThis.fetch = realFetch2;
+  delete process.env.RESEND_API_KEY;
+  delete process.env.QUOTE_FROM;
+  delete process.env.PUBLIC_URL;
+
+  delete globalThis.__rpc;
+  if (was === undefined) delete process.env.QUO_WEBHOOK_SECRET;
+  else process.env.QUO_WEBHOOK_SECRET = was;
 }
 
 console.log(bad === 0 ? "\nSMS helpers hold" : `\n${bad} failure(s)`);
