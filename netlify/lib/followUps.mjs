@@ -46,7 +46,20 @@ const reviewUrl = () => process.env.REVIEW_URL || DEFAULT_REVIEW_URL;
 // and sms-inbound.mjs all import rpc from this module, and a rename that
 // touches four files to move fifteen lines is a rename that breaks one of
 // them.
-export { rpc, supabaseHeaders } from "./db.mjs";
+//
+// IMPORTED as well as re-exported, and that is not redundant.
+//
+// `export { x } from "y"` is a re-export: it forwards the name to anyone
+// importing THIS module, and puts nothing in this module's own scope. The
+// six rpc() calls below are local calls, so with only the re-export every
+// one of them threw `ReferenceError: rpc is not defined` — which is exactly
+// what the CRM showed when somebody pressed "Send review request".
+//
+// This is the second time this bug shipped in one afternoon; sms-inbound.mjs
+// had it too. See verify/module-bindings.mjs, which now fails the build for
+// it.
+import { rpc, supabaseHeaders } from "./db.mjs";
+export { rpc, supabaseHeaders };
 
 // --- the unsubscribe link ---------------------------------------------------
 //
