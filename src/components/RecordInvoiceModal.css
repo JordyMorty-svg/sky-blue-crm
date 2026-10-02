@@ -247,3 +247,16 @@
     flex-direction: column;
   }
 }
+
+/* "Nothing to change."
+   Blue, not red. A no-op is an answer, not a failure — the whole reason
+   this exists is that a silent close looked identical to a broken save. */
+.recinv__nochange {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  font-size: var(--text-sm);
+}

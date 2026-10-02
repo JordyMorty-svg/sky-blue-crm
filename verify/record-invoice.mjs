@@ -62,7 +62,7 @@ const INVOICES = [
   },
 ];
 
-function entrySource({ paid, method, status = "completed", failLoad, onPick }) {
+function entrySource({ paid, method, status = "completed", onJob = null, failLoad, onPick }) {
   return `
     import { createRoot } from "react-dom/client";
     import { createElement as h } from "react";
@@ -70,12 +70,16 @@ function entrySource({ paid, method, status = "completed", failLoad, onPick }) {
 
     window.__saves = [];
     window.__picks = [];
+    // Initialised, not left undefined — an uninitialised flag reads as
+    // whatever the last page left behind and makes the assertion a lie.
+    window.__saved = false;
     window.__closed = 0;
 
     const job = {
       id: "job-1",
       paid: ${paid},
       status: ${JSON.stringify(status)},
+      square_invoice_id: ${JSON.stringify(onJob)},
       payment_method: ${JSON.stringify(method)},
       lead: { name: "Jeff Krueger" },
     };
@@ -298,6 +302,63 @@ chk(
   "a no-op correction would write a 'corrected cash to cash' row into the history"
 );
 
+// --- saying what it did, or that it did nothing ------------------------------
+//
+// The silent close is what cost somebody twenty minutes: re-recording an
+// invoice already on the job, with the method left on its "Leave as..."
+// default, produced a modal that shut cleanly and changed nothing. Success
+// and a broken save looked identical.
+
+await mount(page, { paid: true, method: "cash", onJob: "inv_JEFF" });
+await page.locator(".recinv__row").first().click();   // the same invoice
+await page.locator(".recinv__save").click();
+await page.waitForSelector(".recinv__nochange", { timeout: 5000 }).catch(() => {});
+
+chk(
+  "THE POINT: re-recording the same invoice with no method change says so",
+  (await page.locator(".recinv__nochange").count()) === 1,
+  "a silent close is indistinguishable from a broken save"
+);
+
+{
+  const saved = await page.evaluate(() => window.__saved);
+  const saves = await page.evaluate(() => window.__saves.length);
+  chk(
+    "and it stays open rather than closing on a no-op",
+    saved !== true,
+    `__saved=${JSON.stringify(saved)} saves=${saves}`
+  );
+}
+
+chk(
+  "and it names the method it is leaving alone, so the fix is obvious",
+  (await page.locator(".recinv__nochange").innerText()).includes("Cash")
+);
+
+// Same invoice, but a real method change — that IS a change and must close.
+await mount(page, { paid: true, method: "cash", onJob: "inv_JEFF" });
+await page.locator(".recinv__row").first().click();
+await page.selectOption("#recinv-method", "square");
+await page.locator(".recinv__save").click();
+await page.waitForFunction(() => window.__saved === true, null, { timeout: 5000 });
+
+chk(
+  "THE POINT: the same invoice WITH a method change is a real change",
+  (await page.evaluate(() => window.__saves[0].opts.paymentMethod)) === "square" &&
+    (await page.locator(".recinv__nochange").count()) === 0
+);
+
+// A different invoice is a change even with no method picked.
+await mount(page, { paid: true, method: "cash", onJob: "inv_OTHER" });
+await page.locator(".recinv__row").first().click();
+await page.locator(".recinv__save").click();
+await page.waitForFunction(() => window.__saved === true, null, { timeout: 5000 });
+
+chk(
+  "attaching a different invoice is a change, method or not",
+  (await page.locator(".recinv__nochange").count()) === 0
+);
+
 // --- the manual fallback ----------------------------------------------------
 
 await mount(page, { paid: false, method: "cash" });
@@ -407,6 +468,20 @@ chk(
 chk(
   "a missing location id is named rather than returned as an empty list",
   /SQUARE_LOCATION_ID is not set/.test(fn)
+);
+
+// --- the nudge allowlist, pinned so it cannot quietly become a denylist ----
+//
+// verify/quote-close.sql asserts a closed quote is not chased, but SKIPS
+// when db/quote-sender-name.sql is not in that chain — and a skipped
+// assertion is one that cannot fail. This cannot skip.
+
+const nudge = readFileSync("db/quote-sender-name.sql", "utf8");
+chk(
+  "THE POINT: sms_due_quote_nudges still filters on an ALLOWLIST of statuses",
+  /status in \('sent',\s*'viewed'\)/.test(nudge),
+  "turned into a denylist, a closed quote would start being chased again — " +
+    "an allowlist is why 'closed' needed no change there at all"
 );
 
 console.log(bad === 0 ? "\nRecord-invoice holds" : `\n${bad} failure(s)`);

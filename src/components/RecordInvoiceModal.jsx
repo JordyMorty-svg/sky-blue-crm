@@ -76,6 +76,7 @@ export default function RecordInvoiceModal({
   const [method, setMethod] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [noChange, setNoChange] = useState(false);
 
   // Gated on COMPLETED, not on paid.
   //
@@ -120,6 +121,7 @@ export default function RecordInvoiceModal({
 
   async function handleSave() {
     setError("");
+    setNoChange(false);
 
     const invoiceId = manual ? typedId.trim() : chosen?.invoiceId;
     if (!invoiceId) {
@@ -128,6 +130,11 @@ export default function RecordInvoiceModal({
       );
       return;
     }
+
+    // What this press would actually change. Computed before the call so
+    // the modal can tell the person afterwards.
+    const sameInvoice = invoiceId === job?.square_invoice_id;
+    const methodChange = method && method !== currentMethod ? method : null;
 
     const picked = {
       invoiceId,
@@ -152,10 +159,26 @@ export default function RecordInvoiceModal({
           emailed: false,
           // Only when it was actually changed. An untouched control sends
           // nothing, and the database leaves the column alone.
-          paymentMethod: method && method !== currentMethod ? method : null,
+          paymentMethod: methodChange,
         }
       );
-      onSaved?.();
+
+      // SAY WHAT HAPPENED, or say that nothing did.
+      //
+      // This used to close silently either way, and that cost somebody
+      // twenty minutes: re-recording an invoice that was already attached,
+      // leaving the method on its "Leave as Cash" default, and getting a
+      // modal that shut cleanly and changed nothing. Success and failure
+      // looked identical, so the only available conclusion was "it's
+      // broken".
+      //
+      // A no-op is a perfectly good outcome. It just has to be stated.
+      if (!sameInvoice || methodChange) {
+        onSaved?.();
+        return;
+      }
+      setNoChange(true);
+      setSaving(false);
     } catch (e) {
       console.error(e);
       setError(e.message || "Couldn't record that invoice.");
@@ -304,6 +327,16 @@ export default function RecordInvoiceModal({
         )}
 
         {error && <p className="recinv__error">{error}</p>}
+
+        {noChange && (
+          <p className="recinv__nochange">
+            Nothing to change — that invoice is already on this job
+            {currentMethod
+              ? `, recorded as ${PAYMENT_LABELS[currentMethod] || currentMethod}`
+              : ""}
+            . To correct how it was paid, pick a different option above.
+          </p>
+        )}
 
         <div className="recinv__actions">
           <button

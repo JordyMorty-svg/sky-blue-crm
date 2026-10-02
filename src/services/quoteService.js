@@ -215,6 +215,47 @@ export function describeLoadError(e) {
 }
 
 /**
+ * Close a quote that is no longer needed.
+ *
+ * Delete removes the record; close keeps it and withdraws the offer. Those
+ * are different things and the difference is the point: two quotes went to
+ * Jeff Krueger, the second was accepted, and the first — $1,800 for pressure
+ * washing — was never going to be acted on. Deleting it loses the fact that
+ * it was ever quoted. Marking it declined is the customer's word, not ours,
+ * and would quietly inflate the decline rate with quotes nobody turned down.
+ *
+ * WHAT IT ACTUALLY DOES, beyond the label: a quote link is a standing offer.
+ * The token keeps working, and anyone holding that text message can open it
+ * months later and accept $1,800 of work, creating a real job and a real
+ * booking fee. close_quote() is what makes sb_accept_quote refuse it — the
+ * Accept button disappearing is a nicety; the refusal is the feature.
+ *
+ * Through the RPC rather than an UPDATE because the RLS policy deliberately
+ * allows staff to write only draft / sent / declined, and because an accepted
+ * quote has to be refused with a sentence somebody can act on.
+ */
+export async function closeQuote(id, reason = null) {
+  const { error } = await supabase.rpc("close_quote", {
+    p_quote_id: id,
+    p_reason: reason,
+  });
+  if (error) throw error;
+}
+
+/**
+ * Put a closed quote back.
+ *
+ * Closing is a judgement and judgements are wrong sometimes. It returns to
+ * where it was — viewed if the customer had opened it, sent if they never
+ * did — rather than always to sent, which would erase the fact that they
+ * read it and restart the nudge clock as though they never had.
+ */
+export async function reopenQuote(id) {
+  const { error } = await supabase.rpc("reopen_quote", { p_quote_id: id });
+  if (error) throw error;
+}
+
+/**
  * What a quote's state means in words, and whether it's still live.
  *
  * Expiry is computed here rather than stored, matching sb_quote_public. A
@@ -229,6 +270,12 @@ export function quoteState(q) {
   }
   if (q.status === "declined") {
     return { key: "declined", label: "Declined", tone: "bad" };
+  }
+  // Ahead of the expiry check, deliberately. A quote we withdrew in July
+  // does not become "Expired" in August — expiry is what happens to an offer
+  // nobody closed, and relabelling it loses who ended it and why.
+  if (q.status === "closed") {
+    return { key: "closed", label: "Closed", tone: "muted" };
   }
   if (expired) {
     return { key: "expired", label: "Expired", tone: "muted" };

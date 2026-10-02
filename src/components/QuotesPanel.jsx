@@ -4,6 +4,8 @@ import {
   SERVICE_LABELS,
   deletable,
   deleteQuote,
+  closeQuote,
+  reopenQuote,
   describeLoadError,
   fetchQuotes,
   money,
@@ -185,8 +187,44 @@ function QuoteRow({
   const [asking, setAsking] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [closing, setClosing] = useState(false);
 
   const canDelete = deletable(quote);
+  // Same rule as delete, same reason: an accepted quote has a job and a
+  // booking fee hanging off it. Read from the shared helper rather than
+  // re-tested here, so the two controls can never come to disagree about
+  // which quotes are untouchable.
+  const isClosed = state.key === "closed";
+  const canClose = canDelete.ok && !isClosed;
+
+  async function close() {
+    setClosing(true);
+    setDeleteError("");
+    try {
+      await closeQuote(quote.id);
+      await onDeleted?.();
+    } catch (e) {
+      console.error("Couldn't close that quote:", e);
+      // The database writes this sentence for whoever pressed the button.
+      setDeleteError(e?.message || "Couldn't close that quote.");
+    } finally {
+      setClosing(false);
+    }
+  }
+
+  async function reopen() {
+    setClosing(true);
+    setDeleteError("");
+    try {
+      await reopenQuote(quote.id);
+      await onDeleted?.();
+    } catch (e) {
+      console.error("Couldn't reopen that quote:", e);
+      setDeleteError(e?.message || "Couldn't reopen that quote.");
+    } finally {
+      setClosing(false);
+    }
+  }
 
   async function remove() {
     setDeleting(true);
@@ -212,7 +250,13 @@ function QuoteRow({
   // Built here rather than stored, so a quote sent before the domain moved
   // still produces a link on today's domain.
   const link = `${window.location.origin}/q/${quote.token}`;
-  const resendable = state.key === "sent" || state.key === "viewed" || state.key === "draft";
+  // A closed quote offers none of these. Texting somebody a link that now
+  // refuses to be accepted is worse than sending nothing: they open it,
+  // read "no longer available", and have to work out whether that is a
+  // mistake or a message.
+  const resendable =
+    !isClosed &&
+    (state.key === "sent" || state.key === "viewed" || state.key === "draft");
   const views = viewSummary(quote);
 
   async function copy() {
@@ -332,6 +376,33 @@ function QuoteRow({
           slip away from deleting a live quote. */}
       <div className="quoterow__danger">
         {deleteError && <p className="quoterow__deleteerr">{deleteError}</p>}
+
+        {/* Close sits ABOVE delete and is styled as the ordinary option,
+            because it almost always is. "We quoted this and it went nowhere"
+            is the common ending for a quote, and the record of having quoted
+            it is worth keeping — it is how you know what you offered this
+            person and for how much. Delete is for test rows and mistakes. */}
+        {isClosed ? (
+          <p className="quoterow__closed">
+            Closed{quote.closed_reason ? ` — ${quote.closed_reason}` : ""}. The
+            link no longer accepts.{" "}
+            <button
+              className="quoterow__reopen"
+              onClick={reopen}
+              disabled={closing}
+            >
+              {closing ? "Reopening…" : "Reopen it"}
+            </button>
+          </p>
+        ) : canClose ? (
+          <button
+            className="quoterow__close"
+            onClick={close}
+            disabled={closing}
+          >
+            {closing ? "Closing…" : "Close this quote"}
+          </button>
+        ) : null}
 
         {!canDelete.ok ? (
           // Shown, not hidden. A missing button is a puzzle; a disabled one

@@ -302,3 +302,62 @@
   color: #b91c1c;
   line-height: 1.45;
 }
+
+/* Close, reopen, and the closed note.
+   Close is the ORDINARY ending for a quote — most quotes go nowhere and the
+   record of having made them is worth keeping — so it reads as a normal
+   control, not a destructive one. Delete stays below it and stays quiet. */
+.quoterow__close {
+  display: block;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 11px 14px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  color: #475569;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  /* Tapped from a driveway, one-handed. */
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.quoterow__close:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.quoterow__close:disabled {
+  color: #94a3b8;
+  cursor: default;
+}
+
+.quoterow__closed {
+  margin: 0 0 8px;
+  font-size: var(--text-sm);
+  color: #64748b;
+  line-height: 1.5;
+}
+
+/* Inline with the sentence, because reopening is a correction to a
+   judgement rather than an action in its own right — a full-width button
+   would give it more weight than closing had. */
+.quoterow__reopen {
+  padding: 2px 0;
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.quoterow__reopen:disabled {
+  color: #94a3b8;
+  cursor: default;
+}
