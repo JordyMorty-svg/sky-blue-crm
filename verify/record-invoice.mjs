@@ -62,7 +62,7 @@ const INVOICES = [
   },
 ];
 
-function entrySource({ paid, method, failLoad, onPick }) {
+function entrySource({ paid, method, status = "completed", failLoad, onPick }) {
   return `
     import { createRoot } from "react-dom/client";
     import { createElement as h } from "react";
@@ -75,6 +75,7 @@ function entrySource({ paid, method, failLoad, onPick }) {
     const job = {
       id: "job-1",
       paid: ${paid},
+      status: ${JSON.stringify(status)},
       payment_method: ${JSON.stringify(method)},
       lead: { name: "Jeff Krueger" },
     };
@@ -164,7 +165,7 @@ const page = await browser.newPage({ viewport: { width: 420, height: 900 } });
 
 // --- the list ---------------------------------------------------------------
 
-await mount(page, { paid: false, method: null });
+await mount(page, { paid: false, method: "cash" });
 
 chk(
   "the invoices Square has are listed",
@@ -184,11 +185,23 @@ chk(
 );
 
 chk(
-  "THE POINT: an unpaid job is NOT offered the payment-method correction",
-  (await page.locator("#recinv-method").count()) === 0,
-  "there is nothing to correct until money has arrived — offering it here " +
-    "invites recording how a job was paid before it was"
+  "THE POINT: a completed job offers the correction even while unpaid",
+  (await page.locator("#recinv-method").count()) === 1,
+  "Jeff's job sat completed-and-unpaid for days while the ACH settled, with " +
+    "the method wrongly reading cash — gating this on paid hid the fix on " +
+    "the only job that has ever needed it"
 );
+
+// A job still on the calendar has no payment method to correct — that gets
+// decided at completion, on the completion screen.
+await mount(page, { paid: false, method: null, status: "scheduled" });
+chk(
+  "THE POINT: a job that is not completed yet is NOT offered the correction",
+  (await page.locator("#recinv-method").count()) === 0,
+  "nothing has been recorded about how it will be paid, so there is no " +
+    "correction to make"
+);
+await mount(page, { paid: false, method: "cash" });
 
 // --- recording one ----------------------------------------------------------
 
@@ -217,14 +230,14 @@ chk(
 );
 
 chk(
-  "an unpaid job sends no payment-method change",
+  "leaving the method untouched sends no change, paid or not",
   save.opts.paymentMethod === null,
   JSON.stringify(save.opts.paymentMethod)
 );
 
 // --- nothing picked ---------------------------------------------------------
 
-await mount(page, { paid: false, method: null });
+await mount(page, { paid: false, method: "cash" });
 await page.locator(".recinv__save").click();
 chk(
   "recording without picking is refused rather than saving nothing",
@@ -234,7 +247,7 @@ chk(
 
 // --- correcting the payment method -----------------------------------------
 
-await mount(page, { paid: true, method: "cash" });
+await mount(page, { paid: true, method: "cash", status: "completed" });
 
 chk(
   "a paid job is offered the payment-method correction",
@@ -261,7 +274,7 @@ chk(
   (await page.evaluate(() => window.__saves[0].opts.paymentMethod)) === null
 );
 
-await mount(page, { paid: true, method: "cash" });
+await mount(page, { paid: true, method: "cash", status: "completed" });
 await page.locator(".recinv__row").first().click();
 await page.selectOption("#recinv-method", "square");
 await page.locator(".recinv__save").click();
@@ -273,7 +286,7 @@ chk(
   "this is the cash-vs-ACH mismatch against the 1099-K"
 );
 
-await mount(page, { paid: true, method: "cash" });
+await mount(page, { paid: true, method: "cash", status: "completed" });
 await page.locator(".recinv__row").first().click();
 await page.selectOption("#recinv-method", "cash");
 await page.locator(".recinv__save").click();
@@ -287,7 +300,7 @@ chk(
 
 // --- the manual fallback ----------------------------------------------------
 
-await mount(page, { paid: false, method: null });
+await mount(page, { paid: false, method: "cash" });
 await page.locator(".recinv__switch").click();
 await page.fill("#recinv-id", "  inv_TYPED  ");
 await page.locator(".recinv__save").click();
@@ -306,7 +319,7 @@ chk(
 
 // --- Square unreachable -----------------------------------------------------
 
-await mount(page, { paid: false, method: null, failLoad: true });
+await mount(page, { paid: false, method: "cash", failLoad: true });
 
 chk(
   "THE POINT: Square being down falls back to the paste box",
@@ -321,7 +334,7 @@ chk(
 
 // --- handing the pick back instead of saving --------------------------------
 
-await mount(page, { paid: false, method: null, onPick: true });
+await mount(page, { paid: false, method: "cash", onPick: true });
 await page.locator(".recinv__row").nth(1).click();
 await page.locator(".recinv__save").click();
 await page.waitForFunction(() => window.__picks.length > 0, null, { timeout: 5000 });

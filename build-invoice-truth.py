@@ -112,9 +112,21 @@ METHOD_BRANCH = """  -- --- the payment method, corrected ----------------------
   -- So a correction is its own line. Only once the job has been paid:
   -- before that the method is still being chosen, and choosing is not
   -- correcting.
+  -- Gated on the job having ALREADY been completed before this write, not
+  -- on it having been paid.
+  --
+  -- Paid was the first rule and it was wrong. A job invoiced through Square
+  -- sits unpaid for days while a large ACH settles -- and that is exactly
+  -- when somebody notices the method says `cash` and fixes it. Requiring
+  -- paid on both sides refused to record the correction on the only job
+  -- that has ever needed one.
+  --
+  -- `old.status` rather than `new.status` is what keeps the completion write
+  -- itself out of this. Completing a job sets the status and the method in
+  -- one UPDATE; reading NEW would log 'corrected (none) -> Cash' alongside
+  -- 'Job submitted', every time, for every job.
   if new.payment_method is distinct from old.payment_method
-     and coalesce(new.paid, false)
-     and coalesce(old.paid, false) then
+     and coalesce(old.status, '') = 'completed' then
     insert into public.job_events (
       job_id, kind, from_status, to_status, amount, changed_by
     )

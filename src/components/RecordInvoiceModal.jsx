@@ -90,7 +90,20 @@ export default function RecordInvoiceModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const alreadyPaid = Boolean(job?.paid);
+  // Gated on COMPLETED, not on paid.
+  //
+  // The first version asked `job.paid`, on the reasoning that an unpaid job
+  // has no payment to correct. That was wrong, and Jeff Krueger's job is
+  // exactly why: completed, invoiced through Square, and the ACH takes days
+  // to settle on a transfer that size — so Square says UNPAID and the CRM
+  // agrees. Meanwhile the method still says `cash`, which was never true and
+  // is knowably wrong TODAY.
+  //
+  // How the money is arriving and whether it has arrived are two different
+  // facts. The method is known at completion; settlement happens later and
+  // fixes itself when Square is re-checked. Gating the one on the other hid
+  // the correction on precisely the job that needed it.
+  const canCorrectMethod = job?.status === "completed";
   const currentMethod = job?.payment_method || null;
 
   useEffect(() => {
@@ -276,7 +289,7 @@ export default function RecordInvoiceModal({
             Only offered on a job that has already been PAID. On an unpaid
             job there is nothing to correct — the method is still being
             decided, and the completion flow is where that gets decided. */}
-        {alreadyPaid && (
+        {canCorrectMethod && (
           <>
             <label className="recinv__label" htmlFor="recinv-method">
               How it was actually paid

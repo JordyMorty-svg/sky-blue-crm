@@ -47,6 +47,7 @@ declare
   n      int;
   s      text;
   s2     text;
+  fresh  uuid;
   b      boolean;
   before int;
 begin
@@ -249,15 +250,45 @@ begin
     format('THE POINT: a blank method must not wipe it, got %s', coalesce(s, 'null'));
   raise notice 'ok    THE POINT: and so does a blank one from an untouched form';
 
-  -- Choosing a method on a job that was never paid is not a correction, and
-  -- must not litter the history with one.
+  -- THE JOB THAT ACTUALLY NEEDED THIS. Completed, invoiced through Square,
+  -- and NOT paid -- a large ACH takes days to settle, so Square says UNPAID
+  -- and the CRM agrees. The method still says cash, which was never true.
+  -- The first version of this gated on paid and refused to record the fix on
+  -- precisely this job.
   delete from public.job_events where job_id = job;
-  update public.jobs set payment_method = 'check' where id = job;
+  update public.jobs set paid = false, payment_method = 'cash' where id = job;
+  delete from public.job_events where job_id = job;
+
+  update public.jobs set payment_method = 'square' where id = job;
   select count(*) into n
   from public.job_events where job_id = job and kind = 'payment_method';
+  assert n = 1,
+    format('THE POINT: a completed-but-unpaid job must still record the '
+           'correction, got %s rows', n);
+  raise notice 'ok    THE POINT: a completed job records it even before the money lands';
+
+  -- But completing a job is not correcting one. The status and the method
+  -- are written in the SAME update, so a rule reading new.status would log
+  -- '(none) -> Cash' next to every single 'Job submitted'.
+  insert into public.jobs (customer_id, status, price)
+  values (cust, 'scheduled', 400)
+  returning id into fresh;
+  delete from public.job_events where job_id = fresh;
+
+  update public.jobs
+     set status = 'completed', paid = true, payment_method = 'cash'
+   where id = fresh;
+
+  select count(*) into n
+  from public.job_events where job_id = fresh and kind = 'payment_method';
   assert n = 0,
-    format('an unpaid job changing method is not a correction, got %s', n);
-  raise notice 'ok    an unpaid job changing method is not recorded as a correction';
+    format('THE POINT: completing a job is not a correction, got %s rows', n);
+  raise notice 'ok    THE POINT: and completing a job logs no correction';
+
+  select count(*) into n
+  from public.job_events where job_id = fresh and kind = 'completed';
+  assert n = 1, format('completion should still log itself, got %s', n);
+  raise notice 'ok    while the completion itself is still recorded';
 
   -- =========================================================================
   -- Refusals
