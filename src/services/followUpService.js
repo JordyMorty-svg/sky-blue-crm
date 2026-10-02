@@ -1,10 +1,7 @@
 import { supabase } from "../supabaseClient";
 
 /**
- * The automatic review request, from the CRM's side.
- *
- * Email where there is an address, text where there isn't — the database
- * decides which, three days after the job, in sb_follow_up_channel().
+ * The automatic follow-up email, from the CRM's side.
  *
  * The sending itself happens on a schedule in
  * netlify/functions/send-follow-ups.mjs — nothing here sends anything. What
@@ -13,6 +10,77 @@ import { supabase } from "../supabaseClient";
  *
  * See db/follow-ups.sql.
  */
+
+// --- which way a customer gets asked ---------------------------------------
+//
+// A MIRROR of sb_follow_up_channel() in db/follow-ups.sql, and it is only
+// here for one reason: so the Communication page can grey out the right rows
+// and label the rest, instead of letting somebody press a button and read a
+// refusal. The database is still the authority — nothing the app computes
+// here is sent to the server, and claim_manual_follow_up re-decides it with
+// the real opt-out tables in front of it.
+//
+// A mirror of a rule is a liability, so it is kept to one function and
+// verify/follow-up-route.mjs runs the SAME table of cases through this and
+// through the SQL, and fails if they ever disagree.
+
+// sb_phone_digits + sb_sms_e164, exactly. A leading 0 or 1 in the area code
+// is rejected because no US area code has one — which is what stops a
+// half-typed "541-730-359" being offered as textable.
+export function textableNumber(phone) {
+  const digits = String(phone ?? "").replace(/\D/g, "");
+  if (/^[2-9][0-9]{9}$/.test(digits)) return `+1${digits}`;
+  if (/^1[2-9][0-9]{9}$/.test(digits)) return `+${digits}`;
+  return null;
+}
+
+/**
+ * "email", "sms", or null for "there is no way to ask this person".
+ *
+ * @param customer       a row from fetchCustomers()
+ * @param stoppedNumbers a Set of E.164 numbers that have replied STOP,
+ *                       from fetchStoppedNumbers(). Omit it and the STOP
+ *                       list simply isn't consulted — the database still
+ *                       refuses, you just find out a moment later.
+ */
+export function reviewRoute(customer, stoppedNumbers = null) {
+  if (!customer) return null;
+  // An unsubscribe closes BOTH routes. The link says "follow-up emails", but
+  // what the customer meant was "stop asking me" — see the long note on
+  // sb_follow_up_channel.
+  if (customer.email_opt_out) return null;
+  if (String(customer.email ?? "").trim()) return "email";
+
+  const e164 = textableNumber(customer.phone);
+  if (!e164) return null;
+  if (stoppedNumbers?.has(e164)) return null;
+  return "sms";
+}
+
+/** Why this customer can't be asked at all, as a word for a badge. */
+export function reviewBlockedReason(customer, stoppedNumbers = null) {
+  if (reviewRoute(customer, stoppedNumbers)) return null;
+  if (customer?.email_opt_out) return "Unsubscribed";
+  const e164 = textableNumber(customer?.phone);
+  if (e164 && stoppedNumbers?.has(e164)) return "Replied STOP";
+  return "No email or mobile";
+}
+
+// Every number that has replied STOP. Small table — one row per number that
+// has ever opted out — and readable by any signed-in user, so this is a
+// cheap way to tell "no email, but we can text them" from "no email, and
+// they told us to stop".
+export async function fetchStoppedNumbers() {
+  const { data, error } = await supabase.from("sms_opt_outs").select("phone");
+  // Not thrown. db/sms.sql may not have been run on a fresh database, and a
+  // missing opt-out table must not take the Communication page down with it
+  // — the database is the one that actually enforces this.
+  if (error) {
+    console.error(error);
+    return new Set();
+  }
+  return new Set((data || []).map((r) => r.phone));
+}
 
 // The queued (or already sent) follow-up for one job, or null.
 //
@@ -109,9 +177,7 @@ async function callRunner(method, body = null) {
   return data;
 }
 
-// Who would be contacted if it ran right now, and by which route. Sends
-// nothing. Each row carries `channel`, so a preview that shows six names
-// also shows which of them are texts.
+// Who would be emailed if it ran right now. Sends nothing.
 export function previewFollowUps() {
   return callRunner("GET");
 }
@@ -162,20 +228,14 @@ export function describeFollowUp(row) {
       };
     case "sending":
       return { tone: "waiting", text: "Review request is sending now", canSkip: false };
-    case "sent": {
-      // sent_to is the address or the number, whichever it went to. Saying
-      // which makes the line answer the question somebody actually has when
-      // they open a customer three weeks later: not "did we ask?" but "how
-      // did we ask, and would they have seen it?"
-      const how = row.sent_to?.startsWith("+") ? "texted" : "sent";
+    case "sent":
       return {
         tone: "done",
-        text: `Review request ${how} ${followUpDate(row.sent_at)}${
+        text: `Review request sent ${followUpDate(row.sent_at)}${
           row.sent_to ? ` to ${row.sent_to}` : ""
         }`,
         canSkip: false,
       };
-    }
     case "skipped":
       return {
         tone: "off",

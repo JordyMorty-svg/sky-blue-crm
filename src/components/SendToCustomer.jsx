@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { fetchCustomers } from "../services/customerService";
-import { sendFollowUpToCustomer } from "../services/followUpService";
+import {
+  sendFollowUpToCustomer,
+  fetchStoppedNumbers,
+  reviewRoute,
+  reviewBlockedReason,
+  textableNumber,
+} from "../services/followUpService";
+import { formatPhone } from "../services/leadService";
 import "./SendToCustomer.css";
 
 /**
@@ -14,23 +21,42 @@ import "./SendToCustomer.css";
  *      three days for the schedule, and "does this actually work" is a
  *      question you want answered before it runs unattended.
  *
- * Why a customer can't be emailed is shown on their row rather than
- * discovered by pressing the button and reading an error. Missing addresses
- * are common — every customer imported through Add past jobs has no email —
- * so that state has to be legible in the list, not a surprise.
+ * Why a customer can't be asked is shown on their row rather than discovered
+ * by pressing the button and reading an error. That state has to be legible
+ * in the list, not a surprise.
+ *
+ * Missing addresses are COMMON — every customer imported through Add past
+ * jobs has no email, and so does anyone booked over the phone. Those rows
+ * were greyed out as "No email" until Oct 2026, which meant the people most
+ * likely to be delighted by a doorstep job were the ones nobody could ask.
+ * They now show as a text, because the review request sends one.
  */
 
 // Enough to find someone by typing a few letters, few enough that the page
 // doesn't render 400 rows before you've typed anything.
 const SHOW_LIMIT = 40;
 
-// Why this customer cannot be emailed at all. These match the refusals in
-// claim_manual_follow_up, so the button never offers something the database
-// will reject.
-function reasonBlocked(c) {
-  if (c.email_opt_out) return "Unsubscribed";
-  if (!c.email || !c.email.trim()) return "No email";
-  return null;
+// How a customer would be asked, shown on their row.
+//
+// "No email" is no longer a reason to block anybody — it is a reason to send
+// a text. The only blocks left are the two the database also refuses:
+// unsubscribed, and no usable address or number at all. reviewRoute() is the
+// shared mirror of sb_follow_up_channel; see followUpService.js.
+function routeFor(c, stopped) {
+  const via = reviewRoute(c, stopped);
+  if (!via) {
+    // A blocked row still shows whatever we hold for them. "Nothing on file"
+    // over a customer whose number replied STOP is wrong in the way that
+    // costs somebody five minutes: they go and type in an email address to
+    // fix a problem that was never a missing contact detail.
+    return {
+      blocked: reviewBlockedReason(c, stopped),
+      to: c.email?.trim() || (c.phone ? formatPhone(c.phone) : "nothing on file"),
+    };
+  }
+  return via === "sms"
+    ? { via, label: "Text", to: formatPhone(c.phone), raw: textableNumber(c.phone) }
+    : { via, label: "Email", to: c.email, raw: c.email };
 }
 
 function shortDate(iso) {
@@ -62,7 +88,11 @@ function noteFor(c) {
   if (c.last_review_request_at) {
     return {
       tone: "sent",
-      text: "Email sent",
+      // Channel-neutral: last_review_request_at is stamped by
+      // mark_follow_up_sent whichever way the message went, and a badge
+      // saying "Email sent" over a customer we texted is a small lie that
+      // costs somebody a minute of confusion.
+      text: "Asked",
       // The date goes in the tooltip rather than the badge: the row already
       // carries a name and an address, and three pieces of text competing
       // for the same line is how a scannable list stops being scannable.
@@ -74,6 +104,9 @@ function noteFor(c) {
 
 export default function SendToCustomer({ refreshKey = 0 }) {
   const [customers, setCustomers] = useState([]);
+  // Numbers that have replied STOP. Fetched alongside the customers so a row
+  // can say "Replied STOP" rather than offering a text the database refuses.
+  const [stopped, setStopped] = useState(null);
   const [search, setSearch] = useState("");
   const [picked, setPicked] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -89,8 +122,14 @@ export default function SendToCustomer({ refreshKey = 0 }) {
     let cancelled = false;
     void (async () => {
       try {
-        const rows = await fetchCustomers();
-        if (!cancelled) setCustomers(rows || []);
+        const [rows, stops] = await Promise.all([
+          fetchCustomers(),
+          fetchStoppedNumbers(),
+        ]);
+        if (!cancelled) {
+          setCustomers(rows || []);
+          setStopped(stops);
+        }
       } catch (e) {
         console.error(e);
         if (!cancelled) setError("Couldn't load customers.");
@@ -134,12 +173,32 @@ export default function SendToCustomer({ refreshKey = 0 }) {
             c.id === picked.id ? { ...c, last_review_request_at: stampedAt } : c
           )
         );
-        setDone({ name: picked.name, email: picked.email });
+        // From the server's own answer, not from what this page guessed.
+        // The database picks the channel at send time with the real opt-out
+        // tables in front of it, so `results[0]` is the only honest account
+        // of where the message actually went.
+        const went = res.results?.[0] || {};
+        setDone({
+          name: picked.name,
+          to: went.to || picked.email || picked.phone,
+          via: went.via || "email",
+        });
         setPicked(null);
         setSearch("");
       } else if (res.failed > 0) {
         // Claimed, then the provider rejected it.
-        setError(res.results?.[0]?.error || "The email didn't send.");
+        setError(res.results?.[0]?.error || "It didn't send.");
+      } else if (res.deferred > 0) {
+        // Not a failure and not a send: texting is switched off, Quo isn't
+        // configured, or it is outside 9am-8pm. The row is back in the queue
+        // untouched, so say that rather than letting it read as an error.
+        setError(
+          res.results?.[0]?.deferred === "quiet_hours"
+            ? "Not sent — it's outside texting hours (9am–8pm). It stays queued."
+            : `Not sent — texting is currently ${
+                res.results?.[0]?.deferred || "unavailable"
+              }. It stays queued.`
+        );
       } else {
         // Accepted, nothing sent, nothing failed. Nearly always a version
         // skew: an older deployed function that ignores customerId and runs
@@ -157,6 +216,10 @@ export default function SendToCustomer({ refreshKey = 0 }) {
       setBusy(false);
     }
   }
+
+  // Recomputed rather than stored with `picked`, so a STOP that lands
+  // between picking and pressing is reflected on the next render.
+  const pickedRoute = picked ? routeFor(picked, stopped) : null;
 
   const q = search.trim().toLowerCase();
   const matches = q
@@ -178,7 +241,8 @@ export default function SendToCustomer({ refreshKey = 0 }) {
         <p className="stc__blurb">
           Sends the review request straight away, without waiting for the
           three-day rule — for a customer you&rsquo;d like to ask now, or to
-          test the email against a customer of your own.
+          test it against a customer of your own. Goes by email where we have
+          one, by text where we don&rsquo;t.
         </p>
       </div>
 
@@ -186,7 +250,9 @@ export default function SendToCustomer({ refreshKey = 0 }) {
 
       {done && (
         <p className="stc__done">
-          Sent to <strong>{done.name}</strong> at {done.email}. It&rsquo;s on
+          {done.via === "sms" ? "Texted" : "Emailed"} <strong>{done.name}</strong>{" "}
+          {done.via === "sms" ? "on" : "at"}{" "}
+          {done.via === "sms" ? formatPhone(done.to) : done.to}. It&rsquo;s on
           their history too.
         </p>
       )}
@@ -195,7 +261,17 @@ export default function SendToCustomer({ refreshKey = 0 }) {
         <div className="stc__confirm">
           <div className="stc__confirmwho">
             <span className="stc__confirmname">{picked.name}</span>
-            <span className="stc__confirmmail">{picked.email}</span>
+            {/* The destination AND the route. "Send review request" over a
+                bare name told you nothing about whether it was about to put
+                a text on somebody's phone. */}
+            <span className="stc__confirmmail">
+              <span
+                className={`stc__via stc__via--${pickedRoute.via}`}
+              >
+                {pickedRoute.label}
+              </span>
+              {pickedRoute.to}
+            </span>
           </div>
           <div className="stc__confirmactions">
             <button
@@ -204,7 +280,11 @@ export default function SendToCustomer({ refreshKey = 0 }) {
               onClick={handleSend}
               disabled={busy}
             >
-              {busy ? "Sending…" : "Send review request"}
+              {busy
+                ? "Sending…"
+                : pickedRoute.via === "sms"
+                  ? "Text review request"
+                  : "Email review request"}
             </button>
             <button
               type="button"
@@ -236,14 +316,14 @@ export default function SendToCustomer({ refreshKey = 0 }) {
           ) : (
             <ul className="stc__list">
               {shown.map((c) => {
-                const blocked = reasonBlocked(c);
-                const note = blocked ? null : noteFor(c);
+                const route = routeFor(c, stopped);
+                const note = route.blocked ? null : noteFor(c);
                 return (
                   <li className="stc__row" key={c.id}>
                     <button
                       type="button"
                       className="stc__pick"
-                      disabled={!!blocked}
+                      disabled={!!route.blocked}
                       onClick={() => {
                         setPicked(c);
                         setDone(null);
@@ -252,10 +332,19 @@ export default function SendToCustomer({ refreshKey = 0 }) {
                     >
                       <span className="stc__name">{c.name || "Unnamed"}</span>
                       <span className="stc__mail">
-                        {c.email || "no email on file"}
+                        {route.blocked ? (
+                          route.to
+                        ) : (
+                          <>
+                            <span className={`stc__via stc__via--${route.via}`}>
+                              {route.label}
+                            </span>
+                            {route.to}
+                          </>
+                        )}
                       </span>
-                      {blocked && (
-                        <span className="stc__blocked">{blocked}</span>
+                      {route.blocked && (
+                        <span className="stc__blocked">{route.blocked}</span>
                       )}
                       {note && (
                         <span

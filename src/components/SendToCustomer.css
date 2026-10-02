@@ -94,6 +94,9 @@
   border: none;
   text-align: left;
   padding: 11px 13px;
+  /* Same 44px floor as every other tap target. A name on one short line left
+     the row at 42px; the ones that wrap were always taller. */
+  min-height: 44px;
   font: inherit;
   cursor: pointer;
   touch-action: manipulation;
@@ -268,4 +271,39 @@
 .stc__note--sent {
   color: #1d4ed8;
   background: #eff6ff;
+}
+
+/* Email or Text, on the row and in the confirm panel.
+ *
+ * Shown for every pickable customer, not only the texts. A tag that appears
+ * on some rows and not others reads as a warning about those rows; the point
+ * here is the opposite — both routes are normal, and the phone-only
+ * customers everyone used to be unable to ask are now ordinary entries in
+ * this list. Same two colours as the queue panel above it. */
+.stc__via {
+  display: inline-block;
+  margin-right: 7px;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  padding: 2px 7px;
+  vertical-align: baseline;
+}
+
+.stc__via--email {
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.stc__via--sms {
+  color: #047857;
+  background: #ecfdf5;
+}
+
+/* Greyed-out rows keep the layout but lose the colour, so a blocked customer
+   never looks like a route you could pick. */
+.stc__pick:disabled .stc__via {
+  color: #94a3b8;
+  background: #f1f5f9;
 }

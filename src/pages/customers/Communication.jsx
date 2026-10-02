@@ -34,7 +34,8 @@ export default function Communication() {
         <h1 className="comms__title">Communication</h1>
         <p className="comms__blurb">
           Everything the CRM sends customers on its own. Right now that&rsquo;s
-          the review request that goes out three days after a job is finished.
+          the review request that goes out three days after a job is finished
+          — by email where we have an address, by text where we don&rsquo;t.
         </p>
       </header>
 

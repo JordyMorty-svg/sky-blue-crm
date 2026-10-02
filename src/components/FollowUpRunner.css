@@ -37,7 +37,10 @@
   border: 1px solid #e2e8f0;
   border-radius: 999px;
   padding: 0 18px;
-  min-height: 42px;
+  /* 44, not 42. The rest of the CRM holds to 44px tap targets because it is
+     used one-handed on a driveway, and verify/shot-communication.mjs
+     measures it — this was two pixels short of its own house rule. */
+  min-height: 44px;
   font-size: var(--text-base);
   font-weight: 600;
   color: #475569;
@@ -169,5 +172,53 @@
   .fuprun__addr {
     white-space: normal;
     overflow-wrap: anywhere;
+  }
+}
+
+/* Which way a queued review request is going.
+ *
+ * A tag rather than a word inside the address line, because the question it
+ * answers is asked by scanning: "is anything in this list a text?" Blue for
+ * email and green for a text are the same two colours the delivery list
+ * uses for the same distinction, so the pairing is learned once. */
+.fuprun__via {
+  /* Its own grid column, so every tag starts at the same x. Floated right
+     with margin-left:auto they landed wherever the name ended, which turns
+     the one question the tag exists to answer — "is anything in here a
+     text?" — back into reading each row. */
+  justify-self: start;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.fuprun__via--email {
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.fuprun__via--sms {
+  color: #047857;
+  background: #ecfdf5;
+}
+
+/* Three columns, so names, tags and addresses each line up down the list.
+   The address column is minmax(0, …) because a grid track otherwise refuses
+   to shrink below its content and the long ones push the row sideways. */
+@media (min-width: 561px) {
+  .fuprun__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.5fr);
+    align-items: baseline;
+  }
+}
+
+/* Stacked on a phone, where there is no room for three columns — the tag
+   sits under the name, above the address. */
+@media (max-width: 560px) {
+  .fuprun__via {
+    align-self: flex-start;
   }
 }
