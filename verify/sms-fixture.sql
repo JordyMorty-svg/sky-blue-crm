@@ -60,6 +60,14 @@ create table leads (
   estimate          numeric,
   last_contacted_at timestamptz,
   contact_attempts  int not null default 0,
+  -- Added when db/lead-ack.sql started asking where a lead came from.
+  -- The real table has had it since db/lead-sources.sql; this fixture only
+  -- ever grew the columns the SMS code touched.
+  source            text not null default 'door',
+  -- Null is what a row inserted under the anon key looks like — which is how
+  -- db/lead-ack.sql tells a website enquiry from a lead somebody typed in at
+  -- a door and happened to mark as coming from the site.
+  created_by        uuid references profiles(id) on delete set null,
   created_at        timestamptz not null default now()
 );
 
