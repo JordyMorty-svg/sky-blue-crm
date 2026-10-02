@@ -59,6 +59,17 @@ export default function QuotesPanel({
   // lives there rather than here. The panel keeps its own button by default,
   // because the lead page still shows one.
   showSendButton = true,
+  // Run before the quote modal opens. Returns nothing on success and THROWS
+  // on failure, which is what stops the modal opening on a failed save.
+  //
+  // It exists because of a trap on the lead page: "Save changes" there saves
+  // AND navigates back to the board, so there was no way to save the edits
+  // you had just made and then send a quote from the same screen. Hayden
+  // typed changes, pressed Send a quote, and the lead record kept the old
+  // values — the quote itself was fine, because the modal reads the form
+  // rather than the saved row, but everything he had typed was lost the
+  // moment he left the page.
+  beforeSend = null,
   // Optionally controlled, for exactly that case: the menu is outside this
   // component, so something outside has to be able to open the modal. Left
   // alone, the panel manages its own state as before.
@@ -73,6 +84,35 @@ export default function QuotesPanel({
   const controlled = typeof openProp === "boolean";
   const open = controlled ? openProp : selfOpen;
   const setOpen = controlled ? (v) => onOpenChange?.(v) : setSelfOpen;
+  const [preparing, setPreparing] = useState(false);
+  const [prepError, setPrepError] = useState("");
+
+  /**
+   * Save first, then open.
+   *
+   * In that order, and the modal does NOT open if the save fails. Opening it
+   * anyway would send a quote off a page whose edits are about to be lost,
+   * which is the bug this is here to fix, only quieter.
+   */
+  async function openSend() {
+    if (!beforeSend) {
+      setOpen(true);
+      return;
+    }
+    setPreparing(true);
+    setPrepError("");
+    try {
+      await beforeSend();
+      setOpen(true);
+    } catch (e) {
+      console.error("Couldn't save before sending the quote:", e);
+      setPrepError(
+        e?.message || "Couldn't save your changes, so the quote wasn't started."
+      );
+    } finally {
+      setPreparing(false);
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -124,8 +164,16 @@ export default function QuotesPanel({
       <div className="quotes__head">
         <h2 className="quotes__title">Quotes</h2>
         {showSendButton && (
-          <button className="quotes__send" onClick={() => setOpen(true)}>
-            {quotes.length ? "Send another quote" : "Send a quote"}
+          <button
+            className="quotes__send"
+            onClick={openSend}
+            disabled={preparing}
+          >
+            {preparing
+              ? "Saving…"
+              : quotes.length
+                ? "Send another quote"
+                : "Send a quote"}
           </button>
         )}
       </div>
@@ -161,6 +209,8 @@ export default function QuotesPanel({
           ))}
         </ul>
       )}
+
+      {prepError && <p className="quotes__preperr">{prepError}</p>}
 
       {open && (
         <QuoteModal

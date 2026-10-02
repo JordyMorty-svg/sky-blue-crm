@@ -120,11 +120,20 @@ export default function LeadDetail() {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
-  async function handleSave() {
-    setSaving(true);
-    setError("");
-    try {
-      await updateLead(id, {
+  /**
+   * Write the form to the lead. No navigation, no state juggling.
+   *
+   * Split out of handleSave() so that "Save changes" and "save before
+   * sending a quote" cannot drift apart. That matters more here than it
+   * looks: the payload below is an EXPLICIT COLUMN LIST, not a spread of
+   * `form`, so a second copy of it would quietly stop saving whichever
+   * field was added last — exactly the failure the comments inside it warn
+   * about, one level up.
+   *
+   * Throws on failure. The callers decide what that means.
+   */
+  async function persist() {
+    await updateLead(id, {
         name: form.name,
         phone: form.phone || null,
         email: form.email || null,
@@ -153,7 +162,14 @@ export default function LeadDetail() {
         appointment_at: combineToISO(apptDate, apptTime),
         notes: form.notes || null,
         crm_notes: form.crm_notes || null,
-      });
+    });
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setError("");
+    try {
+      await persist();
       navigate("/leads");
     } catch (e) {
       console.error(e);
@@ -501,6 +517,21 @@ export default function LeadDetail() {
         address={form.address}
         suggestedAmount={Number(form.estimate) || null}
         suggestedServices={form.service ? [form.service] : null}
+        // Save what's on screen before the quote modal opens.
+        //
+        // "Save changes" on this page saves AND navigates back to the board,
+        // so there was no way to keep your edits and then send a quote from
+        // the same screen. Hayden typed changes, pressed Send a quote, and
+        // lost everything he had typed when he left the page.
+        //
+        // The quote itself was never wrong — suggestedAmount above reads
+        // `form`, not the saved row, so the customer always got the number on
+        // screen. What was lost was the lead record agreeing with it.
+        //
+        // Throws on failure, and QuotesPanel does not open the modal when it
+        // does: sending a quote off a page whose edits are about to vanish is
+        // the same bug, just quieter.
+        beforeSend={persist}
         // A lead moves to Booked the moment a quote is accepted, and that
         // happens in the database, not here. Reload so the status select and
         // the history below both reflect it.

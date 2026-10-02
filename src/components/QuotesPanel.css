@@ -440,3 +440,15 @@
   color: #64748b;
   font-style: italic;
 }
+
+/* "Couldn't save your changes, so the quote wasn't started."
+   Sits under the Send button, where the thing that just failed was. */
+.quotes__preperr {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: var(--text-sm);
+}
