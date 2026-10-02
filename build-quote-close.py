@@ -344,7 +344,69 @@ FOOTER = """
 grant execute on function public.sb_accept_quote(text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 4. What does NOT need changing, and why
+-- 5. Deleting, with one more refusal
+-- ---------------------------------------------------------------------------
+--
+-- A QUOTE ATTACHED TO A JOB IS EVIDENCE AND MUST NOT BE DELETABLE.
+--
+-- delete_quote() already refuses an accepted quote, because a job and a
+-- booking fee hang off it. A quote closed as "the work was done on another
+-- job" is the same kind of thing from the other direction: it is the record
+-- of what was quoted for work that actually happened. Jeff Krueger's $1,800
+-- pressure wash is the only surviving statement of what that part of the
+-- $3,280 was for. Deleting it leaves a job with no explanation of its price.
+--
+-- Only when a job is actually linked. Closing as done_elsewhere without
+-- picking a job leaves nothing pointing anywhere, and refusing to delete a
+-- quote on the strength of a reason code alone would be stricter than the
+-- record justifies.
+--
+-- Reproduced in full because CREATE OR REPLACE needs the whole body. The
+-- original is in db/delivery-controls.sql; this is that function plus one
+-- guard, and verify/quote-close.sql asserts the other two still work.
+create or replace function public.delete_quote(p_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  q public.quotes;
+begin
+  select * into q from public.quotes where id = p_id;
+
+  if q.id is null then
+    -- Already gone. Not an error: two clicks on one button, or two people
+    -- tidying at once, and the end state is the one that was wanted.
+    return false;
+  end if;
+
+  if q.status = 'accepted' then
+    raise exception
+      'That quote was accepted, so it has a job and a booking fee attached. '
+      'Cancel the job first if it is not going ahead.';
+  end if;
+
+  if q.closed_job_id is not null then
+    raise exception
+      'This quote is attached to a job, so it is the record of what that '
+      'work was quoted at. Unlink the job first if you really need to '
+      'delete it.';
+  end if;
+
+  -- The texts about it are kept and unlinked, not deleted. quote_id is
+  -- `on delete set null` for the same reason the lead link is: the record
+  -- that this number was texted has to survive the tidying up, or the
+  -- opt-out and complaint history goes with it.
+  delete from public.quotes where id = p_id;
+  return true;
+end;
+$$;
+
+grant execute on function public.delete_quote(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 6. What does NOT need changing, and why
 -- ---------------------------------------------------------------------------
 --
 -- sms_due_quote_nudges() filters `q.status in ('sent', 'viewed')` -- an

@@ -190,6 +190,55 @@ chk(
     "loses who ended it and why"
 );
 
+// --- deleting what is attached to a job -------------------------------------
+
+const { deletable } = await import(out);
+
+chk(
+  "THE POINT: a quote attached to a job refuses deletion",
+  deletable({ status: "closed", closed_job_id: "job-9" }).ok === false,
+  "it is the only surviving statement of what that work was quoted at"
+);
+
+chk(
+  "and says why, rather than hiding the button",
+  /attached to a job/.test(
+    deletable({ status: "closed", closed_job_id: "job-9" }).why || ""
+  )
+);
+
+chk(
+  "a closed quote with no job linked still deletes",
+  deletable({ status: "closed", closed_job_id: null }).ok === true,
+  "refusing on a reason code alone would be stricter than the record justifies"
+);
+
+chk(
+  "an accepted quote still refuses, as before",
+  deletable({ status: "accepted" }).ok === false
+);
+
+chk(
+  "and an ordinary sent quote still deletes",
+  deletable({ status: "sent" }).ok === true
+);
+
+// The database is what actually refuses. deletable() exists so the button
+// can explain itself first — if they ever disagree, the UI offers a button
+// that errors.
+const deleteFn = sql.slice(sql.indexOf("function public.delete_quote"));
+chk(
+  "THE POINT: the database refuses it too, not just the button",
+  /closed_job_id is not null/.test(deleteFn) &&
+    /attached to a job/.test(deleteFn),
+  "a check that lives only in the UI is a check that can be walked around"
+);
+
+chk(
+  "and the database still refuses an accepted quote",
+  /q\.status = 'accepted'/.test(deleteFn)
+);
+
 // --- the panel prompts ------------------------------------------------------
 
 const panel = readFileSync("src/components/QuotesPanel.jsx", "utf8");

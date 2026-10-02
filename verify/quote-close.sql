@@ -54,6 +54,8 @@ declare
   other_job uuid;
   other_lead uuid;
   job_ref uuid;
+  del_ok  boolean;
+  q_free  uuid;
 begin
   insert into public.leads (name, address, status)
   values ('Jeff Krueger', '1 Test St', 'quoted')
@@ -256,6 +258,57 @@ begin
   assert s = 'booked', format('accepting should still book the lead, got %s', s);
   assert n = 2400, format('and carry the agreed amount, got %s', n);
   raise notice 'ok    and it still books the lead at the agreed amount';
+
+  -- =========================================================================
+  -- A quote attached to a job cannot be deleted
+  -- =========================================================================
+  --
+  -- It is the only surviving statement of what that work was quoted at.
+  -- Deleting it leaves a job with a price and nothing explaining it.
+  --
+  -- Every refusal below is caught in its OWN nested block. An exception
+  -- handler on the outermost BEGIN rolls the whole block back to its start —
+  -- so catching one here would silently discard the lead and the three
+  -- quotes this file spent fifty lines setting up, and everything after it
+  -- would fail on a null lead_id. That is what the first draft did.
+
+  begin
+    perform public.delete_quote(q_open);
+    assert false, 'THE POINT: a quote linked to a job must not be deletable';
+  exception
+    when others then
+      assert sqlerrm like '%attached to a job%', format('wrong refusal: %s', sqlerrm);
+      raise notice 'ok    THE POINT: a quote attached to a job cannot be deleted';
+  end;
+
+  select id into job_ref from public.quotes where id = q_open;
+  assert job_ref = q_open, 'and the quote is still there';
+  raise notice 'ok    and it is still there';
+
+  -- Closed with no job linked: still deletable. Refusing on the strength of
+  -- a reason code alone would be stricter than the record justifies.
+  insert into public.quotes (lead_id, customer_name, address, amount, status, token, sent_at)
+  values (lead_id, 'Jeff Krueger', '1 Test St', 300, 'sent', 'tok_free', now())
+  returning id into q_free;
+  perform public.close_quote(q_free, 'done_elsewhere', null, null);
+
+  select public.delete_quote(q_free) into del_ok;
+  assert del_ok, 'a closed quote with no job linked should still delete';
+  raise notice 'ok    one closed with no job linked still deletes';
+
+  -- The two original refusals still work.
+  begin
+    perform public.delete_quote(q_acc);
+    assert false, 'an accepted quote must still refuse deletion';
+  exception
+    when others then
+      assert sqlerrm like '%accepted%', format('wrong refusal: %s', sqlerrm);
+      raise notice 'ok    an accepted quote still refuses deletion';
+  end;
+
+  select public.delete_quote(gen_random_uuid()) into del_ok;
+  assert del_ok = false, 'deleting a quote that is already gone is not an error';
+  raise notice 'ok    deleting one that is already gone is still not an error';
 
   -- =========================================================================
   -- Reopening, and the endings that are final

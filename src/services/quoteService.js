@@ -172,6 +172,23 @@ export function deletable(quote) {
       why: "This quote was accepted, so a job and a booking fee depend on it. Cancel the job first if it isn't going ahead.",
     };
   }
+  // A quote attached to a job is EVIDENCE.
+  //
+  // It is the only surviving statement of what that work was quoted at.
+  // Jeff Krueger's $1,800 pressure wash is the record of what a third of
+  // the $3,280 was for; delete it and the job has a price with nothing
+  // explaining it. Same principle as the accepted refusal above, arrived at
+  // from the other end.
+  //
+  // Mirrors delete_quote() in db/quote-close.sql, which is what actually
+  // refuses — this exists so the button can explain itself before anyone
+  // presses it, not instead of the database saying no.
+  if (quote?.closed_job_id) {
+    return {
+      ok: false,
+      why: "This quote is attached to a job, so it's the record of what that work was quoted at. Unlink the job first if you really need to delete it.",
+    };
+  }
   return { ok: true, why: null };
 }
 
