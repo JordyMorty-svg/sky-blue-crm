@@ -725,6 +725,11 @@ export default function CustomerDetail() {
           what they last actually paid. */}
       <QuotesPanel
         customerId={id}
+        // Already loaded for the Job history list below. Passed so that
+        // closing a quote because the work was done elsewhere can name which
+        // job — Jeff Krueger's $1,800 pressure wash pointing at the $3,280
+        // job it was folded into.
+        jobs={jobs}
         // The send button lives in the actions menu at the top of the page,
         // so the panel shows the list only.
         showSendButton={false}

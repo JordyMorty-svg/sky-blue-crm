@@ -47,6 +47,19 @@ create table leads (
   estimate numeric
 );
 
+-- Minimal, and only the columns db/quote-close.sql touches. Added when
+-- quotes gained closed_job_id: a quote closed because the work was done on
+-- another job names that job, so the fixture needs something for the
+-- foreign key to point at.
+create table jobs (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid references leads(id) on delete set null,
+  customer_id uuid references customers(id) on delete set null,
+  status text,
+  price numeric,
+  final_price numeric
+);
+
 create table lead_events (
   id bigserial primary key,
   lead_id uuid references leads(id) on delete cascade,

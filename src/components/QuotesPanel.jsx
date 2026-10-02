@@ -6,6 +6,9 @@ import {
   deleteQuote,
   closeQuote,
   reopenQuote,
+  CLOSE_REASONS,
+  closeReason,
+  reopenable,
   describeLoadError,
   fetchQuotes,
   money,
@@ -44,6 +47,11 @@ export default function QuotesPanel({
   address = null,
   suggestedAmount = null,
   suggestedServices = null,
+  // The customer's jobs, for "which job was it done on?" when a quote is
+  // closed because the work happened elsewhere. Defaulted to empty and the
+  // picker simply does not render without them, so a caller that hasn't got
+  // them degrades to closing with a reason and no link rather than breaking.
+  jobs = [],
   // Leads move to Booked when a quote is accepted, so the page behind this
   // needs a chance to re-read itself.
   onChanged,
@@ -142,6 +150,7 @@ export default function QuotesPanel({
         <ul className="quotes__list">
           {quotes.map((q) => (
             <QuoteRow
+              jobs={jobs}
               undelivered={delivery[q.id]}
               key={q.id}
               quote={q}
@@ -173,6 +182,7 @@ export default function QuotesPanel({
 
 function QuoteRow({
   quote,
+  jobs = [],
   customerName,
   customerPhone,
   undelivered = null,
@@ -188,6 +198,12 @@ function QuoteRow({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [closing, setClosing] = useState(false);
+  // Three states, like delete: idle, picking a reason, saving. The prompt is
+  // the feature — "Closed" with no why throws away the only interesting
+  // thing about a quote that ended.
+  const [picking, setPicking] = useState(false);
+  const [reason, setReason] = useState("");
+  const [closeJob, setCloseJob] = useState("");
 
   const canDelete = deletable(quote);
   // Same rule as delete, same reason: an accepted quote has a job and a
@@ -196,12 +212,40 @@ function QuoteRow({
   // which quotes are untouchable.
   const isClosed = state.key === "closed";
   const canClose = canDelete.ok && !isClosed;
+  const ending = closeReason(quote.closed_reason);
+  const canReopen = reopenable(quote);
+  const chosen = closeReason(reason);
+
+  async function remove() {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await deleteQuote(quote.id);
+      setAsking(false);
+      // Reload rather than splice it out of local state. The panel shows
+      // "N quotes are still live for this person", which is computed from
+      // the list — dropping a row locally would leave that sentence counting
+      // a quote that no longer exists.
+      await onDeleted?.();
+    } catch (e) {
+      console.error("Couldn't delete that quote:", e);
+      // The database writes this sentence for the person reading it — see
+      // delete_quote() in db/delivery-controls.sql — so it is shown as-is
+      // rather than replaced with something generic.
+      setDeleteError(e?.message || "Couldn't delete that quote.");
+      setDeleting(false);
+    }
+  }
 
   async function close() {
+    if (!reason) return;
     setClosing(true);
     setDeleteError("");
     try {
-      await closeQuote(quote.id);
+      await closeQuote(quote.id, reason, {
+        jobId: chosen?.asksForJob && closeJob ? closeJob : null,
+      });
+      setPicking(false);
       await onDeleted?.();
     } catch (e) {
       console.error("Couldn't close that quote:", e);
@@ -226,30 +270,6 @@ function QuoteRow({
     }
   }
 
-  async function remove() {
-    setDeleting(true);
-    setDeleteError("");
-    try {
-      await deleteQuote(quote.id);
-      setAsking(false);
-      // Reload rather than splice it out of local state. The panel shows
-      // "N quotes are still live for this person", which is computed from
-      // the list — dropping a row locally would leave that sentence counting
-      // a quote that no longer exists.
-      await onDeleted?.();
-    } catch (e) {
-      console.error("Couldn't delete that quote:", e);
-      // The database writes this sentence for the person reading it — see
-      // delete_quote() in db/delivery-controls.sql — so it is shown as-is
-      // rather than replaced with something generic.
-      setDeleteError(e?.message || "Couldn't delete that quote.");
-      setDeleting(false);
-    }
-  }
-
-  // Built here rather than stored, so a quote sent before the domain moved
-  // still produces a link on today's domain.
-  const link = `${window.location.origin}/q/${quote.token}`;
   // A closed quote offers none of these. Texting somebody a link that now
   // refuses to be accepted is worse than sending nothing: they open it,
   // read "no longer available", and have to work out whether that is a
@@ -257,6 +277,10 @@ function QuoteRow({
   const resendable =
     !isClosed &&
     (state.key === "sent" || state.key === "viewed" || state.key === "draft");
+  // Built here rather than stored, so a quote sent before the domain moved
+  // still produces a link on today's domain.
+  const link = `${window.location.origin}/q/${quote.token}`;
+
   const views = viewSummary(quote);
 
   async function copy() {
@@ -384,23 +408,95 @@ function QuoteRow({
             person and for how much. Delete is for test rows and mistakes. */}
         {isClosed ? (
           <p className="quoterow__closed">
-            Closed{quote.closed_reason ? ` — ${quote.closed_reason}` : ""}. The
-            link no longer accepts.{" "}
-            <button
-              className="quoterow__reopen"
-              onClick={reopen}
-              disabled={closing}
-            >
-              {closing ? "Reopening…" : "Reopen it"}
-            </button>
+            <strong>{ending?.label || "Closed"}</strong>
+            {quote.closed_note ? ` — ${quote.closed_note}` : ""}. The link no
+            longer accepts.{" "}
+            {canReopen ? (
+              <button
+                className="quoterow__reopen"
+                onClick={reopen}
+                disabled={closing}
+              >
+                {closing ? "Reopening…" : "Reopen it"}
+              </button>
+            ) : (
+              /* No Reopen at all for an ending that is final. A disabled
+                 button would invite the question; the sentence answers it. */
+              <span className="quoterow__settled">
+                Settled — send a new quote rather than reopening this one.
+              </span>
+            )}
           </p>
+        ) : picking ? (
+          <div className="quoterow__closing">
+            <p className="quoterow__closingq">How did this quote end?</p>
+
+            {CLOSE_REASONS.map((r) => (
+              <label key={r.key} className="quoterow__reason">
+                <input
+                  type="radio"
+                  name={`close-${quote.id}`}
+                  value={r.key}
+                  checked={reason === r.key}
+                  onChange={() => {
+                    setReason(r.key);
+                    setCloseJob("");
+                  }}
+                />
+                <span>
+                  <strong>{r.label}</strong>
+                  <span className="quoterow__reasonblurb">{r.blurb}</span>
+                </span>
+              </label>
+            ))}
+
+            {/* Only for the ending that means a job exists. Offering it
+                beside "never heard back" would invite rows that say the work
+                was done and not done at once — which the database refuses
+                anyway, but an error is a worse way to learn it than an
+                absent control. */}
+            {chosen?.asksForJob && jobs.length > 0 && (
+              <select
+                className="quoterow__jobpick"
+                value={closeJob}
+                onChange={(e) => setCloseJob(e.target.value)}
+                aria-label="Which job was it done on?"
+              >
+                <option value="">Which job? (optional)</option>
+                {jobs.map((j) => (
+                  <option key={j.id} value={j.id}>
+                    {shortDate(j.starts_at || j.created_at)} ·{" "}
+                    {money(j.final_price ?? j.price)}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <span className="quoterow__confirm">
+              <button
+                className="quoterow__btn quoterow__btn--go"
+                onClick={close}
+                disabled={closing || !reason}
+              >
+                {closing ? "Closing…" : "Close it"}
+              </button>
+              <button
+                className="quoterow__btn"
+                onClick={() => {
+                  setPicking(false);
+                  setReason("");
+                  setCloseJob("");
+                  setDeleteError("");
+                }}
+                disabled={closing}
+              >
+                Cancel
+              </button>
+            </span>
+          </div>
         ) : canClose ? (
-          <button
-            className="quoterow__close"
-            onClick={close}
-            disabled={closing}
-          >
-            {closing ? "Closing…" : "Close this quote"}
+          <button className="quoterow__close" onClick={() => setPicking(true)}>
+            Close this quote
           </button>
         ) : null}
 

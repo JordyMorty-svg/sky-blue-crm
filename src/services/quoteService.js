@@ -215,29 +215,95 @@ export function describeLoadError(e) {
 }
 
 /**
- * Close a quote that is no longer needed.
+ * Why a quote ended.
  *
- * Delete removes the record; close keeps it and withdraws the offer. Those
+ * MUST stay in step with the CHECK constraint in db/quote-close.sql.
+ * verify/quote-close-js.mjs reads both and fails if they drift — a code the
+ * app offers and the database refuses produces an error from the far side
+ * of a save button, which is the worst place to find out.
+ *
+ * `win` is the point of recording any of this. Jeff Krueger's $1,800
+ * pressure wash WAS done; it got folded into the $3,280 job. Filing that
+ * under the same heading as "they never replied" counts a win as a loss
+ * every time anyone looks at a conversion rate.
+ *
+ * `requoted` is deliberately neither a win nor a loss. Nobody turned
+ * anything down — we got the number wrong and sent another.
+ *
+ * `final` means the quote was settled by something that now EXISTS: the work
+ * was done, or a replacement quote is out there. Those cannot be reopened,
+ * the same way an accepted quote cannot. A quote that merely went quiet can
+ * be — they might ring in March.
+ */
+export const CLOSE_REASONS = [
+  {
+    key: "done_elsewhere",
+    label: "Work was done on another job",
+    blurb: "Billed somewhere else. Counts as won.",
+    win: true,
+    final: true,
+    asksForJob: true,
+  },
+  {
+    key: "requoted",
+    label: "Quote was wrong — re-quoted",
+    blurb: "Superseded by a corrected quote.",
+    win: false,
+    final: true,
+  },
+  {
+    key: "no_response",
+    label: "Never heard back",
+    blurb: "Sent, chased, silence.",
+    win: false,
+    final: false,
+  },
+  {
+    key: "went_elsewhere",
+    label: "Too expensive or went elsewhere",
+    blurb: "They looked and said no.",
+    win: false,
+    final: false,
+  },
+];
+
+export function closeReason(key) {
+  return CLOSE_REASONS.find((r) => r.key === key) || null;
+}
+
+/**
+ * Can this closed quote be put back?
+ *
+ * Read from the reason rather than stored, so it cannot disagree with
+ * sb_quote_ending_is_final() in the database — which is what actually
+ * refuses, and is the only answer that counts.
+ */
+export function reopenable(quote) {
+  if (quote?.status !== "closed") return false;
+  return !closeReason(quote.closed_reason)?.final;
+}
+
+/**
+ * End a quote that will not be accepted, recording why.
+ *
+ * Delete removes the record; this keeps it and withdraws the offer. Those
  * are different things and the difference is the point: two quotes went to
  * Jeff Krueger, the second was accepted, and the first — $1,800 for pressure
- * washing — was never going to be acted on. Deleting it loses the fact that
- * it was ever quoted. Marking it declined is the customer's word, not ours,
- * and would quietly inflate the decline rate with quotes nobody turned down.
+ * washing — was done anyway, inside the bigger job. Deleting it loses that
+ * it was ever quoted. Marking it declined is the customer's word, not ours.
  *
  * WHAT IT ACTUALLY DOES, beyond the label: a quote link is a standing offer.
  * The token keeps working, and anyone holding that text message can open it
  * months later and accept $1,800 of work, creating a real job and a real
  * booking fee. close_quote() is what makes sb_accept_quote refuse it — the
  * Accept button disappearing is a nicety; the refusal is the feature.
- *
- * Through the RPC rather than an UPDATE because the RLS policy deliberately
- * allows staff to write only draft / sent / declined, and because an accepted
- * quote has to be refused with a sentence somebody can act on.
  */
-export async function closeQuote(id, reason = null) {
+export async function closeQuote(id, reason, { jobId = null, note = null } = {}) {
   const { error } = await supabase.rpc("close_quote", {
     p_quote_id: id,
     p_reason: reason,
+    p_job_id: jobId,
+    p_note: note,
   });
   if (error) throw error;
 }
