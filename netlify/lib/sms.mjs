@@ -45,8 +45,16 @@
 // here. That function encodes a rule that is easy to get wrong and expensive
 // to get wrong quietly: legacy `service_role` keys are JWTs and must ALSO go
 // in the Authorization header, the newer `sb_secret_…` keys are not and must
-// NOT. See the comment on supabaseHeaders() in followUps.mjs.
-import { rpc } from "./followUps.mjs";
+// NOT. See the comment on supabaseHeaders() in db.mjs.
+//
+// FROM db.mjs, WHICH IS WHERE IT LIVES. This used to read followUps.mjs,
+// which re-exports it for historical reasons. That was fine until
+// followUps.mjs needed sendSms() from here to text a review request, at
+// which point the two files imported each other. ESM tolerates a cycle
+// between function declarations and then stops tolerating it the moment
+// somebody adds a `const` at the top of one of them — so rather than leave a
+// trap, the import points at the real home.
+import { rpc } from "./db.mjs";
 
 export const SITE =
   (process.env.URL || "https://crm.skybluecleaningco.com").replace(/\/$/, "");
@@ -241,6 +249,38 @@ export function reminderSms({ customerName, startsAt }) {
     `Hi ${firstName(customerName)}, Sky Blue Cleaning here - we're scheduled ` +
       `for tomorrow at ${when}. Please leave gates unlocked and cars clear if ` +
       `you can. Reply here if you need to move it.` +
+      OPT_OUT
+  );
+}
+
+/*
+ * "How did we do?", for a customer who has no email address.
+ *
+ * The same ask as the follow-up email in followUps.mjs, in the space a text
+ * gives you. What survived the cut, and why:
+ *
+ *   - WHO IT IS, first. An unknown number asking for a Google review is
+ *     indistinguishable from the scam that asks for a Google review.
+ *   - WHY it matters. "Reviews are how people find a small family business"
+ *     is the true reason and the one that actually gets them written.
+ *   - The opt-out. Required, and the same footer every other automatic text
+ *     carries.
+ *
+ * What did NOT survive: the job date and what we cleaned. The email has room
+ * to say "we did your gutters on the 14th"; a text that spends thirty
+ * characters on it pushes the link into a third segment to tell somebody
+ * something they already know.
+ *
+ * `reviewUrl` is passed in rather than read from the environment here,
+ * because the environment variable belongs to the follow-up feature and this
+ * file is the SMS plumbing. It also keeps this function pure, which is what
+ * lets the tests check its length.
+ */
+export function reviewSms({ customerName, reviewUrl, sentByName = null }) {
+  return gsmSafe(
+    `Hi ${firstName(customerName)}, ${itsUs(sentByName)} - thanks again for ` +
+      `having us out. If we did a good job, a quick Google review really ` +
+      `helps a small family business: ${reviewUrl}` +
       OPT_OUT
   );
 }

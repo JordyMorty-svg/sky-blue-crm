@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "../context/useAuth";
 import {
   SERVICE_OPTIONS,
   money,
@@ -77,6 +78,12 @@ export default function QuoteModal({
   onClose,
   onSent,
 }) {
+  // `|| {}` because AuthContext defaults to null, so useAuth() returns null
+  // anywhere this is mounted outside the provider. The name is a nicety; a
+  // blank screen is not. With no profile the signature falls back to the
+  // company, which is the rule everywhere else — "it's Sky Blue Cleaning"
+  // is plain and true, and better than a crash or a guessed first name.
+  const { profile } = useAuth() || {};
   const [amount, setAmount] = useState(
     suggestedAmount ? String(suggestedAmount) : ""
   );
@@ -155,8 +162,17 @@ export default function QuoteModal({
     }
   }
 
+  // The person who just pressed Send is the sender, by definition — this
+  // quote did not exist a second ago. (QuotesPanel re-texts EXISTING quotes
+  // and reads the name off the quote instead, because there the sender and
+  // whoever is holding the phone can be two different people.)
   const text = result
-    ? smsText({ customerName, amount: Number(amount), link: result.link })
+    ? smsText({
+        customerName,
+        amount: Number(amount),
+        link: result.link,
+        sentByName: profile?.full_name || null,
+      })
     : "";
 
   return (

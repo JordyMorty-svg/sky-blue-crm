@@ -405,7 +405,20 @@ function QuoteRow({
               className="quoterow__btn"
               href={smsHref(
                 customerPhone,
-                smsText({ customerName, amount: quote.amount, link })
+                smsText({
+                  customerName,
+                  amount: quote.amount,
+                  link,
+                  // WHO SENT THE QUOTE, not who is holding the phone.
+                  //
+                  // Re-texting a link for a quote Jordan sent should still
+                  // say Jordan — the customer already has one message from
+                  // him about this exact number, and a second introducing
+                  // somebody else reads like they have been handed on.
+                  // Same rule the email fallback follows in
+                  // netlify/lib/anotherWay.mjs.
+                  sentByName: quote.sender?.full_name || null,
+                })
               )}
             >
               Text the link

@@ -18,7 +18,7 @@
 // who learns the URL can forge a STOP for any number in the CRM, or write
 // whatever they like onto a customer's history.
 
-import { rpc } from "../lib/followUps.mjs";
+import { rpc } from "../lib/db.mjs";   // its real home; followUps.mjs only re-exports it
 import { sendSms, smsMode, toE164, postToQuo } from "../lib/sms.mjs";
 import { sendItAnotherWay } from "../lib/anotherWay.mjs";
 

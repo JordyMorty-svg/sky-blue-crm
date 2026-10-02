@@ -25,6 +25,7 @@
 
 import crypto from "node:crypto";
 import { sendEmail } from "./email.mjs";
+import { sendSms, reviewSms } from "./sms.mjs";
 
 // Jordan's Google Maps listing, with the write-a-review dialog opened
 // (that's what the `12e1` in the path does).
@@ -39,6 +40,29 @@ const DEFAULT_REVIEW_URL =
   "https://www.google.com/maps/place//@44.5928853,-123.2438123,17z/data=!3m1!4b1!4m3!3m2!1s0x54c03ff33d83ee6d:0x20b59432f17d2940!12e1?entry=ttu&g_ep=EgoyMDI2MDgyNi4wIKXMDSoASAFQAw%3D%3D";
 
 const reviewUrl = () => process.env.REVIEW_URL || DEFAULT_REVIEW_URL;
+
+/*
+ * The same destination, short enough to text.
+ *
+ * The URL above is 230 characters. In an email that is invisible, because it
+ * hides behind a button. In a text it IS the message: it would take the
+ * review request to three segments on its own, and a wall of punctuation in
+ * a message from an unknown number is what a scam looks like.
+ *
+ * The `cid` form is the same listing by its permanent id — no coordinates,
+ * no rotating build token, 47 characters. It opens the Business Profile with
+ * the review button right there rather than the write-a-review box itself,
+ * which is one extra tap and worth it.
+ *
+ * REVIEW_URL_SMS overrides it, and the thing to put there is the
+ * `g.page/r/…/review` short link from the Google Business Profile dashboard:
+ * short AND straight into the review box. It isn't the default only because
+ * it can't be derived — somebody has to copy it out of the dashboard.
+ */
+const DEFAULT_REVIEW_URL_SMS = "https://maps.google.com/?cid=2356952926519109952";
+
+const reviewUrlSms = () =>
+  process.env.REVIEW_URL_SMS || DEFAULT_REVIEW_URL_SMS;
 
 // --- talking to Supabase ----------------------------------------------------
 //
@@ -187,7 +211,78 @@ export function followUpEmail({ customerName, services, jobDate, customerId, sit
 
 // --- sending ----------------------------------------------------------------
 
+/*
+ * Reasons a text didn't go that are nothing to do with the customer.
+ *
+ * SMS_MODE off or in preview, Quo not configured, db/sms.sql not run, or
+ * simply before 9am. Every one of them means "not now" and none of them
+ * means "this person cannot be asked" — so they put the row back in the
+ * queue untouched instead of spending one of its three attempts.
+ *
+ * Without this, three quiet mornings in a row would mark a customer
+ * 'skipped' forever, and the note would say 'quiet_hours', and nobody would
+ * ever look.
+ */
+const NOT_NOW = new Set([
+  "sms_off",
+  "preview",
+  "not_configured",
+  "no_sms_tables",
+  "quiet_hours",
+]);
+
+class Deferred extends Error {
+  constructor(reason) {
+    super(reason);
+    this.deferred = true;
+  }
+}
+
+/*
+ * The text version.
+ *
+ * Deliberately NOT force: true. The acknowledgment text in ack-leads.mjs
+ * forces past quiet hours because it is a reply to somebody who messaged us
+ * sixty seconds ago — they are awake and waiting. Nobody is waiting for
+ * this. A review request at 7am is the most reliable way there is to turn a
+ * happy customer into a one-star one.
+ */
+async function textOne(row) {
+  const body = reviewSms({
+    customerName: row.customer_name,
+    reviewUrl: reviewUrlSms(),
+  });
+
+  const result = await sendSms({
+    kind: "review",
+    phone: row.phone,
+    body,
+    customerId: row.customer_id,
+    // Both so the outbox row is tied to the job, which is also what makes
+    // the dedupe key 'review:j:<job>' resolve — the database constraint that
+    // makes a second text for one job impossible.
+    jobId: row.job_id || null,
+  });
+
+  if (!result.ok) {
+    if (NOT_NOW.has(result.reason)) throw new Deferred(result.reason);
+    throw new Error(result.reason || "Quo error");
+  }
+
+  // The Quo message id, stored in the same column a Resend id goes in.
+  // Different provider, same question it answers: which message was this.
+  return result.sid || null;
+}
+
 async function sendOne(row, siteUrl) {
+  // The database decided this, three days after the job, with the opt-outs
+  // and the phone number in front of it. The sender does not get a vote —
+  // re-deriving it here is how the preview and the real run drift apart.
+  if (row.channel === "sms") return textOne(row);
+  return emailOne(row, siteUrl);
+}
+
+async function emailOne(row, siteUrl) {
   const { subject, html, text } = followUpEmail({
     customerName: row.customer_name,
     services: row.services,
@@ -262,8 +357,12 @@ export async function runFollowUps({ mode, limit = 25, siteUrl } = {}) {
       swept: 0,
       sent: 0,
       failed: 0,
+      // `via` and the right destination per row. A preview that printed an
+      // email column for everyone would quietly hide the whole point of
+      // this change — that some of these are now going out as texts.
       would_send: (rows || []).map((r) => ({
-        to: r.email,
+        to: r.channel === "sms" ? r.phone : r.email,
+        via: r.channel,
         name: r.customer_name,
         due: r.due_at,
       })),
@@ -317,35 +416,59 @@ export async function sendFollowUpToCustomer(customerId, { siteUrl } = {}) {
 async function deliver(rows, siteUrl) {
   let sent = 0;
   let failed = 0;
+  let deferred = 0;
   const results = [];
 
   for (const row of rows) {
+    // Where it actually went. sent_to is "the address as it was at send
+    // time", and for a text that is the number — logging the email column
+    // for an SMS row would put an empty string in the one field that answers
+    // "who did we contact?".
+    const to = row.channel === "sms" ? row.phone : row.email;
+
     try {
       const providerId = await sendOne(row, siteUrl);
       await rpc("mark_follow_up_sent", {
         p_id: row.follow_up_id,
         p_provider_id: providerId || null,
-        p_email: row.email,
+        p_email: to,
+        // Decides whether a contact_log row is written here. For a text,
+        // mark_sms_sent already wrote one with the actual words in it, and
+        // two rows for one message is the duplicate-history bug again.
+        p_channel: row.channel || "email",
       });
       sent += 1;
-      results.push({ to: row.email, name: row.customer_name, ok: true });
+      results.push({ to, via: row.channel, name: row.customer_name, ok: true });
     } catch (err) {
       // Never rethrow: one failure must not abandon the rest of the batch,
       // and the row is already claimed — it has to be released or it sits
       // in 'sending' until the sweep.
+      const why = String(err?.message || err);
+
+      if (err?.deferred) {
+        await rpc("mark_follow_up_deferred", {
+          p_id: row.follow_up_id,
+          p_reason: why,
+        }).catch(() => {});
+        deferred += 1;
+        results.push({ to, via: row.channel, name: row.customer_name, deferred: why });
+        continue;
+      }
+
       await rpc("mark_follow_up_failed", {
         p_id: row.follow_up_id,
-        p_error: String(err?.message || err),
+        p_error: why,
       }).catch(() => {});
       failed += 1;
       results.push({
-        to: row.email,
+        to,
+        via: row.channel,
         name: row.customer_name,
         ok: false,
-        error: String(err?.message || err),
+        error: why,
       });
     }
   }
 
-  return { sent, failed, results };
+  return { sent, failed, deferred, results };
 }

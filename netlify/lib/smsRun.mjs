@@ -6,7 +6,7 @@
 // "what would go out?" button), so the button genuinely exercises the
 // schedule rather than a lookalike. Same arrangement as followUps.mjs.
 
-import { rpc } from "./followUps.mjs";
+import { rpc } from "./db.mjs";   // its real home; followUps.mjs only re-exports it
 import {
   sendSms,
   smsMode,

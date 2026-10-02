@@ -1,7 +1,10 @@
 import { supabase } from "../supabaseClient";
 
 /**
- * The automatic follow-up email, from the CRM's side.
+ * The automatic review request, from the CRM's side.
+ *
+ * Email where there is an address, text where there isn't — the database
+ * decides which, three days after the job, in sb_follow_up_channel().
  *
  * The sending itself happens on a schedule in
  * netlify/functions/send-follow-ups.mjs — nothing here sends anything. What
@@ -106,7 +109,9 @@ async function callRunner(method, body = null) {
   return data;
 }
 
-// Who would be emailed if it ran right now. Sends nothing.
+// Who would be contacted if it ran right now, and by which route. Sends
+// nothing. Each row carries `channel`, so a preview that shows six names
+// also shows which of them are texts.
 export function previewFollowUps() {
   return callRunner("GET");
 }
@@ -157,14 +162,20 @@ export function describeFollowUp(row) {
       };
     case "sending":
       return { tone: "waiting", text: "Review request is sending now", canSkip: false };
-    case "sent":
+    case "sent": {
+      // sent_to is the address or the number, whichever it went to. Saying
+      // which makes the line answer the question somebody actually has when
+      // they open a customer three weeks later: not "did we ask?" but "how
+      // did we ask, and would they have seen it?"
+      const how = row.sent_to?.startsWith("+") ? "texted" : "sent";
       return {
         tone: "done",
-        text: `Review request sent ${followUpDate(row.sent_at)}${
+        text: `Review request ${how} ${followUpDate(row.sent_at)}${
           row.sent_to ? ` to ${row.sent_to}` : ""
         }`,
         canSkip: false,
       };
+    }
     case "skipped":
       return {
         tone: "off",

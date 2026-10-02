@@ -405,13 +405,42 @@ export function viewSummary(q) {
   return last ? `opened ${n} times, last ${shortDate(last)}` : `opened ${n} times`;
 }
 
+// Whoever is actually sending it, first name only.
+//
+// Mirrors signer()/itsUs() in netlify/lib/sms.mjs deliberately, including
+// the fallback: THE COMPANY, NEVER A DEFAULT FIRST NAME. "It's Sky Blue
+// Cleaning" is plain and true; picking a name when we don't know whose it is
+// is a lie that happens to be right half the time.
+//
+// Not firstName() below: that answers "there" for an empty string, which is
+// the right greeting for a customer we cannot name and a nonsense signature.
+function signer(full) {
+  return String(full || "").trim().split(/\s+/)[0] || "";
+}
+
+export function itsUs(sentByName) {
+  const who = signer(sentByName);
+  return who ? `it's ${who} with Sky Blue Cleaning` : `it's Sky Blue Cleaning`;
+}
+
 // The message you paste into Messages when there's no email on file. Written
-// the way Jordan actually texts — short, no salesy padding, the link last so
+// the way they actually text — short, no salesy padding, the link last so
 // it's the thing under their thumb.
-export function smsText({ customerName, amount, link }) {
+//
+// THE NAME WAS HARDCODED TO "Jordan" HERE LONG AFTER IT WAS FIXED EVERYWHERE
+// ELSE. db/quote-sender-name.sql and netlify/lib/sms.mjs taught every
+// SERVER-sent message to sign itself with whoever sent it — but this
+// function builds the body for the "Text the link" button, which hands the
+// text to the phone's own Messages app. It is the one a person taps, so it
+// is the one Hayden was using, and it introduced him as Jordan every time.
+//
+// Fixing the automatic messages and leaving the manual one is the easiest
+// version of this bug to ship, because nothing about the automatic path
+// looks wrong afterwards.
+export function smsText({ customerName, amount, link, sentByName = null }) {
   const first = String(customerName || "").trim().split(/\s+/)[0] || "there";
   return (
-    `Hey ${first}, it's Jordan with Sky Blue Cleaning. ` +
+    `Hey ${first}, ${itsUs(sentByName)}. ` +
     `Here's your quote for $${Number(amount).toFixed(0)} — ` +
     `screens and sills included. You can accept it here: ${link}`
   );

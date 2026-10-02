@@ -53,6 +53,7 @@ const {
   quoteState,
   smsHref,
   smsText,
+  itsUs,
   money,
   shortDate,
   viewSummary,
@@ -111,6 +112,56 @@ function chk(what, pass, detail = "") {
 {
   const body = smsText({ customerName: "", amount: 100, link: "https://x/q/t" });
   chk("a missing name degrades to 'there'", body.startsWith("Hey there,"), body);
+}
+
+// --- WHO IT SAYS IT IS FROM -------------------------------------------------
+//
+// This body is what the "Text the link" button hands to the phone's Messages
+// app, and the name in it was hardcoded to "Jordan" long after every
+// server-sent message had been taught to sign itself. Hayden texted
+// customers introducing himself as Jordan for weeks, because the automatic
+// path — the one that had been fixed — looked perfectly fine.
+{
+  const body = smsText({
+    customerName: "Karen Emery",
+    amount: 475,
+    link: "https://x/q/t",
+    sentByName: "Hayden Mortensen",
+  });
+  chk(
+    "THE POINT: it signs with whoever is sending it",
+    body.includes("it's Hayden with Sky Blue Cleaning"),
+    body
+  );
+  chk(
+    "THE POINT: and never with a name nobody supplied",
+    !body.includes("Jordan"),
+    "a hardcoded name is right half the time, which is worse than no name"
+  );
+  chk("first name only, like the greeting", !body.includes("Mortensen"), body);
+}
+{
+  const body = smsText({
+    customerName: "Karen Emery",
+    amount: 475,
+    link: "https://x/q/t",
+  });
+  chk(
+    "THE POINT: with no sender it falls back to the COMPANY, not a person",
+    body.includes("it's Sky Blue Cleaning") && !/it's \w+ with/.test(body),
+    body
+  );
+}
+{
+  // Must match netlify/lib/sms.mjs exactly. The same quote can go out from
+  // the server and from somebody's phone, and the two saying different
+  // things about who sent it is the bug one level up.
+  chk(
+    "the phrasing matches the server-side template",
+    itsUs("Hayden Mortensen") === "it's Hayden with Sky Blue Cleaning" &&
+      itsUs(null) === "it's Sky Blue Cleaning",
+    itsUs("Hayden Mortensen")
+  );
 }
 
 // --- state ------------------------------------------------------------------
