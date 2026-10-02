@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { fetchJob, completeJob, setJobPlan } from "../../services/jobService";
+import RecordInvoiceModal from "../../components/RecordInvoiceModal";
 import {
   createSquareInvoice,
   saveInvoiceOnJob,
@@ -66,6 +67,22 @@ const PAYMENT_METHODS = [
     blurb: "Sends the customer a bill to pay online. Nothing is collected now.",
     settled: false,
   },
+  {
+    key: "already_invoiced",
+    label: "Already invoiced from Square",
+    blurb:
+      "Hayden sent it from the Square app. Attaches that invoice — the customer is NOT emailed again.",
+    settled: false,
+    // Not a payment method. It never reaches the database as one: the
+    // submit handler swaps it for "invoice" before completing, and the
+    // invoice gets attached rather than created.
+    //
+    // It is HERE, in the same list, because this is the moment somebody is
+    // thinking about how this job gets billed. Leaving it off meant the
+    // only visible option for an invoice that already existed was "Email an
+    // invoice" — which creates a SECOND one and emails the customer twice.
+    attachOnly: true,
+  },
 ];
 
 // Methods that mean "paid in the field, right now" — these get a receipt
@@ -87,6 +104,7 @@ export default function CompleteJob() {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [attaching, setAttaching] = useState(false);
   const [error, setError] = useState("");
   // Set when the customer has a card on file but we want a different one.
   const [useNewCard, setUseNewCard] = useState(false);
@@ -181,7 +199,16 @@ export default function CompleteJob() {
   // it returns from another app into a freshly-mounted page, so the values
   // come from what was stashed before leaving rather than from state that
   // was set moments ago and hasn't rendered yet.
-  async function finalize({ invoice = null, payment = null, ctx = {} } = {}) {
+  // `emailed` says whether THIS run is what caused Square to send the
+  // invoice. Creating one via createSquareInvoice publishes it, so that path
+  // passes true. Attaching one Hayden already sent passes false, and the
+  // history then says "recorded" instead of inventing a send we did not make.
+  async function finalize({
+    invoice = null,
+    payment = null,
+    emailed = false,
+    ctx = {},
+  } = {}) {
     // Deliberate shadowing: the names below are the same as the component's
     // state, so the body reads identically whichever path called it.
     // `onScreen` was captured in the outer scope, so it still holds state.
@@ -252,7 +279,7 @@ export default function CompleteJob() {
     // The job's paid flag is already correct: completeJob() derived it from
     // the payment method a moment ago. Nothing here touches it.
     if (invoice) {
-      await saveInvoiceOnJob(job.id, invoice, { emailed: true });
+      await saveInvoiceOnJob(job.id, invoice, { emailed });
     }
 
     // Record the payment, and remember the card for next time. Neither of
@@ -566,6 +593,16 @@ export default function CompleteJob() {
       return;
     }
 
+    // "Already invoiced from Square" is not a payment method and never
+    // reaches completeJob() as one. It opens the picker, and the job is
+    // completed from there once an invoice has actually been chosen —
+    // because completing first and attaching after would leave a job marked
+    // paid-by-nothing if somebody closed the modal.
+    if (method === "already_invoiced") {
+      setAttaching(true);
+      return;
+    }
+
     setSaving(true);
     try {
       let invoice = null;
@@ -581,7 +618,7 @@ export default function CompleteJob() {
         });
       }
 
-      await finalize({ invoice });
+      await finalize({ invoice, emailed: true });
     } catch (e) {
       console.error(e);
       setError(
@@ -650,6 +687,9 @@ export default function CompleteJob() {
   // one button, one label and one colour — so the last thing on screen
   // before an invoice went out gave no hint that an email was involved.
   function submitLabel() {
+    if (method === "already_invoiced") {
+      return "Pick the invoice Square already sent";
+    }
     if (method === "invoice") {
       const to = email.trim();
       const amount = `$${Number(finalPrice || 0).toFixed(2)}`;
@@ -995,6 +1035,32 @@ export default function CompleteJob() {
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Upsold gutter cleaning, etc."
         />
+
+        {attaching && (
+          <RecordInvoiceModal
+            job={job}
+            onClose={() => setAttaching(false)}
+            onPick={async (invoice) => {
+              setAttaching(false);
+              setSaving(true);
+              try {
+                // ctx.method overrides the on-screen "already_invoiced",
+                // which is a UI choice and not a payment method. The job is
+                // completed as an ordinary emailed invoice — unpaid, with a
+                // bill outstanding — which is exactly what it is.
+                await finalize({
+                  invoice,
+                  emailed: false,
+                  ctx: { method: "invoice" },
+                });
+              } catch (e) {
+                console.error(e);
+                setError(`Couldn't attach that invoice: ${e.message}`);
+                setSaving(false);
+              }
+            }}
+          />
+        )}
 
         <div className="complete__actions">
           {/* Card and tap complete via their own buttons above — the job is

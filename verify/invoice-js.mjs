@@ -197,11 +197,31 @@ const page = readFileSync("src/pages/schedule/CompleteJob.jsx", "utf8");
 const sites = [...page.matchAll(/saveInvoiceOnJob\(([^;]*?)\);/gs)];
 chk("CompleteJob records the invoice exactly once", sites.length === 1,
   `${sites.length} call sites`);
+
+// The claim moved up a level when the page learned to ATTACH an invoice
+// Square had already sent as well as create one. saveInvoiceOnJob is now
+// called once, with whatever finalize() was told; it is finalize's callers
+// that decide, and there are exactly two of them.
 chk(
-  "and that call is the one allowed to claim the send",
-  /emailed:\s*true/.test(sites[0]?.[1] ?? ""),
-  "the page that publishes the invoice no longer says it emailed it"
+  "the one call site passes the flag through rather than hardcoding it",
+  /\{ emailed \}/.test(sites[0]?.[1] ?? ""),
+  "hardcoding emailed here would make both paths claim the same thing"
 );
+
+const claims = [...page.matchAll(/finalize\(\{[^}]*?emailed:\s*(true|false)/gs)].map(
+  (m) => m[1]
+);
+chk(
+  "THE POINT: exactly one path through the page claims the CRM emailed it",
+  claims.filter((c) => c === "true").length === 1,
+  `${claims.filter((c) => c === "true").length} paths claim a send`
+);
+chk(
+  "and at least one path explicitly does not",
+  claims.includes("false"),
+  "attaching an invoice Square already sent must not claim we sent it"
+);
+
 chk(
   "the invoice is created before it is recorded",
   page.indexOf("createSquareInvoice") < page.indexOf("saveInvoiceOnJob"),

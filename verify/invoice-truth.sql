@@ -46,6 +46,7 @@ declare
   paidjob uuid;
   n      int;
   s      text;
+  s2     text;
   b      boolean;
   before int;
 begin
@@ -192,6 +193,71 @@ begin
   assert s = 'https://sq/i/11',
     format('a null url should leave the existing one alone, got %s', s);
   raise notice 'ok    a null url does not wipe the one on file';
+
+  -- =========================================================================
+  -- Correcting the payment method
+  -- =========================================================================
+  --
+  -- Jeff's job: recorded as cash at completion, actually paid by ACH through
+  -- a Square invoice. Square reports that ACH on the 1099-K, so the CRM
+  -- saying cash is a real discrepancy in the books.
+
+  select payment_method into s from public.jobs where id = paidjob;
+  assert s = 'cash', format('fixture should start as cash, got %s', s);
+
+  delete from public.job_events where job_id = paidjob;
+
+  perform public.record_invoice_on_job(
+    paidjob, 'inv_METHOD', null, null, false, 'square'
+  );
+
+  select payment_method into s from public.jobs where id = paidjob;
+  assert s = 'square', format('the method should be corrected, got %s', s);
+  raise notice 'ok    the payment method can be corrected';
+
+  select count(*) into n
+  from public.job_events where job_id = paidjob and kind = 'payment_method';
+  assert n = 1,
+    format('THE POINT: a correction must be recorded, not silent. Got %s rows', n);
+  raise notice 'ok    THE POINT: and the correction is written into the history';
+
+  select from_status, to_status into s, s2
+  from public.job_events where job_id = paidjob and kind = 'payment_method';
+  assert s = 'cash' and s2 = 'square',
+    format('the correction should say what changed, got %s -> %s', s, s2);
+  raise notice 'ok    and it says cash -> square';
+
+  -- It must not look like a second payment.
+  select count(*) into n
+  from public.job_events where job_id = paidjob and kind = 'payment';
+  assert n = 0,
+    format('THE POINT: correcting a method is not a new payment. Got %s', n);
+  raise notice 'ok    THE POINT: correcting a method logs no second payment';
+
+  -- Null leaves it alone. This is the common case: recording an invoice
+  -- without touching how the money came in.
+  perform public.record_invoice_on_job(paidjob, 'inv_METHOD2', null, null, false, null);
+  select payment_method into s from public.jobs where id = paidjob;
+  assert s = 'square',
+    format('a null method must leave the existing one alone, got %s', s);
+  raise notice 'ok    a null payment method leaves it alone';
+
+  -- So does a blank one, which is what an untouched form control sends.
+  perform public.record_invoice_on_job(paidjob, 'inv_METHOD3', null, null, false, '  ');
+  select payment_method into s from public.jobs where id = paidjob;
+  assert s = 'square',
+    format('THE POINT: a blank method must not wipe it, got %s', coalesce(s, 'null'));
+  raise notice 'ok    THE POINT: and so does a blank one from an untouched form';
+
+  -- Choosing a method on a job that was never paid is not a correction, and
+  -- must not litter the history with one.
+  delete from public.job_events where job_id = job;
+  update public.jobs set payment_method = 'check' where id = job;
+  select count(*) into n
+  from public.job_events where job_id = job and kind = 'payment_method';
+  assert n = 0,
+    format('an unpaid job changing method is not a correction, got %s', n);
+  raise notice 'ok    an unpaid job changing method is not recorded as a correction';
 
   -- =========================================================================
   -- Refusals

@@ -36,6 +36,10 @@ const EVENT_LABELS = {
   completed: "Job submitted",
   payment: "Payment taken",
   invoice: "Invoice sent",
+  // Not "Payment changed". Nothing about the money moved — what changed is
+  // what we believe about how it arrived, and the row reads as a correction
+  // so nobody mistakes it for a second payment.
+  payment_method: "Payment method corrected",
   cancelled: "Cancelled",
   status: "Status changed",
 };
@@ -53,6 +57,7 @@ const MILESTONE_KINDS = new Set([
   "plan",
   "completed",
   "payment",
+  "payment_method",
   "invoice",
   "cancelled",
 ]);
@@ -85,6 +90,14 @@ function eventTitle(ev) {
   }
   if (ev.kind === "status" && ev.from_status && ev.to_status) {
     return `${base}: ${ev.from_status} → ${ev.to_status}`;
+  }
+  // Through paymentLabel, not raw: the row is read next to "Payment taken ·
+  // Cash", and "cash → square" sitting under "Payment taken · Cash" reads
+  // like two different facts about the same money.
+  if (ev.kind === "payment_method" && ev.to_status) {
+    return `${paymentLabel(ev.from_status) || "Not recorded"} → ${paymentLabel(
+      ev.to_status
+    )}`;
   }
   return base;
 }

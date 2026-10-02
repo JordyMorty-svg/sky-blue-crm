@@ -113,7 +113,10 @@ const COMMON = [
   [/services\/customerService$/, CUSTOMER],
   [/services\/jobService$/, JOBS],
   [/services\/calendarService$/, `export async function updateJobTiming() {}`],
-  [/services\/invoiceService$/, `export async function refreshInvoiceOnJob() { return null; }`],
+  [/services\/invoiceService$/, `export async function refreshInvoiceOnJob() { return null; }
+    // JobRecord now mounts RecordInvoiceModal, which pulls these two in.
+    export async function fetchSquareInvoices() { return { invoices: [] }; }
+    export async function saveInvoiceOnJob() {}`],
   [/services\/leadService$/, LEAD_SERVICE],
   [/services\/contactService$/, `export async function recordContact() {}`],
   [/services\/followUpService$/, `export async function setEmailOptOut() {} export async function setCustomerReviewed() {}`],

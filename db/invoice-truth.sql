@@ -182,6 +182,36 @@ begin
     );
   end if;
 
+  -- --- the payment method, corrected ------------------------------------
+  --
+  -- Deliberately NOT folded into the 'payment' event above, and the reason
+  -- matters.
+  --
+  -- That event snapshots payment_method at the moment the money was
+  -- recorded, and the snapshot must never be rewritten: it is what was
+  -- believed at the time, and the history is a record of beliefs as much as
+  -- of facts. But a belief can be wrong. Jeff Krueger's job went in as
+  -- 'cash' and was actually paid by ACH through a Square invoice -- which is
+  -- what Square reports on the 1099-K. Quietly flipping the column would
+  -- leave a 'payment' event saying cash and a jobs row saying square, with
+  -- nothing on the page explaining how it got from one to the other.
+  --
+  -- So a correction is its own line. Only once the job has been paid:
+  -- before that the method is still being chosen, and choosing is not
+  -- correcting.
+  if new.payment_method is distinct from old.payment_method
+     and coalesce(new.paid, false)
+     and coalesce(old.paid, false) then
+    insert into public.job_events (
+      job_id, kind, from_status, to_status, amount, changed_by
+    )
+    values (
+      new.id, 'payment_method',
+      old.payment_method, new.payment_method,
+      coalesce(new.final_price, new.price), actor
+    );
+  end if;
+
   -- --- the schedule moving ----------------------------------------------
   -- Logged at every status, not just after completion. A job that was
   -- pushed twice before it happened is exactly the thing worth being able
@@ -313,12 +343,25 @@ $$;
 -- request for money, not money. Whether this job has been paid is a fact
 -- that belongs to the payment, and recording paperwork about it must not be
 -- able to change the answer.
+-- DROPPED first, not CREATE OR REPLACE.
+--
+-- The signature is gaining p_payment_method. CREATE OR REPLACE with a new
+-- argument list does not replace -- it creates an OVERLOAD, leaving two
+-- functions of the same name, and PostgREST then has to guess which one a
+-- call meant. Dropping the old signature by name is the only way to be sure
+-- the five-argument version is gone.
+drop function if exists public.record_invoice_on_job(uuid, text, text, text, boolean);
+
 create or replace function public.record_invoice_on_job(
-  p_job_id     uuid,
-  p_invoice_id text,
-  p_url        text default null,
-  p_status     text default null,
-  p_emailed    boolean default false
+  p_job_id         uuid,
+  p_invoice_id     text,
+  p_url            text default null,
+  p_status         text default null,
+  p_emailed        boolean default false,
+  -- Null means "leave it alone", which is the common case. Passing a value
+  -- is how the Record-invoice screen fixes a job that went in as cash and
+  -- was really paid through Square -- see the trigger branch above.
+  p_payment_method text default null
 )
 returns table (
   out_job_id     uuid,
@@ -343,7 +386,8 @@ begin
   update public.jobs j
      set square_invoice_id = btrim(p_invoice_id),
          invoice_url       = coalesce(p_url, j.invoice_url),
-         invoice_status    = coalesce(p_status, j.invoice_status)
+         invoice_status    = coalesce(p_status, j.invoice_status),
+         payment_method    = coalesce(nullif(btrim(p_payment_method), ''), j.payment_method)
    where j.id = p_job_id
   returning j.id, j.paid, j.square_invoice_id, j.invoice_status;
 
@@ -357,12 +401,12 @@ begin
 end;
 $$;
 
-comment on function public.record_invoice_on_job(uuid, text, text, text, boolean) is
+comment on function public.record_invoice_on_job(uuid, text, text, text, boolean, text) is
   'Attach a Square invoice to a job. Pass p_emailed => true only when this
    call is what caused Square to email it. Never writes paid.';
 
-revoke all on function public.record_invoice_on_job(uuid, text, text, text, boolean) from public;
-grant execute on function public.record_invoice_on_job(uuid, text, text, text, boolean) to authenticated;
+revoke all on function public.record_invoice_on_job(uuid, text, text, text, boolean, text) from public;
+grant execute on function public.record_invoice_on_job(uuid, text, text, text, boolean, text) to authenticated;
 
 
 -- ---------------------------------------------------------------------------

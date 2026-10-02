@@ -29,6 +29,38 @@ export async function createSquareInvoice({
   return data; // { invoiceId, invoiceNumber, publicUrl, status }
 }
 
+// The invoices Square already has, newest first.
+//
+// Feeds the Record-invoice picker. The point of showing a list rather than a
+// text box is that a list cannot be mistyped: before this existed, the only
+// way to record an invoice somebody sent from the Square app was to open the
+// Supabase table editor and type the id in by hand, which is exactly how one
+// invoice became three "Invoice sent" rows on Jeff Krueger's job.
+//
+// Drafts are already filtered out server-side — a draft has been sent to
+// nobody, and offering one here would invite attaching it to a job and
+// believing the customer had been billed.
+export async function fetchSquareInvoices({ limit, cursor } = {}) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const res = await fetch("/api/list-invoices", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access_token || ""}`,
+    },
+    body: JSON.stringify({ limit, cursor }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || "Couldn't load invoices from Square.");
+  }
+  return data; // { invoices: [...], cursor }
+}
+
 // Sends a branded receipt email for a paid job (cash/check/square).
 export async function sendReceipt({
   customerName,
@@ -89,7 +121,12 @@ export async function sendReceipt({
 export async function saveInvoiceOnJob(
   jobId,
   { invoiceId, publicUrl, status },
-  { emailed = false } = {}
+  // `paymentMethod` defaults to null, meaning LEAVE IT ALONE. It is set only
+  // by the Record-invoice screen, and only when somebody has deliberately
+  // picked a different one — a job paid by ACH through Square that went in
+  // as cash, say, which is a real discrepancy against the 1099-K. Recording
+  // paperwork about a payment must not casually rewrite how it arrived.
+  { emailed = false, paymentMethod = null } = {}
 ) {
   const { error } = await supabase.rpc("record_invoice_on_job", {
     p_job_id: jobId,
@@ -97,6 +134,7 @@ export async function saveInvoiceOnJob(
     p_url: publicUrl ?? null,
     p_status: status ?? null,
     p_emailed: emailed,
+    p_payment_method: paymentMethod ?? null,
   });
   if (error) throw error;
 }

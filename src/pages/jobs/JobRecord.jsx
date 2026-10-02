@@ -8,6 +8,7 @@ import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import { planFor } from "../../services/leadService";
 import JobPlanTag from "../../components/JobPlanTag";
 import JobHistory from "../../components/JobHistory";
+import RecordInvoiceModal from "../../components/RecordInvoiceModal";
 import FollowUpNotice from "../../components/FollowUpNotice";
 import { PAYMENT_LABELS, money, formatStamp } from "../../components/jobFormat";
 import "./JobRecord.css";
@@ -66,6 +67,7 @@ export default function JobRecord() {
   // Bumped to make JobHistory refetch — after a re-date, which writes an
   // event of its own. The component owns its data; this just pokes it.
   const [historyKey, setHistoryKey] = useState(0);
+  const [recording, setRecording] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(false);
@@ -424,6 +426,42 @@ export default function JobRecord() {
             </>
           )}
         </p>
+      )}
+
+      {/* The door that isn't the database.
+          Offered whether or not an invoice is already attached: "attach the
+          one Hayden sent" and "I attached the wrong one" are the same job.
+          Before this existed the only way to do either was to open the
+          Supabase table editor, which is how one invoice became three
+          "Invoice sent" rows on Jeff Krueger's job. */}
+      <button
+        type="button"
+        className="jobrec__recordinv"
+        onClick={() => setRecording(true)}
+      >
+        {job.square_invoice_id
+          ? "Change the Square invoice on this job"
+          : "Record an invoice sent from Square"}
+      </button>
+
+      {recording && (
+        <RecordInvoiceModal
+          job={job}
+          onClose={() => setRecording(false)}
+          onSaved={async () => {
+            setRecording(false);
+            // Re-read rather than patching state by hand: the RPC may have
+            // changed the payment method as well as the invoice, and the
+            // trigger has just written history that needs fetching.
+            try {
+              const fresh = await fetchJobRecord(job.id);
+              setJob(fresh);
+            } catch (e) {
+              console.error(e);
+            }
+            setHistoryKey((k) => k + 1);
+          }}
+        />
       )}
     </div>
   );

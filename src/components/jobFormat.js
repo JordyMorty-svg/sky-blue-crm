@@ -11,9 +11,18 @@ export const PAYMENT_LABELS = {
   cash: "Cash",
   check: "Check",
   card: "Card",
+  tap: "Tap to pay",
   invoice: "Emailed invoice",
-  // Historical: card payments recorded before they moved in-app.
-  square: "Card (Square)",
+  // NOT "Card (Square)" any more, and not historical any more either.
+  //
+  // It was written when the only way money reached Square was a card, and
+  // the label said so. Then Jeff Krueger paid a $3,280 invoice by ACH bank
+  // transfer through Square — no card involved anywhere — and the CRM would
+  // have called it a card payment. The method is about the processor, which
+  // is the thing that matters for reconciling against what Square reports on
+  // the 1099-K; how the customer chose to push the money is Square's
+  // business, not ours.
+  square: "Paid through Square",
 };
 
 export function paymentLabel(method) {
