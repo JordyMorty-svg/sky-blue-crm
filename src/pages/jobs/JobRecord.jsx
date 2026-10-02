@@ -10,7 +10,12 @@ import JobPlanTag from "../../components/JobPlanTag";
 import JobHistory from "../../components/JobHistory";
 import RecordInvoiceModal from "../../components/RecordInvoiceModal";
 import FollowUpNotice from "../../components/FollowUpNotice";
-import { PAYMENT_LABELS, money, formatStamp } from "../../components/jobFormat";
+import {
+  PAYMENT_LABELS,
+  INVOICE_STATUS_LABELS,
+  money,
+  formatStamp,
+} from "../../components/jobFormat";
 import "./JobRecord.css";
 
 /**
@@ -21,20 +26,6 @@ import "./JobRecord.css";
  * page, and there's a payment in Square that no longer matches. Corrections
  * belong in a note, not in the numbers.
  */
-
-// Square's own vocabulary, said the way you'd say it out loud.
-const INVOICE_STATUS_LABELS = {
-  DRAFT: "Not sent yet",
-  UNPAID: "Sent, not paid yet",
-  SCHEDULED: "Scheduled to send",
-  PARTIALLY_PAID: "Part-paid",
-  PAID: "Paid",
-  PARTIALLY_REFUNDED: "Paid, partly refunded",
-  REFUNDED: "Refunded",
-  CANCELED: "Cancelled",
-  FAILED: "Payment failed",
-  PAYMENT_PENDING: "Payment clearing",
-};
 
 function formatWhen(iso) {
   if (!iso) return "No date";

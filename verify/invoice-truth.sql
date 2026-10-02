@@ -355,6 +355,44 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- The cleanup, checked on rows the migration actually had to clean
+-- ---------------------------------------------------------------------------
+--
+-- The duplicates were seeded by verify/invoice-truth-legacy.sql BEFORE
+-- db/invoice-history-cleanup.sql ran, so what is asserted here is that
+-- file's own DELETE -- not a copy of it pasted into this suite, which is
+-- how the backfill went untested.
+
+do $$
+declare
+  dup uuid := '44444444-4444-4444-4444-444444444444';
+  two uuid := '66666666-6666-6666-6666-666666666666';
+  n   int;
+  s   text;
+begin
+  select count(*) into n from public.job_events where job_id = dup and kind = 'invoice';
+  assert n = 1,
+    format('THE POINT: three rows for one invoice should become one, got %s', n);
+  raise notice 'ok    THE POINT: the duplicate invoice rows are removed';
+
+  select detail into s from public.job_events where job_id = dup and kind = 'invoice';
+  assert s = 'Invoice emailed to the customer',
+    format('the kept row must be untouched, got %s', s);
+  raise notice 'ok    and the one that is kept is left exactly as it was';
+
+  select to_status into s from public.job_events where job_id = dup and kind = 'invoice';
+  assert s = 'inv_A', format('the EARLIEST row should be the survivor, got %s', coalesce(s,'null'));
+  raise notice 'ok    and it is the earliest one, not the last';
+
+  select count(*) into n from public.job_events where job_id = two and kind = 'invoice';
+  assert n = 2,
+    format('THE POINT: two genuinely different invoices must both survive, got %s', n);
+  raise notice 'ok    THE POINT: a job invoiced twice keeps both events';
+
+  raise notice '--- all assertions passed ---';
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- The backfill, checked on a row that predates the migration
 -- ---------------------------------------------------------------------------
 --

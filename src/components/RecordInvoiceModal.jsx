@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchSquareInvoices, saveInvoiceOnJob } from "../services/invoiceService";
-import { PAYMENT_LABELS, money } from "./jobFormat";
+import { PAYMENT_LABELS, INVOICE_STATUS_SHORT, money } from "./jobFormat";
 import "./RecordInvoiceModal.css";
 
 /**
@@ -35,19 +35,6 @@ import "./RecordInvoiceModal.css";
  * only thing that actually happened here. Only the completion flow, which
  * has just watched Square publish, is allowed to say otherwise.
  */
-
-// Square's own words, in ours. A status nobody recognises is shown raw
-// rather than hidden — an unexpected value is information, not noise.
-const STATUS_LABELS = {
-  UNPAID: "Unpaid",
-  SCHEDULED: "Scheduled",
-  PARTIALLY_PAID: "Part paid",
-  PAID: "Paid",
-  PARTIALLY_REFUNDED: "Part refunded",
-  REFUNDED: "Refunded",
-  CANCELED: "Cancelled",
-  FAILED: "Failed",
-};
 
 // Only the methods that mean money actually arrived. "invoice" is absent
 // deliberately: it means a bill went out and nothing was collected, so
@@ -236,7 +223,7 @@ export default function RecordInvoiceModal({
                           (inv.paid ? " recinv__status--paid" : "")
                         }
                       >
-                        {STATUS_LABELS[inv.status] || inv.status}
+                        {INVOICE_STATUS_SHORT[inv.status] || inv.status}
                       </span>
                     </button>
                   </li>

@@ -111,7 +111,7 @@ function eventTitle(ev) {
 //
 // A backfilled note still shows, because "time not known" is a caveat about
 // the timestamp itself and has to travel with it.
-function eventMeta(ev) {
+function eventMeta(ev, { superseded = false } = {}) {
   const parts = [];
 
   if (ev.kind !== "completed") {
@@ -119,6 +119,19 @@ function eventMeta(ev) {
     if (ev.payment_method) parts.push(paymentLabel(ev.payment_method));
   }
   if (ev.detail) parts.push(ev.detail);
+
+  // A payment row that a later correction has overtaken.
+  //
+  // The row itself is NEVER rewritten — it is the record of what was
+  // believed when the money was recorded, and quietly editing it to agree
+  // with the correction is the exact disease this whole area was treated
+  // for. But left bare it reads as a contradiction: "Payment taken · Cash"
+  // sitting above "Cash → Paid through Square" looks like the CRM
+  // disagreeing with itself rather than a thing that was fixed.
+  //
+  // So the row keeps its original value and gains a pointer. Nothing is
+  // rewritten; the reader is just told where to look next.
+  if (superseded) parts.push("later corrected, see below");
 
   return parts.join(" · ");
 }
@@ -170,8 +183,25 @@ export default function JobHistory({
   // list is long.
   const milestones = events.filter((ev) => MILESTONE_KINDS.has(ev.kind));
   const changeCount = events.length - milestones.length;
-  const canCollapse = events.length > COLLAPSE_ABOVE && changeCount > 0;
+  // More than ONE hidden change, not more than zero.
+  //
+  // Folding away a single row saves a single row and costs a button, and the
+  // button is bigger than the row. Worse, "Show 1 more change" sat directly
+  // above the Paperwork heading and read like a control belonging to it.
+  const canCollapse = events.length > COLLAPSE_ABOVE && changeCount > 1;
   const shown = canCollapse && !showAll ? milestones : events;
+
+  // Which payment rows a later method correction has overtaken. Computed
+  // once from the whole list rather than per row, and only ever from events
+  // that come AFTER the payment — correcting a method does not reach
+  // backwards past an earlier payment on the same job.
+  const supersededIds = new Set();
+  for (const [i, ev] of events.entries()) {
+    if (ev.kind !== "payment") continue;
+    if (events.slice(i + 1).some((later) => later.kind === "payment_method")) {
+      supersededIds.add(ev.id);
+    }
+  }
 
   return (
     <section className={className ? `jobhist ${className}` : "jobhist"}>
@@ -189,8 +219,10 @@ export default function JobHistory({
             <span className="jobhist__dot" />
             <div className="jobhist__body">
               <span className="jobhist__title">{eventTitle(ev)}</span>
-              {eventMeta(ev) && (
-                <span className="jobhist__meta">{eventMeta(ev)}</span>
+              {eventMeta(ev, { superseded: supersededIds.has(ev.id) }) && (
+                <span className="jobhist__meta">
+                  {eventMeta(ev, { superseded: supersededIds.has(ev.id) })}
+                </span>
               )}
             </div>
             <div className="jobhist__when">

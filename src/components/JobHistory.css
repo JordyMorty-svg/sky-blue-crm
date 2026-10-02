@@ -4,6 +4,13 @@
 
 .jobhist {
   margin-top: 28px;
+  /* And air BELOW it.
+     The section had margin on only one side, so whatever followed the
+     timeline sat flush against it. On the job record that is the Paperwork
+     heading, and the last history row read as its first item. It was
+     previously masked by the collapse button's own margin — which vanished
+     the moment a job had too few changes to collapse, i.e. most jobs. */
+  margin-bottom: 24px;
 }
 
 .jobhist__head {
@@ -129,7 +136,11 @@
 }
 
 .jobhist__more {
-  margin: 2px 0 0 22px;
+  /* 18px of air underneath, not 0.
+     It used to sit flush against whatever came next — on the job record
+     that is the Paperwork heading, and the button read as a control
+     belonging to Paperwork rather than the end of the timeline. */
+  margin: 2px 0 18px 22px;
   padding: 6px 12px;
   border: 1px solid #e2e8f0;
   border-radius: 999px;
