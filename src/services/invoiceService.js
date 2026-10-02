@@ -67,19 +67,37 @@ export async function sendReceipt({
 
 // Record the invoice on the job.
 //
-// paid: false is right here and only here — an invoice is emailed, not
-// collected. It becomes true when Square says the money arrived, which is
-// what refreshInvoiceOnJob is for.
-export async function saveInvoiceOnJob(jobId, { invoiceId, publicUrl, status }) {
-  const { error } = await supabase
-    .from("jobs")
-    .update({
-      square_invoice_id: invoiceId,
-      invoice_url: publicUrl,
-      invoice_status: status,
-      paid: false,
-    })
-    .eq("id", jobId);
+// Goes through record_invoice_on_job() rather than writing the columns
+// directly, for two reasons that are really the same reason.
+//
+// IT DOES NOT TOUCH `paid`. The old version wrote paid: false every time,
+// which was correct on the completion path and wrong everywhere else — it
+// meant recording an invoice on a job already paid in cash marked that job
+// unpaid. Whether the money arrived is a fact about the payment; filing
+// paperwork about it must not be able to change the answer. completeJob()
+// now derives paid from the method, so there is nothing left to correct.
+//
+// `emailed` DEFAULTS TO FALSE, and the caller has to say otherwise. The
+// trigger uses it to decide whether the history may claim the customer was
+// emailed — and until now it claimed that on nothing more than the column
+// changing, so correcting the column by hand in Supabase wrote three sends
+// that never happened. The default is the safe direction: silence about a
+// real send is a gap, a recorded send that never happened is a lie, and
+// this record is what answers "you never sent me that".
+//
+// Pass emailed: true ONLY when this call is what caused Square to send it.
+export async function saveInvoiceOnJob(
+  jobId,
+  { invoiceId, publicUrl, status },
+  { emailed = false } = {}
+) {
+  const { error } = await supabase.rpc("record_invoice_on_job", {
+    p_job_id: jobId,
+    p_invoice_id: invoiceId,
+    p_url: publicUrl ?? null,
+    p_status: status ?? null,
+    p_emailed: emailed,
+  });
   if (error) throw error;
 }
 

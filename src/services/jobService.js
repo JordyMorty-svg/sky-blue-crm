@@ -738,13 +738,34 @@ export async function scheduleJobForCustomer({
 
 // Mark a job completed with payment details, and cascade its linked
 // lead to 'completed' too.
+//
+// COMPLETED IS NOT THE SAME AS PAID, and for one method it is the opposite.
+//
+// Cash, check, card and tap all mean the money is already in hand when this
+// runs. "Email an invoice" means the exact reverse: the work is finished and
+// nothing has been collected — that is the whole point of choosing it.
+//
+// This used to write paid: true for every method, so an emailed invoice was
+// marked paid for the moment it took saveInvoiceOnJob() to write paid: false
+// back over the top. Two bad things came out of that one line:
+//
+//   * the trigger in db/job-events.sql logs a 'payment' event when paid goes
+//     false -> true, so every invoiced job got a "Payment taken" row for
+//     money nobody had received; and
+//   * the correction lived in saveInvoiceOnJob(), which made recording an
+//     invoice ANYWHERE mean "this job is unpaid" — so attaching Square's
+//     invoice to Jeff Krueger's job, already paid in cash, marked it unpaid
+//     and put it back on the awaiting-payment list.
+//
+// Deriving it from the method fixes both at the source. Nothing downstream
+// has to correct anything, so nothing downstream can corrupt anything.
 export async function completeJob(job, { finalPrice, paymentMethod, paymentNotes }) {
   const { error: jobErr } = await supabase
     .from("jobs")
     .update({
       status: "completed",
       final_price: finalPrice,
-      paid: true,
+      paid: paymentMethod !== "invoice",
       payment_method: paymentMethod,
       notes: paymentNotes ? `${job.notes ? job.notes + " — " : ""}${paymentNotes}` : job.notes,
     })

@@ -240,9 +240,19 @@ export default function CompleteJob() {
       paymentNotes: notes.trim() || null,
     });
 
-    // Record the invoice on the job (also marks paid=false until they pay).
+    // Record the invoice on the job.
+    //
+    // emailed: true is earned here and nowhere else in the app: the line
+    // above this one just had Square create AND publish the invoice, which
+    // is Square emailing it. Every other way an invoice id reaches a job —
+    // a hand edit, a backfill, recording one Hayden sent himself — cannot
+    // say this, and the history says "recorded" rather than "emailed"
+    // instead of inventing a send.
+    //
+    // The job's paid flag is already correct: completeJob() derived it from
+    // the payment method a moment ago. Nothing here touches it.
     if (invoice) {
-      await saveInvoiceOnJob(job.id, invoice);
+      await saveInvoiceOnJob(job.id, invoice, { emailed: true });
     }
 
     // Record the payment, and remember the card for next time. Neither of
