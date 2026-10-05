@@ -2,21 +2,22 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import AddressPicker from "../../components/AddressPicker";
 import {
+  ALL_STATUSES,
+  deleteLead,
+  fetchAssignableOwners,
   fetchLead,
   fetchLeadEvents,
-  updateLead,
-  deleteLead,
-  ALL_STATUSES,
-  LEADS_SETTABLE_STATUSES,
-  TEMPERATURES,
   LEAD_SOURCES,
-  sourceFor,
+  LEADS_SETTABLE_STATUSES,
+  reassignLead,
+  recordLeadContact,
+  saveProblem,
   SERVICE_TYPES,
   serviceFor,
+  sourceFor,
   telHref,
-  recordLeadContact,
-  fetchAssignableOwners,
-  reassignLead,
+  TEMPERATURES,
+  updateLead,
 } from "../../services/leadService";
 import { useAuth } from "../../context/useAuth";
 import { can } from "../../components/capabilities";
@@ -173,7 +174,12 @@ export default function LeadDetail() {
       navigate("/leads");
     } catch (e) {
       console.error(e);
-      setError("Couldn't save. Try again.");
+      // The database's own reason, not a shrug. "Try again" was wrong advice
+      // for the bug that prompted this: a CHECK constraint on leads.status
+      // that predated the Lost status, where trying again fails identically
+      // every time and the only explanation was in a console nobody on a
+      // phone can open.
+      setError(saveProblem(e, "save"));
       setSaving(false);
     }
   }
@@ -201,7 +207,7 @@ export default function LeadDetail() {
       navigate("/leads");
     } catch (e) {
       console.error(e);
-      setError("Couldn't delete. Try again.");
+      setError(saveProblem(e, "delete"));
     }
   }
 

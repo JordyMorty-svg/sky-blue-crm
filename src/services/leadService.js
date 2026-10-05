@@ -1,6 +1,54 @@
 import { addMonths } from "date-fns";
 import { supabase } from "../supabaseClient";
 
+/**
+ * Turn a Supabase/PostgREST error into something worth putting on screen.
+ *
+ * "Couldn't save. Try again." is what this page used to say, and it cost a
+ * real afternoon: marking a lead Lost failed because leads.status had a
+ * CHECK constraint that predated the status, and the only place that said so
+ * was the browser console on a phone. Trying again was never going to work,
+ * and the message said to.
+ *
+ * So: name the cause where the code tells us one, and always carry the
+ * database's own words along behind it. The raw text is ugly, and ugly text
+ * you can act on beats a polite sentence you cannot.
+ */
+export function saveProblem(error, what = "save") {
+  const raw = String(error?.message || error || "").trim();
+  const code = error?.code;
+
+  // 23514 check_violation — a value the column refuses. This is the one that
+  // happens when the app offers a choice the database was never told about.
+  if (code === "23514") {
+    const field = /constraint "?(\w+?)_?(\w+)_check"?/.exec(raw)?.[2];
+    return (
+      `The database rejected that${field ? ` ${field}` : ""}. ` +
+      `It is set up to allow only certain values and this is not one of them, ` +
+      `so trying again will not help — the column needs widening. (${raw})`
+    );
+  }
+  if (code === "23505") return `That would duplicate something already on file. (${raw})`;
+  if (code === "23503") return `Something this points at no longer exists. (${raw})`;
+  if (code === "23502") return `A required field is empty. (${raw})`;
+  if (code === "42501" || /row-level security/i.test(raw)) {
+    return `Your account is not allowed to ${what} this. (${raw})`;
+  }
+  // PGRST116 — the write may well have gone through; it is reading the row
+  // back that returned nothing. Worth saying, because "it failed" would be
+  // a lie and the next thing the person does is try again.
+  if (code === "PGRST116") {
+    return (
+      `The change may have been saved but could not be read back. ` +
+      `Reload before trying again. (${raw})`
+    );
+  }
+  if (/fetch|network|Failed to fetch/i.test(raw)) {
+    return `No connection. Nothing was ${what}d — try again when you have signal.`;
+  }
+  return raw ? `Couldn't ${what}: ${raw}` : `Couldn't ${what}. Try again.`;
+}
+
 // Active pipeline stages shown on the Kanban board, in order.
 // The terminal statuses below are excluded — a lead in any of them has
 // left the pipeline and lives on the All Leads page instead.
