@@ -69,6 +69,13 @@ export function readEvent(payload) {
 
   // Inbound: `from` is the customer, `to` is the business number.
   const from = obj.from || obj.participants?.[0] || null;
+
+  // OUTBOUND: the other way round. `to` is the customer, and it is the only
+  // field that says whose thread an app-sent message belongs on. Quo sends it
+  // as a bare string on some events and an array on others, because `to` is
+  // plural for a group message.
+  const toRaw = obj.to ?? obj.recipient ?? obj.recipients ?? null;
+  const to = Array.isArray(toRaw) ? toRaw[0] ?? null : toRaw;
   const body = obj.text ?? obj.body ?? obj.content ?? "";
   const id = obj.id || payload?.id || null;
   const direction = obj.direction || null;
@@ -86,7 +93,54 @@ export function readEvent(payload) {
     obj.reason ||
     null;
 
-  return { type, from, body, id, direction, status, error, raw: obj };
+  return { type, from, to, body, id, direction, status, error, raw: obj };
+}
+
+/**
+ * Keep a text somebody typed in the Quo app.
+ *
+ * WHY THIS EXISTS AT ALL. Quo sends an outbound copy of every message through
+ * this same webhook, and until now the handler threw all of them away — the
+ * delivery branch called mark_sms_delivered(), which matches nothing for a
+ * message the CRM never sent, and then returned 200 regardless. So every text
+ * either brother typed on their phone was received by this endpoint and
+ * discarded, leaving sms_messages holding one side of a two-sided
+ * conversation.
+ *
+ * It does NOT try to work out which copies are the CRM's own. record_app_sms()
+ * decides that, because the three ways a duplicate gets in are all answered by
+ * looking at the table, and this function cannot see the table. Calling it for
+ * a message we sent ourselves is the normal case and costs one no-op.
+ *
+ * Never throws. This runs inside a handler that must answer 200 or Quo
+ * retries, and losing one message from the thread is a smaller loss than a
+ * retry storm.
+ */
+async function keepAppMessage(evt) {
+  // Outbound only. An inbound message is already handled further down, and
+  // handling it here as well would file the customer's own words as ours.
+  const outbound =
+    evt.direction === "outgoing" ||
+    evt.direction === "out" ||
+    (evt.direction == null && Boolean(evt.to));
+  if (!outbound) return;
+
+  // `to` is the customer on an outbound message. Without it there is no
+  // thread to put this on, and guessing from `from` would file it against the
+  // business's own number.
+  if (!evt.to || !String(evt.body || "").trim()) return;
+
+  try {
+    const id = await rpc("record_app_sms", {
+      p_phone: evt.to,
+      p_body: evt.body,
+      p_sid: evt.id || null,
+      p_sent_at: evt.raw?.createdAt || evt.raw?.created_at || null,
+    });
+    if (id) console.log("[sms-inbound] kept a message sent from the Quo app", { id });
+  } catch (err) {
+    console.error("[sms-inbound] could not keep an app-sent message", err);
+  }
 }
 
 /**
@@ -214,6 +268,16 @@ export default async (req) => {
     } catch (err) {
       console.error("[sms-inbound] could not record a delivery", err);
     }
+    // THIS is where app-sent messages were being lost. A delivery copy of a
+    // message the CRM sent stamps delivered_at above and record_app_sms()
+    // no-ops below; a delivery copy of one typed in the Quo app matches
+    // nothing above, and used to fall straight out of this branch.
+    //
+    // NOT gated on mark_sms_delivered returning nothing, which is the
+    // tempting shortcut and is wrong: that function also returns nothing on a
+    // RETRY of a delivery we already recorded, so the shortcut would file our
+    // own message as an app message the second time Quo sent the same hook.
+    await keepAppMessage(evt);
     return new Response(null, { status: 200 });
   }
 
@@ -231,9 +295,19 @@ export default async (req) => {
   }
 
   // Quo sends delivery receipts and outbound copies through the same hook.
-  // Acting on those would log every message the CRM itself sent a second
-  // time, as though the customer had said it.
+  // Everything below this line treats the event as something the CUSTOMER
+  // said, so an outbound copy must not reach it — logging one as inbound
+  // would put our own words on the timeline as theirs, and a message that
+  // happened to read like "STOP" would opt the customer out of their own
+  // conversation.
+  //
+  // It is kept rather than dropped now. Quo delivers app-sent messages as a
+  // delivery event in practice, so the branch above is the one that fires —
+  // but this is the same payload shape from a provider whose event names have
+  // already changed once, and a message silently discarded here is one nobody
+  // would ever notice was missing.
   if (evt.direction === "outgoing" || (evt.type && !/received/i.test(evt.type))) {
+    await keepAppMessage(evt);
     return new Response(null, { status: 200 });
   }
 
