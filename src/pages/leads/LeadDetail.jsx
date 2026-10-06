@@ -10,11 +10,11 @@ import {
   LEAD_SOURCES,
   LEADS_SETTABLE_STATUSES,
   reassignLead,
-  recordLeadContact,
   saveProblem,
   SERVICE_TYPES,
   serviceFor,
   sourceFor,
+  quoCallHref,
   telHref,
   TEMPERATURES,
   updateLead,
@@ -24,6 +24,7 @@ import { can } from "../../components/capabilities";
 import PlanPicker from "../../components/PlanPicker";
 import AppointmentPicker from "../../components/AppointmentPicker";
 import QuotesPanel from "../../components/QuotesPanel";
+import TextThread from "../../components/TextThread";
 import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import "./LeadDetail.css";
 
@@ -36,7 +37,6 @@ export default function LeadDetail() {
   const [apptTime, setApptTime] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [calling, setCalling] = useState(false);
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { role, user } = useAuth();
@@ -184,23 +184,6 @@ export default function LeadDetail() {
     }
   }
 
-  // Dials, and records the attempt as it goes. The status rule lives in the
-  // database (record_lead_contact) so it can't drift between this page and
-  // the board: a lead still on 'new' advances to 'contacted', anything
-  // further down the funnel keeps its place.
-  async function handleCall() {
-    setCalling(true);
-    try {
-      const updated = await recordLeadContact(id);
-      if (updated) setForm((f) => ({ ...f, ...updated }));
-    } catch (e) {
-      console.error(e);
-      setError("Couldn't record that call. The number still dialled.");
-    } finally {
-      setCalling(false);
-    }
-  }
-
   async function handleDelete() {
     try {
       await deleteLead(id);
@@ -303,12 +286,24 @@ export default function LeadDetail() {
           <div className="detail__phonerow">
             <input className="detail__input" type="tel" value={form.phone || ""}
               onChange={(e) => set("phone", e.target.value)} />
-            {telHref(form.phone) && (
+            {/* Through Quo, and NOTHING is logged by pressing it.
+
+                The call is written down when Quo says it happened, on the
+                call.completed webhook — see db/call-tracking.sql. That is
+                the whole change: this button used to log the call on click,
+                so a mis-tap, a cancelled dial, or a laptop with no dialler
+                all wrote "Called" onto the customer's history and bumped
+                the attempt count. */}
+            {/* quoCallHref is null for anything that is not a US ten-digit
+                number — an extension, an international number, a note
+                somebody typed in the phone field. tel: is the fallback
+                there: it will not go through Quo and so will not be
+                logged, which is worse than the Quo route and much better
+                than no button at all. */}
+            {(quoCallHref(form.phone) || telHref(form.phone)) && (
               <a
                 className="detail__call"
-                href={telHref(form.phone)}
-                onClick={handleCall}
-                aria-disabled={calling}
+                href={quoCallHref(form.phone) || telHref(form.phone)}
               >
                 Call
               </a>
@@ -542,6 +537,25 @@ export default function LeadDetail() {
         // happens in the database, not here. Reload so the status select and
         // the history below both reflect it.
         onChanged={load}
+      />
+
+      {/* The conversation, under the quotes and above the status history.
+
+          That order is the order the questions get asked: what did we quote
+          them, what have we actually said to each other, and then how did
+          they get here. The thread is also the one panel somebody types
+          into, and burying a text box under a timeline nobody scrolls to
+          would make it the feature with the best reason to be missed.
+
+          `form.phone`, not the saved row — somebody who has just corrected a
+          typo in the number should see that person's thread. */}
+      <TextThread
+        phone={form.phone}
+        leadId={id}
+        // A text writes a contact_log row and bumps last_contacted_at, which
+        // this page is showing. Without the reload they disagree until
+        // somebody refreshes and nobody knows which one is right.
+        onSent={load}
       />
 
       {events.length > 0 && (

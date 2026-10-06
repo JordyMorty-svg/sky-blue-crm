@@ -47,7 +47,26 @@ export async function recordContact({
 // rather than a migration.
 
 const CONTACT_KINDS = {
+  // A call somebody actually had. Since db/call-tracking.sql this is the
+  // only kind written when Quo confirms the call connected, so "Called" on
+  // this timeline now means a conversation happened rather than that
+  // somebody pressed a button.
   call: "Called",
+  // Rang, nobody picked up. A real outbound call — Quo placed it — and
+  // deliberately not "Called": the difference between "I spoke to them" and
+  // "I rang twice and got nothing" is the whole content of the decision
+  // somebody is making when they read this page.
+  call_attempt: "Called, no answer",
+  // They rang US and we picked up. Named from their side for the same
+  // reason text_in is "They replied": on a timeline that otherwise reads as
+  // things Sky Blue did, "Called" on a row where the customer rang you says
+  // the opposite of what happened.
+  call_in: "They called",
+  // They rang and nobody got to it — including our own voicemail answering.
+  // The most useful line this timeline can carry and one it has never had,
+  // because a button on a lead page cannot know about a call that never
+  // reached it.
+  call_missed: "Missed their call",
   text: "Texted",
   // A message FROM them. Deliberately not "Texted" — on a timeline that
   // reads as something Sky Blue did, and the difference between "we chased

@@ -16,14 +16,15 @@ import {
   planFor,
   nextVisitDate,
   priceForVisit,
+  quoCallHref,
   telHref,
   formatPhone,
 } from "../../services/leadService";
-import { recordContact } from "../../services/contactService";
 import { setEmailOptOut, setCustomerReviewed } from "../../services/followUpService";
 import AddressPicker from "../../components/AddressPicker";
 import JobPlanTag from "../../components/JobPlanTag";
 import QuotesPanel from "../../components/QuotesPanel";
+import TextThread from "../../components/TextThread";
 import RecordMenu from "../../components/RecordMenu";
 import "./Customers.css";
 
@@ -224,18 +225,6 @@ export default function CustomerDetail() {
       console.error(e);
       setError("Couldn't delete this customer. Try again.");
       setDeleting(false);
-    }
-  }
-
-  // Dials, and records it on the same timeline the lead's calls went to.
-  // record_contact resolves the lead behind this customer, so a call here
-  // and a call from before they booked sit on one history.
-  async function handleCall() {
-    try {
-      await recordContact({ customerId: id, kind: "call" });
-    } catch (e) {
-      // The number still dialled; losing the log entry must not interrupt.
-      console.error("Couldn't record that call:", e);
     }
   }
 
@@ -519,10 +508,16 @@ export default function CustomerDetail() {
 
           <div className="custdetail__info">
             {customer.phone && (
+              /* Through Quo, and pressing it logs NOTHING.
+
+                 The call is written down when Quo says it happened, on the
+                 call.completed webhook — see db/call-tracking.sql. This
+                 link used to log a call on click, which meant a mis-tap
+                 from a laptop that has no dialler still wrote "Called" onto
+                 this customer's history. */
               <a
                 className="custdetail__phone"
-                href={telHref(customer.phone)}
-                onClick={handleCall}
+                href={quoCallHref(customer.phone) || telHref(customer.phone)}
               >
                 {formatPhone(customer.phone)}
               </a>
@@ -741,6 +736,23 @@ export default function CustomerDetail() {
         address={customer.address}
         suggestedAmount={suggestedQuote}
         onChanged={load}
+      />
+
+      {/* Collapsed by default here and open on the lead page, which is the
+          one asymmetry between the two mountings.
+
+          A lead page is a page about a conversation in progress. A customer
+          page already stacks quotes, job history and the contact timeline,
+          and a customer of two years has a thread long enough to push all
+          three off the screen. Closed, it is one line that says how many
+          texts there are — which is usually the answer somebody wanted. */}
+      <TextThread
+        phone={customer.phone}
+        customerId={id}
+        startOpen={false}
+        // A text writes a contact_log row, which the history panel on this
+        // same page is showing.
+        onSent={load}
       />
 
       <h2 className="custdetail__subhead">Job history</h2>

@@ -105,6 +105,11 @@ const LEAD_SERVICE = `
   export function nextVisitDate() { return null; }
   export function priceForVisit() { return 0; }
   export function telHref(p) { return "tel:" + p; }
+  // The Call link on the customer page hands off to Quo rather than to the
+  // device's own dialler — see db/call-tracking.sql. It is stubbed with the
+  // real scheme, not with tel:, because this suite is about where a press
+  // LANDS and a stub that lies about that is the one thing it must not do.
+  export function quoCallHref(p) { return "openphone://dial?number=" + p + "&action=call"; }
   export function formatPhone(p) { return p; }
 `;
 
@@ -125,7 +130,7 @@ const COMMON = [
   // them decides where a press lands.
   // RecordMenu is deliberately NOT stubbed: Edit is behind it, and the
   // complaint this suite exists for starts with pressing Edit.
-  [/components\/(AddressPicker|JobPlanTag|QuotesPanel|PlanPicker|AppointmentPicker|TechPicker|ServicePicker|JobHistory|FollowUpNotice)$/, NOOP_COMPONENT],
+  [/components\/(AddressPicker|JobPlanTag|QuotesPanel|TextThread|PlanPicker|AppointmentPicker|TechPicker|ServicePicker|JobHistory|FollowUpNotice)$/, NOOP_COMPONENT],
 ];
 
 async function bundle(entry, out) {

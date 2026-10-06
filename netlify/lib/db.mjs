@@ -49,7 +49,23 @@ export function supabaseHeaders(key) {
  * to ignore them.
  */
 export async function rpc(fn, body = {}) {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // EITHER SPELLING, and this cost an afternoon to find.
+  //
+  // send-quote.mjs was written against SUPABASE_SERVICE_KEY and everything
+  // under netlify/lib against SUPABASE_SERVICE_ROLE_KEY. With only the
+  // first one set in Netlify — which is a thing somebody does once, by
+  // reading the variable name off a different file — the quote saves
+  // perfectly, the link comes back, the page says it worked, and the text
+  // silently fails to claim. Nothing is wrong on screen.
+  //
+  // The comment in send-quote.mjs predicted exactly this and accepted both
+  // spellings there. It did not help: the failure moved here the moment
+  // sms.mjs started getting rpc() from this file instead of from
+  // followUps.mjs, and verify/notify.mjs went red with a message about an
+  // environment variable that was, as far as anybody looking at Netlify
+  // could tell, set.
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
   if (!SUPABASE_URL() || !key) {
     throw new Error(
       "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must both be set"

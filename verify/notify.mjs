@@ -14,9 +14,17 @@
 //     would quietly corrupt the signal the follow-ups are built on.
 //   * nothing here can fail the request it rides on.
 //
-// send-quote.mjs pulls in sms.mjs, which imports followUps.mjs for its
-// Supabase helper. That import is stubbed at bundle time, and global fetch is
-// replaced, so nothing in this file can reach the network.
+// send-quote.mjs pulls in sms.mjs, which gets rpc() from db.mjs — its real
+// home. That import is stubbed at bundle time, and global fetch is replaced,
+// so nothing in this file can reach the network.
+//
+// BOTH db.mjs AND followUps.mjs are stubbed, and the second one is the
+// interesting half. followUps.mjs only RE-EXPORTS rpc for historical
+// reasons; sms.mjs used to import it from there and was pointed at db.mjs
+// when the two files started importing each other. This stub was written
+// against the old path, kept matching nothing after that change, and the
+// three assertions about a text that actually goes out went red with a
+// message about an environment variable that was set.
 
 import { build } from "esbuild";
 import { mkdtempSync } from "node:fs";
@@ -39,12 +47,19 @@ process.env.SMS_MODE = "off";
 const stub = {
   name: "stub",
   setup(b) {
-    b.onResolve({ filter: /followUps\.mjs$/ }, (a) => ({ path: a.path, namespace: "fu" }));
+    b.onResolve({ filter: /(followUps|db)\.mjs$/ }, (a) => ({ path: a.path, namespace: "fu" }));
     b.onLoad({ filter: /.*/, namespace: "fu" }, () => ({
       contents:
         "export async function rpc(fn, args) { " +
         "  if (globalThis.__rpc) return globalThis.__rpc(fn, args); " +
-        "  throw new Error('no network in tests'); }",
+        "  throw new Error('no network in tests'); }" +
+        // db.mjs exports these two as well, and an unresolved named import
+        // is a bundle-time error rather than a runtime one — so leaving
+        // them out breaks the build instead of the test.
+        "export async function rpcQuietly(fn, args) { " +
+        "  try { return await rpc(fn, args); } catch { return null; } }" +
+        "export const SUPABASE_URL = () => process.env.VITE_SUPABASE_URL;" +
+        "export function supabaseHeaders(key) { return { apikey: key }; }",
       loader: "js",
     }));
   },

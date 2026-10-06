@@ -326,10 +326,70 @@ export async function recordLeadContact(leadId) {
 
 // A phone number as a dialable href. Strips the formatting people type —
 // "(541) 555-0101" is not a valid tel: target, 5415550101 is.
+//
+// STILL HERE, BUT THE CALL BUTTONS NO LONGER USE IT. tel: hands the number
+// to whatever the device's default dialler is, which is the personal phone
+// in somebody's pocket — not Quo. So the customer saw a private mobile
+// number instead of the business one, callbacks went to the wrong handset,
+// and Quo never knew the call happened, which meant nothing could ever
+// confirm that it had. See quoCallHref() below.
 export function telHref(phone) {
   if (!phone) return null;
   const digits = String(phone).replace(/[^\d+]/g, "");
   return digits ? `tel:${digits}` : null;
+}
+
+/**
+ * Place this call THROUGH QUO.
+ *
+ * Two things change by doing it this way, and the second is the one that
+ * matters.
+ *
+ * The customer sees the business number, because the call is coming from
+ * it. And Quo knows the call happened — it placed it — so it can tell us
+ * afterwards, on the `call.completed` webhook, whether anybody actually
+ * picked up. That webhook is now the only thing that writes a call onto
+ * somebody's history. Pressing this button records nothing at all.
+ *
+ * Which is the whole point. The old button logged the call on click, before
+ * anything had happened: on a laptop, where a tel: link opens nothing, it
+ * logged a call anyway; on a phone, pressing it and then pressing cancel
+ * logged a call; ringing out logged a call. contact_attempts was counting
+ * button presses.
+ *
+ * `action=call` dials immediately rather than opening the dialler with the
+ * number filled in. The number is URL-encoded because it starts with a +,
+ * which means a space in a query string.
+ *
+ * Quo documents this scheme for the MOBILE apps. On a desktop it works only
+ * if the Quo desktop app has registered the handler, and if it has not,
+ * nothing happens — which is the honest outcome, and is why the pages that
+ * use this also offer QUO_WEB as a plain link. Nothing is logged either
+ * way, so a handoff that silently fails costs a call, not a wrong record.
+ */
+export function quoCallHref(phone) {
+  const e164 = toE164(phone);
+  if (!e164) return null;
+  return `openphone://dial?number=${encodeURIComponent(e164)}&action=call`;
+}
+
+// The web app, for a desktop that cannot follow the deep link above.
+export const QUO_WEB = "https://my.openphone.com/";
+
+/**
+ * A US number in E.164, or null.
+ *
+ * Mirrors sb_sms_e164() in db/sms.sql and toE164() in netlify/lib/sms.mjs.
+ * A third copy is a third chance to disagree — but the first is in the
+ * database and the second is server-only, and this one runs in the browser
+ * with neither available. If the three ever disagree, the database is
+ * right.
+ */
+function toE164(p) {
+  const d = String(p ?? "").replace(/\D/g, "");
+  if (/^[2-9]\d{9}$/.test(d)) return `+1${d}`;
+  if (/^1[2-9]\d{9}$/.test(d)) return `+${d}`;
+  return null;
 }
 
 /**

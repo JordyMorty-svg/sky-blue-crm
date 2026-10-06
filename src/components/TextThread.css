@@ -1,0 +1,271 @@
+/* Text thread — shared by the lead page and the customer page, so it
+   borrows nothing from either stylesheet. Same arrangement as
+   QuotesPanel.css next door. */
+
+/* Its own band with a rule on top, matching .quotes. These sections stack on
+   the customer page and each one has to read as a separate thing rather than
+   as a sub-heading of the one above it. */
+.thread {
+  margin: 28px 0 34px;
+  padding-top: 22px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.thread__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+/* Deliberately identical to .quotes__title and .custdetail__subhead. These
+   are the section headings on the customer page and they must read as the
+   same kind of thing. */
+.thread__title {
+  font-size: var(--text-xl);
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.thread__number {
+  font-size: var(--text-sm);
+  color: #64748b;
+  flex: 1 1 auto;
+}
+
+.thread__toggle {
+  background: none;
+  border: none;
+  padding: 8px 4px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+/* The conversation itself.
+
+   A fixed height with its own scrollbar rather than letting the list grow.
+   A customer texted every week for two years would otherwise push the job
+   history and the quotes panel below a thousand pixels of chat, and those
+   are what somebody opened this page for. */
+.thread__scroll {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  /* So the newest message does not sit flush against the composer. */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* Momentum scrolling inside a page that also scrolls. Without it, on iOS
+     the whole page moves instead of the thread. */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.thread__empty {
+  font-size: var(--text-sm);
+  color: #64748b;
+  margin: 0;
+}
+
+.thread__error {
+  font-size: var(--text-sm);
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 10px 0 0;
+}
+
+/* --- one message ------------------------------------------------------- */
+
+.thread__row {
+  display: flex;
+  flex-direction: column;
+  /* Two caps, and whichever bites first wins.
+     78%, not 100%: the asymmetry is what tells the two sides apart at a
+     glance without reading a word of either — the same trick every
+     messaging app uses, and the reason you can scan a thread.
+     52ch because a percentage alone is not a limit on a wide screen. On a
+     desktop the panel is most of a 1400px window, 78% of which is a line
+     over a thousand pixels long — past about 75 characters the eye loses
+     its place coming back to the left edge, and a text message is the one
+     thing people skim fastest. */
+  max-width: min(78%, 52ch);
+}
+
+.thread__row--mine {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.thread__row--theirs {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.thread__bubble {
+  padding: 9px 13px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+}
+
+.thread__row--mine .thread__bubble {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+/* An automatic message looks different from one a person typed.
+
+   Reading a thread back, "Hayden wrote this at 4pm" and "the nightly run
+   wrote this at 4pm" lead to completely different next sentences, and
+   without this they are the same blue bubble. Paler blue rather than a
+   badge: it keeps the thread scannable and costs no vertical space. */
+.thread__bubble--auto {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
+.thread__row--mine .thread__bubble--auto {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
+/* One that did not arrive. Red outline rather than red fill: the words are
+   still the words, and this is a note about them, not a different message. */
+.thread__row--mine .thread__bubble--failed {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #7f1d1d;
+}
+
+.thread__body {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  /* A text can contain anything, including a URL with no spaces in it and a
+     line somebody typed on a phone. Both have to wrap rather than widen the
+     bubble past the column. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.thread__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin: 4px 2px 0;
+  font-size: var(--text-xs);
+  color: #64748b;
+}
+
+.thread__who {
+  font-weight: 700;
+  color: #475569;
+}
+
+.thread__state {
+  font-weight: 700;
+}
+
+.thread__state--good {
+  color: #166534;
+}
+
+.thread__state--ok {
+  color: #64748b;
+}
+
+.thread__state--bad {
+  color: #b91c1c;
+}
+
+.thread__why {
+  color: #b91c1c;
+}
+
+/* --- writing one ------------------------------------------------------- */
+
+.thread__compose {
+  margin-top: 12px;
+}
+
+.thread__input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  resize: vertical;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.thread__input:focus {
+  outline: 2px solid #93c5fd;
+  outline-offset: 1px;
+  border-color: #2563eb;
+}
+
+.thread__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.thread__count {
+  flex: 1 1 auto;
+  font-size: var(--text-xs);
+  color: #64748b;
+}
+
+/* 44px tall, like every other primary action in this app. This one is
+   pressed on a phone in a driveway with one thumb, which is the whole
+   argument for the number. */
+.thread__send {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 11px 22px;
+  min-height: 44px;
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.thread__send:disabled {
+  background: #cbd5e1;
+  color: #f8fafc;
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  /* Wider bubbles on a narrow screen. At 78% of a 360px column a sentence
+     wraps every four words and the thread becomes unreadable; the
+     left/right alignment still does the work of telling the sides apart. */
+  .thread__row {
+    max-width: min(88%, 52ch);
+  }
+
+  .thread__scroll {
+    max-height: 300px;
+  }
+}
