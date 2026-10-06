@@ -254,6 +254,78 @@ export function reminderSms({ customerName, startsAt }) {
 }
 
 /*
+ * The three texts that follow a lead moving along the board.
+ *
+ * Sent fifteen minutes after the move, by the per-minute sweep in
+ * netlify/functions/ack-leads.mjs. Which one, and whether any of them go at
+ * all, is decided entirely by sms_due_lead_nudges() in db/lead-nudges.sql —
+ * these functions only write the words.
+ *
+ * All three open with who it is, for the same reason the review request does:
+ * an unknown number that knows your address is a cold call until it says
+ * otherwise. All three sign with the first name of whoever moved the lead,
+ * so the customer can reply to a person.
+ */
+
+/** Moved to contacted: we have your details, here is how to take it further. */
+export function nudgeContactedSms({ customerName, service, sentByName = null }) {
+  // The service is named when we have one, because "we have your details" on
+  // its own could be about anything, and a lead taken at a door three hours
+  // ago may genuinely not remember which company this is.
+  const about = service ? ` about ${String(service).toLowerCase()}` : "";
+  return gsmSafe(
+    `Hi ${firstName(customerName)}, ${itsUs(sentByName)}. We've got your ` +
+      `details down${about}. Any questions, or if you'd like to set up a time ` +
+      `for an estimate, just reply here.` +
+      OPT_OUT
+  );
+}
+
+/*
+ * Moved to quoted, WITHOUT a quote having been sent from the CRM.
+ *
+ * If a real quote went out, that text already carried the price and a link to
+ * accept on, and this one never sends — the database decides that, not this
+ * file. So the wording assumes the number has only been said out loud, and
+ * asks them to confirm it rather than pointing at anything.
+ */
+export function nudgeQuotedSms({ customerName, amount, service, sentByName = null }) {
+  const about = service ? ` for ${String(service).toLowerCase()}` : "";
+  return gsmSafe(
+    `Hi ${firstName(customerName)}, ${itsUs(sentByName)}. We've got you down ` +
+      `at ${money(amount)}${about}. Let us know if that price works and we'll ` +
+      `get you on the schedule.` +
+      OPT_OUT
+  );
+}
+
+/*
+ * Moved to booked: confirm the appointment.
+ *
+ * Never sent without a time — db/lead-nudges.sql will not return a booked
+ * lead whose appointment_at is null, because "you're booked in for null" is
+ * not a text anybody should receive. `startsAt` is therefore always real
+ * here, and this function still refuses to invent one if that ever changes.
+ */
+export function nudgeBookedSms({ customerName, startsAt, sentByName = null }) {
+  if (!startsAt) return null;
+  const when = new Date(startsAt).toLocaleString("en-US", {
+    timeZone: "America/Los_Angeles",
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return gsmSafe(
+    `Hi ${firstName(customerName)}, ${itsUs(sentByName)}. You're booked in ` +
+      `for ${when}. We'll send a reminder the day before too - reply here if ` +
+      `you need to move it.` +
+      OPT_OUT
+  );
+}
+
+/*
  * "How did we do?", for a customer who has no email address.
  *
  * The same ask as the follow-up email in followUps.mjs, in the space a text

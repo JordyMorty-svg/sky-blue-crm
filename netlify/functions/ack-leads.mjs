@@ -25,9 +25,20 @@
 // indexed column on a table with a few hundred rows and returns nothing on
 // roughly 1,439 of the 1,440 daily runs. Same argument as poll-delivery.mjs:
 // a scheduled function that usually finds nothing costs one invocation.
+//
+// IT ALSO RUNS THE BOARD NUDGES (netlify/lib/leadNudges.mjs): the texts that
+// follow a lead being moved to contacted, quoted or booked. Same job —
+// automatic outbound to a lead, on a timer the database owns — so it shares
+// the sweep rather than adding a second scheduled function and doubling the
+// invocations for two queries that both usually return nothing.
+//
+// The two are independent. Either can find work while the other finds none,
+// and a failure in one is reported without stopping the other, because
+// runLeadNudges() never throws.
 
 import { rpc } from "../lib/db.mjs";
 import { sendSms } from "../lib/sms.mjs";
+import { runLeadNudges } from "../lib/leadNudges.mjs";
 import { sendEmail } from "../lib/email.mjs";
 
 // The message. Deliberately short, deliberately not clever.
@@ -155,6 +166,18 @@ export default async () => {
           ms: Date.now() - started,
         })
       );
+    }
+
+    // After the acknowledgments, not before. If a website lead was due both
+    // an acknowledgment and a nudge in the same minute — submitted, then
+    // moved to contacted 14 minutes ago — the acknowledgment is the one that
+    // should land first, and sending it here is also what makes
+    // sb_lead_nudge_quiet() suppress the nudge rather than the other way
+    // round. Order is policy, so it is stated rather than incidental.
+    const nudges = await runLeadNudges({ limit: 25 });
+
+    if (nudges.texted || nudges.skipped || nudges.problems.length) {
+      console.log("[lead-nudges]", JSON.stringify({ ...nudges, ms: Date.now() - started }));
     }
 
     return new Response(null, { status: 204 });
