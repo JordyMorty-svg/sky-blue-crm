@@ -14,8 +14,6 @@ import {
   SERVICE_TYPES,
   serviceFor,
   sourceFor,
-  quoCallHref,
-  telHref,
   TEMPERATURES,
   updateLead,
 } from "../../services/leadService";
@@ -23,8 +21,7 @@ import { useAuth } from "../../context/useAuth";
 import { can } from "../../components/capabilities";
 import PlanPicker from "../../components/PlanPicker";
 import AppointmentPicker from "../../components/AppointmentPicker";
-import QuotesPanel from "../../components/QuotesPanel";
-import TextThread from "../../components/TextThread";
+import LeadTabs from "../../components/LeadTabs";
 import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import "./LeadDetail.css";
 
@@ -42,9 +39,19 @@ export default function LeadDetail() {
   const { role, user } = useAuth();
   const canDelete = can(role, "delete_leads");
   const [events, setEvents] = useState([]);
+  // Shut to begin with. See the note above the panel.
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [owners, setOwners] = useState([]);
   const [reassigning, setReassigning] = useState(false);
   const [reassignNote, setReassignNote] = useState("");
+
+  // Calls are filtered out here rather than in the list, so the count on the
+  // button and the rows behind it can never disagree. They were separate
+  // once and the button offered to show four rows and then showed two:
+  // contact_log owns outreach now, and db/contact-history.sql copied the old
+  // 'call' lead_events across, so leaving them in would show every historic
+  // call twice.
+  const visibleEvents = events.filter((ev) => (ev.kind || "status") !== "call");
 
   async function load() {
     try {
@@ -247,6 +254,20 @@ export default function LeadDetail() {
         </span>
       </div>
 
+      {/* The two doors off this page.
+
+          Quotes and the whole text conversation used to be panels further
+          down this same scroll. They are jobs you sit down to do, not things
+          you want between you and the address field — see LeadTabs.jsx.
+
+          beforeLeave={persist} is NOT decoration. This page is a form and
+          leaving it does not save it, so pressing one of these buttons with
+          an edited phone number in the box used to throw that edit away —
+          the same bug QuotesPanel's beforeSend was written for, in a new
+          place. It saves first, and if the save fails it stays put and
+          says so. */}
+      <LeadTabs beforeLeave={persist} />
+
       {error && <p className="detail__error">{error}</p>}
 
       <div className="detail__grid">
@@ -283,60 +304,15 @@ export default function LeadDetail() {
         </Field>
 
         <Field label="Phone">
-          <div className="detail__phonerow">
-            <input className="detail__input" type="tel" value={form.phone || ""}
-              onChange={(e) => set("phone", e.target.value)} />
-            {/* Through Quo, and NOTHING is logged by pressing it.
+          {/* The box, and nothing else.
 
-                The call is written down when Quo says it happened, on the
-                call.completed webhook — see db/call-tracking.sql. That is
-                the whole change: this button used to log the call on click,
-                so a mis-tap, a cancelled dial, or a laptop with no dialler
-                all wrote "Called" onto the customer's history and bumped
-                the attempt count. */}
-            {/* quoCallHref is null for anything that is not a US ten-digit
-                number — an extension, an international number, a note
-                somebody typed in the phone field. tel: is the fallback
-                there: it will not go through Quo and so will not be
-                logged, which is worse than the Quo route and much better
-                than no button at all. */}
-            {(quoCallHref(form.phone) || telHref(form.phone)) && (
-              <a
-                className="detail__call"
-                href={quoCallHref(form.phone) || telHref(form.phone)}
-              >
-                Call
-              </a>
-            )}
-          </div>
-          <p className="detail__lastcall">
-            {form.last_contacted_at ? (
-              <>
-                Last reached out {formatContacted(form.last_contacted_at)}
-                {form.contact_attempts > 1
-                  ? ` · ${form.contact_attempts} attempts`
-                  : ""}
-                {" · "}
-              </>
-            ) : null}
-            {/* The calls themselves live on the history page, which outlives
-                this lead — once they book, the same timeline is reachable
-                from their customer profile. */}
-            <button
-              type="button"
-              className="detail__historylink"
-              onClick={() =>
-                navigate(`/history/lead/${id}`, {
-                  state: {
-                    from: `/leads/${id}`,
-                    person: { name: form.name, phone: form.phone },
-                  },
-                })
-              }
-            >
-              See full history
-            </button>
-          </p>
+              The Call button, "Last reached out ... 4 attempts" and the
+              link to the history all used to live here, which made the
+              field somebody opens to fix a typo into the page's busiest
+              corner. All three are on the Communication page now, where
+              they sit beside the conversation they belong to. */}
+          <input className="detail__input" type="tel" value={form.phone || ""}
+            onChange={(e) => set("phone", e.target.value)} />
         </Field>
 
         <Field label="Email">
@@ -502,69 +478,39 @@ export default function LeadDetail() {
         </Field>
       </div>
 
-      {/* Under the form, above the history. The price you'd quote is the
-          Estimate field directly above it, so the two sit together — and the
-          panel is passed that estimate as its starting number rather than
-          making someone retype what's already on screen.
+      {/* QUOTES AND THE TEXT THREAD USED TO BE HERE, stacked under this
+          form. They are on their own pages now, reached by the two buttons
+          at the top — see LeadTabs.jsx.
 
-          Unsaved edits to Estimate are NOT carried in: `form.estimate` is
-          whatever is in the box right now, which is the number the person
-          means. It is only a default; the modal still lets them change it. */}
-      <QuotesPanel
-        leadId={id}
-        customerName={form.name}
-        customerEmail={form.email}
-        customerPhone={form.phone}
-        address={form.address}
-        suggestedAmount={Number(form.estimate) || null}
-        suggestedServices={form.service ? [form.service] : null}
-        // Save what's on screen before the quote modal opens.
-        //
-        // "Save changes" on this page saves AND navigates back to the board,
-        // so there was no way to keep your edits and then send a quote from
-        // the same screen. Hayden typed changes, pressed Send a quote, and
-        // lost everything he had typed when he left the page.
-        //
-        // The quote itself was never wrong — suggestedAmount above reads
-        // `form`, not the saved row, so the customer always got the number on
-        // screen. What was lost was the lead record agreeing with it.
-        //
-        // Throws on failure, and QuotesPanel does not open the modal when it
-        // does: sending a quote off a page whose edits are about to vanish is
-        // the same bug, just quieter.
-        beforeSend={persist}
-        // A lead moves to Booked the moment a quote is accepted, and that
-        // happens in the database, not here. Reload so the status select and
-        // the history below both reflect it.
-        onChanged={load}
-      />
+          `persist` is still called before sending a quote, but from the
+          quotes page's own flow rather than from a beforeSend hook passed
+          down from here: that hook existed because "Save changes" on THIS
+          page also navigates away, and people lost what they had typed.
+          There is no form to lose on the quotes page. */}
 
-      {/* The conversation, under the quotes and above the status history.
-
-          That order is the order the questions get asked: what did we quote
-          them, what have we actually said to each other, and then how did
-          they get here. The thread is also the one panel somebody types
-          into, and burying a text box under a timeline nobody scrolls to
-          would make it the feature with the best reason to be missed.
-
-          `form.phone`, not the saved row — somebody who has just corrected a
-          typo in the number should see that person's thread. */}
-      <TextThread
-        phone={form.phone}
-        leadId={id}
-        // A text writes a contact_log row and bumps last_contacted_at, which
-        // this page is showing. Without the reload they disagree until
-        // somebody refreshes and nobody knows which one is right.
-        onSent={load}
-      />
-
+      {/* Collapsed by default, because it is the longest thing on the page
+          and the least often wanted. A lead that has been worked for a
+          month carries a dozen rows of "Contacted -> Quoted"; a lead
+          somebody opened to fix an address carries none of the answers
+          they came for. The count is on the button, so the common question
+          — "has anything happened to this one?" — is answered without
+          opening it. */}
       {events.length > 0 && (
         <div className="detail__history">
-          <h2 className="detail__historytitle">Status history</h2>
+          <div className="detail__historyhead">
+            <h2 className="detail__historytitle">Status history</h2>
+            <button
+              type="button"
+              className="detail__historytoggle"
+              onClick={() => setHistoryOpen((v) => !v)}
+              aria-expanded={historyOpen}
+            >
+              {historyOpen ? "Hide" : `Show (${visibleEvents.length})`}
+            </button>
+          </div>
+          {historyOpen && (
           <ol className="detail__timeline">
-            {events
-              .filter((ev) => (ev.kind || "status") !== "call")
-              .map((ev) => (
+            {visibleEvents.map((ev) => (
               <li key={ev.id} className="detail__event">
                 <span className="detail__eventdot" />
                 <span className="detail__eventtext">
@@ -590,6 +536,7 @@ export default function LeadDetail() {
               </li>
               ))}
           </ol>
+          )}
         </div>
       )}
 
@@ -642,22 +589,11 @@ function formatEventDate(iso) {
   });
 }
 
-// "today", "yesterday", or a date. Relative wording for the recent past is
-// what people actually want here — "did we ring them today or last week" is
-// the question, and a bare date makes you do the arithmetic.
-function formatContacted(iso) {
-  const then = new Date(iso);
-  const days = Math.floor((Date.now() - then.getTime()) / 86400000);
-  if (days <= 0) {
-    return `today at ${then.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    })}`;
-  }
-  if (days === 1) return "yesterday";
-  if (days < 7) return `${days} days ago`;
-  return `on ${formatEventDate(iso)}`;
-}
+// formatContacted() lived here and has moved to LeadComms.jsx as
+// whenReached(), where the "Last reached out" line now lives. Its
+// calendar-day bug was fixed on the way: it divided the elapsed
+// milliseconds by 86,400,000, so a call at 11pm read at 1am was two hours
+// old and therefore "today at 11:00 PM". It was yesterday.
 
 function Field({ label, children, full }) {
   return (

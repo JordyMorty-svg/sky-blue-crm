@@ -1,0 +1,202 @@
+/* The communication page for one lead: reach them, the thread, the history.
+   Page chrome (.detail, .detail__top, .detail__title) comes from
+   LeadDetail.css, which this page imports alongside this file. */
+
+/* --- the number and the Call button ------------------------------------ */
+
+/* A card rather than a bare line. This is the first thing on the page and
+   the one thing somebody is here for; a phone number in running text reads
+   as a detail about the lead rather than as the action. */
+.comms__reach {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 8px;
+}
+
+.comms__number {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Big, because it gets read aloud off the screen while somebody dials by
+   hand on a phone that is not the one showing this page. */
+.comms__phone {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.01em;
+}
+
+/* 44px, like every other primary action. Pressed with a thumb, outdoors. */
+.comms__call {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 11px 26px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .comms__call:hover {
+    background: #1d4ed8;
+  }
+}
+
+.comms__call:focus-visible {
+  outline: 2px solid #1e40af;
+  outline-offset: 2px;
+}
+
+/* "4 attempts" is the line that stops a fifth, so it sits directly under the
+   button rather than somewhere else on the page. */
+.comms__last {
+  margin: 10px 0 0;
+  font-size: var(--text-sm);
+  color: #64748b;
+}
+
+/* --- the history ------------------------------------------------------- */
+
+.comms__history {
+  margin: 28px 0 34px;
+  padding-top: 22px;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Deliberately the same as .thread__title and .quotes__title. These sections
+   stack and have to read as the same kind of thing. */
+.comms__historytitle {
+  font-size: var(--text-xl);
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 14px;
+}
+
+.comms__empty {
+  color: #94a3b8;
+  font-size: var(--text-sm);
+  margin: 0;
+  padding: 8px 0;
+}
+
+/* The same timeline language as ContactHistory.css and the job history, so
+   the three read as one idea rather than three. Oldest at the top: it is a
+   story, not a feed. */
+.comms__timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+.comms__timeline::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: #e2e8f0;
+}
+
+.comms__event {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 9px 0 9px 22px;
+}
+
+.comms__dot {
+  position: absolute;
+  left: 0;
+  top: 14px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  border: 2px solid #ffffff;
+}
+
+/* Outreach is what this page is about, so it is the one that gets a colour. */
+.comms__event--contact .comms__dot {
+  background: #2563eb;
+}
+
+.comms__event--money .comms__dot {
+  background: #16a34a;
+}
+
+.comms__event--job .comms__dot,
+.comms__event--lead .comms__dot {
+  background: #ffffff;
+  border: 2px solid #cbd5e1;
+}
+
+.comms__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.comms__eventtitle {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* Lead and job rows are context around the outreach, so they sit back. */
+.comms__event--lead .comms__eventtitle,
+.comms__event--job .comms__eventtitle {
+  font-weight: 500;
+  color: #475569;
+}
+
+.comms__eventmeta {
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: #64748b;
+  overflow-wrap: anywhere;
+}
+
+.comms__when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.comms__actor {
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* Keep this block last: it overrides the row layout above, and
+   equal-specificity rules are decided by source order. */
+@media (max-width: 560px) {
+  .comms__event {
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .comms__when {
+    align-items: flex-start;
+    flex-direction: row;
+    gap: 8px;
+  }
+}

@@ -216,3 +216,41 @@ export function formatStamp(iso) {
     minute: "2-digit",
   });
 }
+
+/**
+ * "today at 3:14 PM", "yesterday", "4 days ago", "on Sep 12, 2026".
+ *
+ * Lives here rather than on the page for the same reason describeEvent()
+ * does: it is wording, and the one place that decides it should be the one
+ * place that is tested.
+ *
+ * COUNTED IN CALENDAR DAYS, not in elapsed milliseconds. The version this
+ * replaced divided the gap by 86,400,000, so a call at 11pm read at 1am was
+ * two hours old and therefore "today at 11:00 PM". It was yesterday. Two
+ * hours is also what separates 8am from 10am on one morning; only the
+ * calendar can tell those apart.
+ *
+ * `now` is injectable so that fact can actually be asserted. A function
+ * whose whole job is being right about which day it is cannot be tested
+ * against whatever day the suite happens to run on.
+ */
+export function whenReached(iso, now = new Date()) {
+  if (!iso) return "";
+  const then = new Date(iso);
+  const midnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const days = Math.round((midnight(now) - midnight(then)) / 86400000);
+
+  if (days <= 0) {
+    return `today at ${then.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    })}`;
+  }
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  return `on ${then.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })}`;
+}

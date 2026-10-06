@@ -269,10 +269,50 @@
   border-top: 1px solid #e2e8f0;
 }
 
+/* The heading and the Show/Hide button on one line. The button sits at the
+   right-hand end rather than under the heading, so a collapsed history is a
+   single row instead of two — which is the whole point of collapsing it. */
+.detail__historyhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
 .detail__historytitle {
   font-size: var(--text-lg);
   color: #0f172a;
-  margin-bottom: 14px;
+  /* The margin moved to .detail__historyhead, which now owns the spacing
+     for both of them. Left at 0 rather than deleted, because an h2 carries
+     a browser default margin that would otherwise push the button out of
+     line with it. */
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+/* 44px, like every other tap target in this app. */
+.detail__historytoggle {
+  background: none;
+  border: none;
+  padding: 11px 4px;
+  min-height: 44px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .detail__historytoggle:hover {
+    text-decoration: underline;
+  }
+}
+
+.detail__historytoggle:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 .detail__timeline {

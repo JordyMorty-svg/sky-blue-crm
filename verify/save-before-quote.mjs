@@ -163,9 +163,19 @@ await browser.close();
 
 const lead = readFileSync("src/pages/leads/LeadDetail.jsx", "utf8");
 
+// THE LEAD PAGE NO LONGER PASSES beforeSend, and this check changed with it.
+//
+// Quotes moved to /leads/:id/quotes when the lead page was split up, so the
+// panel is no longer rendered under the form and there are no unsaved edits
+// for it to rescue. The hazard did not go away, though — it moved. Leaving
+// the form by pressing Quotes or Communication throws the edits away in
+// exactly the same manner, so the same save now hangs off LeadTabs.
+//
+// verify/shot-lead-split.mjs drives that one for real, with a browser.
 chk(
-  "the lead page hands its save to the panel",
-  /beforeSend=\{persist\}/.test(lead)
+  "the lead page still has exactly one save, and hands it to the tabs",
+  /beforeLeave=\{persist\}/.test(lead) && !/beforeSend=\{persist\}/.test(lead),
+  "the lost-edits bug moved from Send a quote to the two buttons at the top"
 );
 
 chk(

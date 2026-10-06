@@ -7,6 +7,8 @@ import Leads from "./pages/leads/Leads";
 import AllLeads from "./pages/leads/AllLeads";
 import NewLead from "./pages/leads/NewLead";
 import LeadDetail from "./pages/leads/LeadDetail";
+import LeadQuotes from "./pages/leads/LeadQuotes";
+import LeadComms from "./pages/leads/LeadComms";
 import Jobs from "./pages/jobs/Jobs";
 import ScheduleJob from "./pages/jobs/ScheduleJob";
 import ConfirmVisit from "./pages/jobs/ConfirmVisit";
@@ -217,6 +219,16 @@ export default function App() {
       <Route path="/leads/all" element={<Page section="leads"><AllLeads /></Page>} />
       <Route path="/leads/new/:stage" element={<Page section="leads"><NewLead /></Page>} />
       <Route path="/leads/:id" element={<Page section="leads"><LeadDetail /></Page>} />
+      {/* The two sub-pages off a lead. Real routes rather than tabs that
+          swap a panel, so Back works and a conversation can be linked to —
+          see src/components/LeadTabs.jsx.
+
+          AFTER /leads/:id, and it does not matter here: React Router v6
+          ranks by specificity rather than by order, so a two-segment path
+          outranks the one-segment one however they are written. Listed in
+          this order for reading, not for matching. */}
+      <Route path="/leads/:id/quotes" element={<Page section="leads"><LeadQuotes /></Page>} />
+      <Route path="/leads/:id/communication" element={<Page section="leads"><LeadComms /></Page>} />
       <Route path="/jobs" element={<Page section="jobs"><Jobs /></Page>} />
       <Route path="/jobs/scheduled" element={<Page section="jobs"><Jobs /></Page>} />
       <Route path="/jobs/schedule/:leadId" element={<Page section="jobs"><ScheduleJob /></Page>} />
