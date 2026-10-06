@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import QuotesPanel from "../../components/QuotesPanel";
-import LeadTabs from "../../components/LeadTabs";
+import RecordTabs from "../../components/RecordTabs";
 import {
   fetchLead,
   serviceFor,
@@ -16,7 +16,7 @@ import "./LeadDetail.css";
 /**
  * Quotes for one lead, on their own page.
  *
- * Lifted off the lead page as part of splitting it up — see LeadTabs.jsx.
+ * Lifted off the lead page as part of splitting it up — see RecordTabs.jsx.
  * Sending a quote is a job you sit down to do; it does not belong halfway
  * down a form you opened to fix a phone number.
  *
@@ -81,7 +81,7 @@ export default function LeadQuotes() {
         </span>
       </div>
 
-      <LeadTabs active="quotes" />
+      <RecordTabs base={`/leads/${id}`} active="quotes" />
 
       {error && <p className="detail__error">{error}</p>}
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import TextThread from "../../components/TextThread";
-import LeadTabs from "../../components/LeadTabs";
+import RecordTabs from "../../components/RecordTabs";
 import {
   ALL_STATUSES,
   fetchLead,
@@ -115,7 +115,7 @@ export default function LeadComms() {
         </span>
       </div>
 
-      <LeadTabs active="communication" />
+      <RecordTabs base={`/leads/${id}`} active="communication" />
 
       {error && <p className="detail__error">{error}</p>}
 

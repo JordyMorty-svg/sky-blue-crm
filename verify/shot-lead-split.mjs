@@ -108,7 +108,7 @@ const PAGES = {
 };
 
 // Stubbed at the SERVICE boundary, not at fetch, so the pages are exercised
-// exactly as they ship — LeadTabs, the collapse, describeEvent and the
+// exactly as they ship — RecordTabs, the collapse, describeEvent and the
 // thread's own bubble logic all run for real.
 const STUBS = (entry) => ({
   name: "stubs",
@@ -270,7 +270,7 @@ for (const [name, cfg] of Object.entries(PAGES)) {
     readFileSync("src/index.css", "utf8") +
     readFileSync("src/pages/leads/LeadDetail.css", "utf8") +
     readFileSync("src/pages/leads/LeadComms.css", "utf8") +
-    readFileSync("src/components/LeadTabs.css", "utf8") +
+    readFileSync("src/components/RecordTabs.css", "utf8") +
     readFileSync("src/components/TextThread.css", "utf8");
 
   for (const width of [390, 1100]) {
@@ -280,7 +280,7 @@ for (const [name, cfg] of Object.entries(PAGES)) {
     await page.screenshot({ path: `verify/shot-lead-${name}-${width}.png`, fullPage: true });
 
     const m = await page.evaluate(() => {
-      const tabs = [...document.querySelectorAll(".leadtabs__tab")];
+      const tabs = [...document.querySelectorAll(".rectabs__tab")];
       const r = (el) => el.getBoundingClientRect();
       return {
         docW: document.documentElement.scrollWidth,
@@ -303,7 +303,7 @@ for (const [name, cfg] of Object.entries(PAGES)) {
           .filter((el) => {
             const b = r(el);
             return b.height > 0 && b.height < 44 &&
-              (el.classList.contains("leadtabs__tab") ||
+              (el.classList.contains("rectabs__tab") ||
                el.classList.contains("comms__call") ||
                el.classList.contains("detail__historytoggle"));
           }).map((el) => el.className),
@@ -399,15 +399,15 @@ console.log("\n-- leaving the form does not throw the edits away --\n");
   const css =
     readFileSync("src/index.css", "utf8") +
     readFileSync("src/pages/leads/LeadDetail.css", "utf8") +
-    readFileSync("src/components/LeadTabs.css", "utf8");
+    readFileSync("src/components/RecordTabs.css", "utf8");
 
   const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
   await page.setContent(SHELL(css, js));
-  await page.waitForSelector(".leadtabs__tab", { timeout: 6000 });
+  await page.waitForSelector(".rectabs__tab", { timeout: 6000 });
 
   // Type a new number, the way somebody correcting a typo would.
   await page.fill('input[type="tel"]', "5415550199");
-  await page.click('.leadtabs__tab:not([aria-current])');
+  await page.click('.rectabs__tab:not([aria-current])');
   await page.waitForFunction(() => (globalThis.__saves || []).length > 0, { timeout: 3000 })
     .catch(() => {});
 
@@ -427,22 +427,22 @@ console.log("\n-- leaving the form does not throw the edits away --\n");
   const css =
     readFileSync("src/index.css", "utf8") +
     readFileSync("src/pages/leads/LeadDetail.css", "utf8") +
-    readFileSync("src/components/LeadTabs.css", "utf8");
+    readFileSync("src/components/RecordTabs.css", "utf8");
 
   const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
   await page.setContent(SHELL(css, js));
-  await page.waitForSelector(".leadtabs__tab", { timeout: 6000 });
+  await page.waitForSelector(".rectabs__tab", { timeout: 6000 });
   await page.evaluate(() => { globalThis.__saveFails = true; });
 
   await page.fill('input[type="tel"]', "5415550199");
-  await page.click('.leadtabs__tab:not([aria-current])');
-  await page.waitForSelector(".leadtabs__error", { timeout: 3000 }).catch(() => {});
+  await page.click('.rectabs__tab:not([aria-current])');
+  await page.waitForSelector(".rectabs__error", { timeout: 3000 }).catch(() => {});
 
   const m = await page.evaluate(() => ({
     stillHere: Boolean(document.querySelector('input[type="tel"]')),
     typed: document.querySelector('input[type="tel"]')?.value,
-    err: document.querySelector(".leadtabs__error")?.textContent?.trim() || null,
-    stuck: document.querySelector(".leadtabs__tab:not([aria-current])")?.disabled,
+    err: document.querySelector(".rectabs__error")?.textContent?.trim() || null,
+    stuck: document.querySelector(".rectabs__tab:not([aria-current])")?.disabled,
   }));
 
   chk("THE POINT: a failed save keeps you on the form, with what you typed",
@@ -545,7 +545,7 @@ console.log("\n-- opening it --\n");
   const css =
     readFileSync("src/index.css", "utf8") +
     readFileSync("src/pages/leads/LeadDetail.css", "utf8") +
-    readFileSync("src/components/LeadTabs.css", "utf8");
+    readFileSync("src/components/RecordTabs.css", "utf8");
 
   const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
   await page.setContent(SHELL(css, js));

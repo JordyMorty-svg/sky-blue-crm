@@ -21,7 +21,7 @@ import { useAuth } from "../../context/useAuth";
 import { can } from "../../components/capabilities";
 import PlanPicker from "../../components/PlanPicker";
 import AppointmentPicker from "../../components/AppointmentPicker";
-import LeadTabs from "../../components/LeadTabs";
+import RecordTabs from "../../components/RecordTabs";
 import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import "./LeadDetail.css";
 
@@ -258,7 +258,7 @@ export default function LeadDetail() {
 
           Quotes and the whole text conversation used to be panels further
           down this same scroll. They are jobs you sit down to do, not things
-          you want between you and the address field — see LeadTabs.jsx.
+          you want between you and the address field — see RecordTabs.jsx.
 
           beforeLeave={persist} is NOT decoration. This page is a form and
           leaving it does not save it, so pressing one of these buttons with
@@ -266,7 +266,7 @@ export default function LeadDetail() {
           the same bug QuotesPanel's beforeSend was written for, in a new
           place. It saves first, and if the save fails it stays put and
           says so. */}
-      <LeadTabs beforeLeave={persist} />
+      <RecordTabs base={`/leads/${id}`} beforeLeave={persist} />
 
       {error && <p className="detail__error">{error}</p>}
 
@@ -480,7 +480,7 @@ export default function LeadDetail() {
 
       {/* QUOTES AND THE TEXT THREAD USED TO BE HERE, stacked under this
           form. They are on their own pages now, reached by the two buttons
-          at the top — see LeadTabs.jsx.
+          at the top — see RecordTabs.jsx.
 
           `persist` is still called before sending a quote, but from the
           quotes page's own flow rather than from a beforeSend hook passed

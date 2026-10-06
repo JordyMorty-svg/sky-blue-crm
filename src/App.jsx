@@ -26,6 +26,8 @@ import Customers from "./pages/customers/Customers";
 import Communication from "./pages/customers/Communication";
 import Undelivered from "./pages/customers/Undelivered";
 import CustomerDetail from "./pages/customers/CustomerDetail";
+import CustomerQuotes from "./pages/customers/CustomerQuotes";
+import CustomerComms from "./pages/customers/CustomerComms";
 import AddPastJobs from "./pages/customers/AddPastJobs";
 import MapView from "./pages/map/MapView";
 import PublicQuote from "./pages/quote/PublicQuote";
@@ -221,7 +223,7 @@ export default function App() {
       <Route path="/leads/:id" element={<Page section="leads"><LeadDetail /></Page>} />
       {/* The two sub-pages off a lead. Real routes rather than tabs that
           swap a panel, so Back works and a conversation can be linked to —
-          see src/components/LeadTabs.jsx.
+          see src/components/RecordTabs.jsx.
 
           AFTER /leads/:id, and it does not matter here: React Router v6
           ranks by specificity rather than by order, so a two-segment path
@@ -283,6 +285,16 @@ export default function App() {
       {/* Same split as the job pages: the map's customer pins open this
           directly, so it can't be locked behind the Customers tab. */}
       <Route path="/customers/:id" element={<Page section="customer-detail"><CustomerDetail /></Page>} />
+      {/* The two sub-pages off a customer, matching the lead ones.
+
+          NOTE the near-collision with /customers/communication above, which
+          is the bulk follow-up screen for everybody rather than one
+          customer's thread. React Router ranks a static segment above a
+          dynamic one, so /customers/communication still reaches that page
+          and /customers/<id>/communication reaches this one — but the two
+          names are one careless rename apart from being the same URL. */}
+      <Route path="/customers/:id/quotes" element={<Page section="customers"><CustomerQuotes /></Page>} />
+      <Route path="/customers/:id/communication" element={<Page section="customers"><CustomerComms /></Page>} />
       <Route path="/map" element={<Page section="map"><MapView /></Page>} />
 
       {/* Everyone can see leads today, so this is safe for every role. If a

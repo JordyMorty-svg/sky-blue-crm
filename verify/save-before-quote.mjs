@@ -169,7 +169,7 @@ const lead = readFileSync("src/pages/leads/LeadDetail.jsx", "utf8");
 // panel is no longer rendered under the form and there are no unsaved edits
 // for it to rescue. The hazard did not go away, though — it moved. Leaving
 // the form by pressing Quotes or Communication throws the edits away in
-// exactly the same manner, so the same save now hangs off LeadTabs.
+// exactly the same manner, so the same save now hangs off RecordTabs.
 //
 // verify/shot-lead-split.mjs drives that one for real, with a browser.
 chk(

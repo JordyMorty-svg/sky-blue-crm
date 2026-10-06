@@ -1,4 +1,5 @@
 import { supabase } from "../supabaseClient";
+import { priceForVisit } from "./leadService";
 
 // Strip a phone number to digits only, for reliable matching.
 function normalizePhone(phone) {
@@ -215,4 +216,63 @@ export async function fetchCompletedJobs() {
 
   if (error) throw error;
   return data;
+}
+
+/**
+ * What to put in the price box when quoting an existing customer.
+ *
+ * The plan's projected price if they are on one, otherwise what they last
+ * actually paid. Anything that is not a real positive number becomes null so
+ * the box starts empty — an accidental NaN or 0 in front of a price is worse
+ * than a blank, because a blank gets filled in and a 0 gets sent.
+ *
+ * LIVES HERE RATHER THAN ON THE PAGE because there are now two pages that
+ * need it: the customer page (whose Actions menu opens the quote modal) and
+ * the customer's own quotes page. Two copies of this derivation would be two
+ * answers to "what should we quote them", and the one nobody updated would
+ * be the one somebody sent.
+ *
+ * `jobs` is ordered newest-first, so the finds below pick the latest of each.
+ */
+export function suggestedQuoteFor(customer, jobs, nextVisit = null) {
+  const propertyType = customer?.property_type || "residential";
+
+  // `jobs = []` as a default parameter would NOT have covered this: a
+  // default applies to `undefined` and not to an explicit `null`, and a
+  // page that loaded its jobs and failed hands you exactly that. The
+  // result was a thrown TypeError inside a render — a blank page where a
+  // price box should be.
+  const rows = Array.isArray(jobs) ? jobs : [];
+
+  const lastScheduled = rows.find((j) => j.status === "scheduled");
+  const lastCompleted = rows.find((j) => j.status === "completed");
+
+  // A booked job is the better anchor when there is one — it is the visit
+  // the next one actually follows. Falling back to a completed job matters
+  // for someone put on a plan after their only visit was already finished.
+  const anchorJob = lastScheduled || lastCompleted;
+
+  // Same precedence createNextVisit uses, so what is suggested matches what
+  // would actually be created: the customer's plan is current truth, the
+  // job's plan is the fallback for records booked before it was set.
+  const effectivePlan =
+    customer?.service_plan && customer.service_plan !== "one_time"
+      ? customer.service_plan
+      : anchorJob?.service_plan || customer?.service_plan || "one_time";
+
+  const projected =
+    !nextVisit && effectivePlan !== "one_time" && anchorJob?.starts_at
+      ? priceForVisit(
+          anchorJob.final_price ?? anchorJob.price,
+          effectivePlan,
+          (anchorJob.visit_number || 1) + 1,
+          propertyType
+        )
+      : null;
+
+  return (
+    [projected, lastCompleted?.final_price, lastCompleted?.price]
+      .map(Number)
+      .find((n) => Number.isFinite(n) && n > 0) ?? null
+  );
 }

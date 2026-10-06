@@ -23,8 +23,7 @@ import {
 import { setEmailOptOut, setCustomerReviewed } from "../../services/followUpService";
 import AddressPicker from "../../components/AddressPicker";
 import JobPlanTag from "../../components/JobPlanTag";
-import QuotesPanel from "../../components/QuotesPanel";
-import TextThread from "../../components/TextThread";
+import RecordTabs from "../../components/RecordTabs";
 import RecordMenu from "../../components/RecordMenu";
 import "./Customers.css";
 
@@ -92,10 +91,10 @@ export default function CustomerDetail() {
   const [forceDelete, setForceDelete] = useState(false);
   const [forceText, setForceText] = useState("");
   const [deleting, setDeleting] = useState(false);
-  // Lives here rather than inside QuotesPanel because the button that opens
-  // it is now in the actions menu, which is a sibling of the panel and not a
-  // child of it.
-  const [quoteOpen, setQuoteOpen] = useState(false);
+  // quoteOpen lived here, because the button that opened the modal was in
+  // the actions menu — a sibling of the panel rather than a child of it.
+  // The panel is on its own page now and owns its own open state; the menu
+  // item navigates there with { send: true } instead.
   const [optBusy, setOptBusy] = useState(false);
   const [revBusy, setRevBusy] = useState(false);
 
@@ -104,8 +103,14 @@ export default function CustomerDetail() {
       const { customer, jobs, leadNotes } = await fetchCustomer(id);
       setCustomer(customer);
       setForm(customer);
-      setJobs(jobs);
-      setLeadNotes(leadNotes);
+      setJobs(jobs ?? []);
+      // Defaulted, not trusted. fetchCustomer builds this array itself and
+      // always returns one — but `leadNotes.length` further down is read
+      // unguarded, so the day anything hands back a null or an undefined
+      // (a reshaped query, a cached response, a stub in a test) the whole
+      // customer page renders as a blank white screen with one line in the
+      // console. One `??` against a page that disappears is a good trade.
+      setLeadNotes(leadNotes ?? []);
       setNextVisit(await fetchNextVisit(id));
       setError("");
     } catch (e) {
@@ -323,15 +328,11 @@ export default function CustomerDetail() {
     0
   );
 
-  // What to put in the price box when quoting an existing customer: the
-  // plan's projected price if they're on one, otherwise what they last
-  // actually paid. Anything that isn't a real positive number becomes null so
-  // the box starts empty — an accidental NaN or 0 in front of a price is
-  // worse than a blank, because a blank gets filled in and a 0 gets sent.
-  const suggestedQuote =
-    [projectedVisit?.price, lastCompleted?.final_price, lastCompleted?.price]
-      .map(Number)
-      .find((n) => Number.isFinite(n) && n > 0) ?? null;
+  // suggestedQuoteFor() moved to customerService when quotes got their own
+  // page: that page needs the same number, and two copies of the derivation
+  // would be two answers to "what should we quote them" — the one nobody
+  // updated being the one somebody sent. Nothing on THIS page needs it any
+  // more, so it is called there and not here.
 
   // Work that hasn't happened yet — booked, or due on the plan. Kept out
   // of the visit count so it can't be read as work already done: a
@@ -476,7 +477,17 @@ export default function CustomerDetail() {
                   tone: "primary",
                   onSelect: () => navigate(`/customers/${id}/schedule`),
                 },
-                { label: "Send a quote", onSelect: () => setQuoteOpen(true) },
+                {
+                  // Quotes have their own page now, so this navigates rather
+                  // than opening a modal in place — and carries `send: true`
+                  // so the modal opens on arrival. Without that, moving
+                  // quotes off this page would have turned a one-tap action
+                  // into three: open the menu, land on a page, find the
+                  // button.
+                  label: "Send a quote",
+                  onSelect: () =>
+                    navigate(`/customers/${id}/quotes`, { state: { send: true } }),
+                },
                 {
                   label: "History",
                   onSelect: () =>
@@ -714,46 +725,17 @@ export default function CustomerDetail() {
         </div>
       )}
 
-      {/* Above Job history, because a quote for an existing customer is
-          almost always "the same as last time" — and the number that starts
-          the modal is exactly that: what the plan projects, or failing that
-          what they last actually paid. */}
-      <QuotesPanel
-        customerId={id}
-        // Already loaded for the Job history list below. Passed so that
-        // closing a quote because the work was done elsewhere can name which
-        // job — Jeff Krueger's $1,800 pressure wash pointing at the $3,280
-        // job it was folded into.
-        jobs={jobs}
-        // The send button lives in the actions menu at the top of the page,
-        // so the panel shows the list only.
-        showSendButton={false}
-        open={quoteOpen}
-        onOpenChange={setQuoteOpen}
-        customerName={customer.name}
-        customerEmail={customer.email}
-        customerPhone={customer.phone}
-        address={customer.address}
-        suggestedAmount={suggestedQuote}
-        onChanged={load}
-      />
+      {/* The two doors off this customer.
 
-      {/* Collapsed by default here and open on the lead page, which is the
-          one asymmetry between the two mountings.
+          Quotes and the whole text conversation used to be panels here,
+          stacked between the stat tiles and the job history — which is the
+          thing most people open a customer to look at, and it sat below
+          both of them. See RecordTabs.jsx.
 
-          A lead page is a page about a conversation in progress. A customer
-          page already stacks quotes, job history and the contact timeline,
-          and a customer of two years has a thread long enough to push all
-          three off the screen. Closed, it is one line that says how many
-          texts there are — which is usually the answer somebody wanted. */}
-      <TextThread
-        phone={customer.phone}
-        customerId={id}
-        startOpen={false}
-        // A text writes a contact_log row, which the history panel on this
-        // same page is showing.
-        onSent={load}
-      />
+          NO beforeLeave, unlike the lead page. That one is a form with
+          unsaved edits in it; this page edits through a modal that saves
+          itself, so there is nothing to lose by navigating away. */}
+      <RecordTabs base={`/customers/${id}`} />
 
       <h2 className="custdetail__subhead">Job history</h2>
       {jobs.length === 0 ? (
