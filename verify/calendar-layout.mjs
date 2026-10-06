@@ -124,7 +124,11 @@ const STUBS = [
      export async function fetchCalendarJobs() { return JOBS; }`
   ),
   // Pulled in by JobPlanTag, and it only needs to not explode.
-  stub(/services\/leadService$/, `export function planFor() { return null; }`),
+  stub(/services\/leadService$/, `export function planFor() { return null; }
+    // Schedule.jsx routes its phone link through Quo now — see
+    // db/call-tracking.sql. Stubbed with the real scheme rather than tel:,
+    // because this suite is about where a press lands.
+    export function quoCallHref(p) { return p ? "openphone://dial?number=" + p + "&action=call" : null; }`),
   // navigation.js reaches into the Square helper purely for platform sniffing.
   stub(/squarePos$/, `export function isIOS() { return false; } export function isAndroid() { return false; }`),
   // How wide the operating system draws a scrollbar.

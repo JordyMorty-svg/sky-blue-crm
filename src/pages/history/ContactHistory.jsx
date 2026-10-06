@@ -6,7 +6,7 @@ import {
   describeEvent,
   formatStamp,
 } from "../../services/contactService";
-import { ALL_STATUSES, telHref } from "../../services/leadService";
+import { ALL_STATUSES, quoCallHref, telHref } from "../../services/leadService";
 import "./ContactHistory.css";
 
 /**
@@ -78,17 +78,20 @@ export default function ContactHistory() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, id]);
 
-  // Tapping the Call button: the number is dialling, so this just records
-  // that it happened. No note — you're on the phone.
-  async function handleCallLogged() {
-    try {
-      await recordContact({ leadId, customerId, kind: "call" });
-      await load();
-    } catch (e) {
-      console.error(e);
-      setError("Couldn't record that call. The number still dialled.");
-    }
-  }
+  // THE CALL BUTTON RECORDS NOTHING. See db/call-tracking.sql.
+  //
+  // It used to call recordContact() the instant you pressed it, which is the
+  // bug that made this page untrustworthy: on a desktop, where a tel: link
+  // opens nothing at all, pressing Call wrote "Called" onto this very
+  // timeline. The page whose whole job is telling you what happened was the
+  // one inventing it.
+  //
+  // The call goes through Quo now, and Quo's call.completed webhook writes
+  // the row once it knows whether anybody picked up. Nothing to do here.
+  //
+  // The "Log a contact" form below is untouched and stays: a person
+  // deliberately writing down what happened is a different act from a button
+  // guessing on their behalf.
 
   async function handleSaveLog(e) {
     e.preventDefault();
@@ -123,7 +126,11 @@ export default function ContactHistory() {
     }
   }
 
-  const phone = telHref(person?.phone);
+  // Quo first, tel: only for a number Quo cannot dial — an extension, an
+  // international number, a note somebody typed in the phone field. The
+  // fallback will not be logged either, which is worse than the Quo route
+  // and much better than no button at all.
+  const phone = quoCallHref(person?.phone) || telHref(person?.phone);
 
   if (loading) return <div className="chist__state">Loading history…</div>;
 
@@ -147,7 +154,7 @@ export default function ContactHistory() {
 
       <div className="chist__actions">
         {phone && (
-          <a className="chist__call" href={phone} onClick={handleCallLogged}>
+          <a className="chist__call" href={phone}>
             Call {person.phone}
           </a>
         )}

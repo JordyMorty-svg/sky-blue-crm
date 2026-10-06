@@ -6,7 +6,6 @@ import {
   fetchActiveLeads,
   updateLead,
   bulkUpdateLeadStatus,
-  recordLeadContact,
   missingFieldFor,
 } from "../../services/leadService";
 import LeadColumn from "../../components/LeadColumn";
@@ -101,38 +100,23 @@ export default function Leads() {
     }
   }
 
-  // Tapping a phone number dials it and records the attempt. The dialer
-  // opens over the page rather than unloading it, so the write does get to
-  // finish — but it's still fire-and-forget from the user's point of view,
-  // which is why the row is patched locally first and only rolled back if
-  // the server disagrees.
-  async function handleContact(lead) {
-    const previous = leads;
-    setLeads((cur) =>
-      cur.map((l) =>
-        l.id === lead.id
-          ? {
-              ...l,
-              last_contacted_at: new Date().toISOString(),
-              contact_attempts: (l.contact_attempts || 0) + 1,
-              // Mirrors the rule in record_lead_contact: only a lead still
-              // on 'new' moves. Anything further along keeps its place.
-              status: l.status === "new" ? "contacted" : l.status,
-            }
-          : l
-      )
-    );
-    try {
-      const updated = await recordLeadContact(lead.id);
-      if (updated) {
-        setLeads((cur) => cur.map((l) => (l.id === lead.id ? { ...l, ...updated } : l)));
-      }
-    } catch (e) {
-      console.error(e);
-      setLeads(previous);
-      setError("Couldn't record that call. The number still dialled.");
-    }
-  }
+  // THERE IS NO handleContact ANY MORE, and that is the fix.
+  //
+  // It optimistically bumped contact_attempts and moved a new lead to
+  // Contacted the moment you tapped a number on a card, then called
+  // record_lead_contact() to make it stick. On a desktop, where a tel: link
+  // opens nothing at all, tapping a number marked the lead as handled and
+  // moved it across the board. On a phone, tapping and then cancelling did
+  // the same.
+  //
+  // The card hands the call to Quo now, and Quo's call.completed webhook
+  // writes the row once it knows whether anybody answered — so a lead
+  // reaches Contacted when somebody has actually been contacted. See
+  // db/call-tracking.sql.
+  //
+  // The cost is that the board no longer moves the instant you dial: the
+  // webhook arrives when the call ENDS. That is the right trade. A board
+  // that is right a minute later beats one that is wrong immediately.
 
   function handleMove(lead, newStatus) {
     if (lead.status === newStatus) return;
@@ -254,7 +238,6 @@ export default function Leads() {
             collapsed={!!collapsed[stage.key]}
             onToggle={() => toggleCollapse(stage.key)}
             onMove={handleMove}
-            onContact={handleContact}
           />
         ))}
       </div>

@@ -305,24 +305,28 @@ export function serviceSentence(keys, { short = false } = {}) {
   return [head[0], ...rest.slice(0, -1)].join(", ") + " and " + rest[rest.length - 1];
 }
 
-// Record that someone tried to reach this lead, and return the updated row.
+// recordLeadContact() USED TO LIVE HERE. It is gone, and the deletion is the
+// feature rather than a tidy-up.
 //
-// Goes through an RPC rather than a plain update for two reasons, both of
-// which live in db/lead-contact.sql: contact_attempts has to be incremented
-// server-side, and the rule about when a call may change the status belongs
-// next to the data rather than in whichever screen happened to call it.
+// It called the record_lead_contact RPC, which bumps contact_attempts, sets
+// last_contacted_at and advances a lead from new to contacted. THREE places
+// called it the instant somebody pressed a phone number — the lead page, the
+// board, and the card on the board. On a desktop, where a tel: link opens
+// nothing at all, pressing a number marked the lead as contacted and moved
+// it across the board for a call that never dialled.
 //
-// The short version of that rule: status is a position in the funnel, not a
-// contact log. Ringing someone who is already quoted leaves them quoted.
-// Only a lead still sitting on 'new' advances, to 'contacted'.
-export async function recordLeadContact(leadId) {
-  const { data, error } = await supabase.rpc("record_lead_contact", {
-    p_lead_id: leadId,
-  });
-  if (error) throw error;
-  // A set-returning rpc comes back as an array; a scalar composite doesn't.
-  return Array.isArray(data) ? data[0] : data;
-}
+// Calls are recorded by Quo's call.completed webhook now, which knows
+// whether anybody answered. See db/call-tracking.sql.
+//
+// Deleted rather than left unused, deliberately. An exported function that
+// writes a call log and has no callers is a loaded gun: the next person
+// needing "record that we rang them" finds it, uses it, and quietly restores
+// the bug. The RPC itself stays in the database — deleting a function other
+// things may reference is a riskier change — but nothing in this app can
+// reach it from here.
+//
+// verify/no-click-logging.mjs walks the whole of src/ and fails if anything
+// wires call logging to a press again.
 
 // A phone number as a dialable href. Strips the formatting people type —
 // "(541) 555-0101" is not a valid tel: target, 5415550101 is.

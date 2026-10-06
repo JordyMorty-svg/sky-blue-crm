@@ -59,7 +59,8 @@ const STUBS = [
   [/components\/capabilities$/, `export function can() { return true; }`],
   [/services\/jobService$/, JOB_SERVICE],
   [/services\/calendarService$/, `export async function fetchCalendarJobs() { return []; }`],
-  [/services\/leadService$/, `export function planFor() { return null; }`],
+  [/services\/leadService$/, `export function planFor() { return null; }
+    export function quoCallHref(p) { return p ? "openphone://dial?number=" + p + "&action=call" : null; }`],
   [/squarePos$/, `export function isIOS() { return false; } export function isAndroid() { return false; }`],
   // react-big-calendar is CommonJS and does `require("react")`, which an ESM
   // bundle with react left external cannot satisfy. It is also not what this

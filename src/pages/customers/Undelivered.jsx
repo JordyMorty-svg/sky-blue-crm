@@ -19,6 +19,10 @@ import {
   urgency,
   whatToDo,
 } from "../../services/deliveryService";
+// Calls go through Quo, like every other Call in the CRM: the customer
+// sees the business number, and the call reaches their history by itself
+// when Quo reports it. See db/call-tracking.sql.
+import { quoCallHref } from "../../services/leadService";
 import "./Undelivered.css";
 
 /**
@@ -218,7 +222,7 @@ export default function Undelivered() {
             {blocked.map((b) => (
               <li className="blockedrow" key={b.phone}>
                 <div className="blockedrow__main">
-                  <a className="blockedrow__phone" href={`tel:${b.phone}`}>
+                  <a className="blockedrow__phone" href={quoCallHref(b.phone) || `tel:${b.phone}`}>
                     {formatPhone(b.phone)}
                   </a>
                   <span className="blockedrow__reason">{b.reason}</span>
@@ -345,7 +349,7 @@ export default function Undelivered() {
                     {r.phone && (
                       <a
                         className="undelrow__phone"
-                        href={`tel:${r.phone}`}
+                        href={quoCallHref(r.phone) || `tel:${r.phone}`}
                         onClick={(e) => e.stopPropagation()}
                       >
                         {formatPhone(r.phone)}

@@ -4,6 +4,7 @@ import {
   TEMPERATURES,
   LEADS_SETTABLE_STATUSES,
   serviceFor,
+  quoCallHref,
   telHref,
 } from "../services/leadService";
 import { useAuth } from "../context/useAuth";
@@ -28,14 +29,17 @@ function formatDate(iso) {
  * lines so one chatty note can't make its card three times the height of
  * its neighbours.
  */
-export default function LeadCard({ lead, onMove, onContact }) {
+export default function LeadCard({ lead, onMove }) {
   const navigate = useNavigate();
   const { role } = useAuth();
   const menuRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const temp = TEMPERATURES.find((t) => t.key === lead.temperature);
-  const phone = telHref(lead.phone);
+  // Through Quo, so the customer sees the business number and Quo can tell
+  // us afterwards whether the call connected. telHref is the fallback for a
+  // number Quo cannot dial. See db/call-tracking.sql.
+  const phone = quoCallHref(lead.phone) || telHref(lead.phone);
 
   // A number the customer was actually given. 0 is what the CRM writes when
   // a lead is saved with the field empty, so it means "not quoted" too.
@@ -160,16 +164,20 @@ export default function LeadCard({ lead, onMove, onContact }) {
           {phone && (
             <>
               {" · "}
-              {/* Dials AND records the attempt. stopPropagation because the
-                  card body opens the lead — without it, ringing someone
-                  would also navigate away from the board underneath them. */}
+              {/* Dials, and RECORDS NOTHING. The attempt is written when
+                  Quo says the call happened — see db/call-tracking.sql.
+                  Pressing this used to bump contact_attempts and move a new
+                  lead to Contacted on the spot, which on a desktop (where a
+                  tel: link opens nothing) meant the board marked people as
+                  handled for a call that never dialled.
+
+                  stopPropagation stays: the card body opens the lead, and
+                  without it ringing someone would also navigate away from
+                  the board underneath them. */}
               <a
                 className="card__phone"
                 href={phone}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onContact?.(lead);
-                }}
+                onClick={(e) => e.stopPropagation()}
               >
                 {lead.phone}
               </a>

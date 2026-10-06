@@ -37,6 +37,10 @@ import {
   clearMapsPref,
 } from "../../components/navigation";
 import { SCHEDULE_VIEWS } from "../../components/navViews";
+// Standing at the door and needing to ring the customer is the commonest
+// reason anyone reads this line, and it is a real call that belongs on
+// their history. Through Quo, so it gets there. See db/call-tracking.sql.
+import { quoCallHref } from "../../services/leadService";
 import "./Schedule.css";
 
 const locales = { "en-US": enUS };
@@ -592,9 +596,12 @@ export default function Schedule() {
                         <>
                           <a
                             className="schedjob__phone"
-                            href={`tel:${String(
-                              job.lead?.phone || job.customer?.phone
-                            ).replace(/[^\d+]/g, "")}`}
+                            href={
+                              quoCallHref(job.lead?.phone || job.customer?.phone) ||
+                              `tel:${String(
+                                job.lead?.phone || job.customer?.phone
+                              ).replace(/[^\d+]/g, "")}`
+                            }
                             onClick={(e) => e.stopPropagation()}
                           >
                             {job.lead?.phone || job.customer?.phone}
