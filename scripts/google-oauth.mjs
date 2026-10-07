@@ -44,6 +44,7 @@
 // people for access.
 
 import { createServer } from "node:http";
+import { pathToFileURL } from "node:url";
 
 // The one scope the Ads API needs. Narrow on purpose: this token can read
 // every lead and every dollar of spend in the account, and there is no reason
@@ -121,7 +122,20 @@ export async function exchange({ code, clientId, clientSecret, redirect = REDIRE
 
 // --- the bit that runs ------------------------------------------------------
 
-const isMain = import.meta.url === `file://${process.argv[1]}`;
+// RUN DIRECTLY, OR IMPORTED BY A TEST?
+//
+// pathToFileURL(), not string concatenation. The first version built the URL
+// by hand — `file://${process.argv[1]}` — which is correct on Linux and wrong
+// on Windows, where argv[1] is `C:\Users\...` and the real module URL is
+// `file:///C:/Users/...`. Different separators, different number of slashes,
+// no match.
+//
+// The failure was silent and total: the whole block below is inside this
+// check, so running the script on Windows printed NOTHING — not the consent
+// URL, not even the usage message when arguments were missing. It looked like
+// Node had done nothing at all, which is exactly what it had done.
+const isMain =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (isMain) {
   const [clientId, clientSecret] = process.argv.slice(2);

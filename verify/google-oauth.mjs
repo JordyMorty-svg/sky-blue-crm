@@ -174,6 +174,48 @@ console.log("\n-- the warnings that have to stay in the file --\n");
     "a refresh token on disk is a refresh token in a backup");
 }
 
+console.log("\n-- it has to actually run, on Windows too --\n");
+
+{
+  const { readFileSync } = await import("node:fs");
+  // COMMENTS STRIPPED. Fourth time in this project, same reason every time:
+  // the comment explaining this bug quotes the broken expression verbatim, so
+  // a check for "the broken form is absent" matched the explanation of why it
+  // is absent and reported the bug as still present.
+  const src = readFileSync("scripts/google-oauth.mjs", "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
+
+  // THE BUG THIS CATCHES, and it shipped.
+  //
+  // The entry check was `import.meta.url === \`file://${process.argv[1]}\``.
+  // On Linux that is right. On Windows argv[1] is `C:\\Users\\...` while the
+  // module URL is `file:///C:/Users/...` — different separators and a
+  // different number of slashes — so it never matched.
+  //
+  // Everything the script does is inside that check, so on Windows it printed
+  // nothing at all. Not the consent URL, not an error, not even the usage
+  // message when arguments were missing. Node appeared to do nothing, because
+  // it did.
+  chk("THE POINT: the entry check uses pathToFileURL, not string concatenation",
+    /pathToFileURL\(process\.argv\[1\]\)\.href/.test(src) &&
+      !/file:\/\/\$\{process\.argv\[1\]\}/.test(src),
+    "`file://` + a Windows path never equals the module's own URL, and the " +
+      "whole script sits inside that comparison");
+
+  // And the same check, run for real: a mismatch must be a mismatch.
+  const { pathToFileURL } = await import("node:url");
+  const windowsArgv = "C:\\\\Users\\\\Galax\\\\sky-blue-crm\\\\scripts\\\\google-oauth.mjs";
+  const windowsUrl = "file:///C:/Users/Galax/sky-blue-crm/scripts/google-oauth.mjs";
+  chk("...because hand-built file:// URLs do not match on Windows",
+    `file://${windowsArgv}` !== windowsUrl,
+    "if these ever became equal this test would be meaningless");
+
+  chk("the usage message is reachable, not buried inside the entry check",
+    src.indexOf("Usage: node scripts/google-oauth.mjs") > src.indexOf("const isMain"),
+    "it lives inside the block — which is fine once the block actually runs");
+}
+
 console.log(bad === 0 ? "\nall ok — the token it fetches is one that still works next week\n"
                       : `\n${bad} FAILED\n`);
 process.exit(bad === 0 ? 0 : 1);
