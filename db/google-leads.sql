@@ -157,7 +157,13 @@ begin
   -- Nobody owns the number, and there is a number to own. A new lead, marked
   -- with where it came from and what it cost.
   if lead_out is null and cust_out is null and digits is not null then
-    insert into public.leads (name, phone, email, status, source)
+    -- SOURCE IS NOT SET HERE. The update a few lines below sets it for every
+    -- lead this function touches, new or existing, so setting it twice would
+    -- leave a value that can never be observed — and a mutation run proved
+    -- exactly that: changing it to 'google' broke nothing, because the update
+    -- put it back. A value that cannot fail on its own is one nobody can
+    -- reason about later.
+    insert into public.leads (name, phone, email, status)
     values (
       -- NO NAME IS THE COMMON CASE, not the exception. Of the first seven
       -- leads on this account, five carried only a phone number.
@@ -174,21 +180,7 @@ begin
       ),
       p_phone,
       nullif(btrim(coalesce(p_email, '')), ''),
-      'new',
-      -- 'lsa', which is the key LEAD_SOURCES in src/services/leadService.js
-      -- already uses — NOT a new one.
-      --
-      -- The first draft of this file wrote 'google_lsa' and invented a second
-      -- name for a channel the CRM had already named. sourceFor() would have
-      -- fallen through to showing the raw string, so the board would read
-      -- "google_lsa" next to leads labelled "Google Ads (LSA)" and every
-      -- report would have split one channel in two.
-      --
-      -- Deliberately not 'google': organic Google is free and LSA is charged
-      -- per lead whether or not the customer ever replies. Averaged together,
-      -- revenue by source cannot answer the only question worth asking of a
-      -- paid channel.
-      'lsa'
+      'new'
     )
     returning id into lead_out;
   end if;
@@ -202,7 +194,31 @@ begin
        -- Matching the bare string only would have left "Google lead · 6330"
        -- in place forever, which is the shape of bug where a fix to the
        -- placeholder quietly disables the thing that clears it.
-       set name  = case when coalesce(btrim(name), '') = ''
+       -- THE SOURCE IS CORRECTED, and it is the one field here that
+       -- overwrites something a person chose.
+       --
+       -- Deliberate. Google charged for this lead, so Google knows where it
+       -- came from; a human marking it 'door' or 'website' was guessing after
+       -- the fact, and 'door' is also what a lead gets by default when nobody
+       -- picks anything at all. Leaving it alone means "revenue by lead
+       -- source" credits the free channel for leads the paid one delivered —
+       -- which is the single question this whole feature exists to answer.
+       --
+       -- The timeline keeps the receipt either way: the google_lead entry
+       -- says when it arrived and what it was.
+       -- 'lsa', the key LEAD_SOURCES in src/services/leadService.js already
+       -- uses — NOT a new one. The first draft wrote 'google_lsa' and
+       -- invented a second name for a channel the CRM had already named;
+       -- sourceFor() shows an unknown key as its raw string, so the board
+       -- would have read "google_lsa" beside leads labelled "Google Ads
+       -- (LSA)" and every report would have split one channel in two.
+       --
+       -- Deliberately not 'google' either: organic Google is free and LSA is
+       -- charged per lead whether or not the customer ever replies. Averaged
+       -- together, revenue by source cannot answer the only question worth
+       -- asking of a paid channel.
+       set source = 'lsa',
+           name  = case when coalesce(btrim(name), '') = ''
                           or coalesce(btrim(name), '') like 'Google lead%'
                         then coalesce(nullif(btrim(coalesce(p_name, '')), ''), name)
                         else name end,

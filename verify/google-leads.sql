@@ -232,8 +232,13 @@ begin
 
   perform pg_temp.chk('...nor is their status reset to New',
     l.status = 'contacted', l.status);
-  perform pg_temp.chk('...nor their source rewritten',
-    l.source = 'website', l.source);
+  perform pg_temp.chk(
+    'THE POINT: but the source IS corrected to the channel that charged for it',
+    l.source = 'lsa',
+    'source = ' || l.source || ' — the one field here that overwrites a human '
+    'choice, on purpose: Google charged for this lead and knows where it came '
+    'from, and leaving it alone credits the free channel for work the paid one '
+    'delivered');
 
   select count(*) into n from public.contact_log where kind = 'google_lead';
   perform pg_temp.chk('but the timeline still records the paid lead', n = 1);
