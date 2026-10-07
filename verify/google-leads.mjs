@@ -356,6 +356,20 @@ console.log("\n-- failing loudly --\n");
     seen[0].headers["developer-token"] === "dev" &&
       seen[0].headers["login-customer-id"] === "1234567890");
 
+  // THE REQUEST MUST NOT ASK FOR A PAGE SIZE.
+  //
+  // GoogleAdsService.search refuses one with a 400 on the whole request:
+  // "Setting the page size is not supported. Search Responses will have fixed
+  // page size of '10000' rows." Sending it meant every single run failed, and
+  // the first live query was what found it.
+  chk("THE POINT: no page size is sent — Google rejects the request outright",
+    !("pageSize" in seen[0].body) && !("page_size" in seen[0].body),
+    JSON.stringify(seen[0].body) + " — this is a 400 on the whole query, not " +
+      "a warning, so it is the difference between working and never working");
+
+  chk("...and the query itself is still sent",
+    seen[0].body.query === "Q");
+
   seen.length = 0;
   await fetchPage({ token: "t", customerId: "1", query: "Q", pageToken: "pg-2", fetchImpl: capture });
   chk("a continuation carries the page token", seen[0].body.pageToken === "pg-2");

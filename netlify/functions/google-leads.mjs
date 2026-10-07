@@ -59,8 +59,19 @@ const FIRST_RUN_DAYS = () => Number(process.env.GOOGLE_LEADS_BACKFILL_DAYS) || 9
 // id and reports a repeat as "nothing new".
 const OVERLAP_HOURS = 6;
 
+// NO PAGE SIZE. GoogleAdsService.search refuses one outright:
+//
+//   Setting the page size is not supported. Search Responses will have fixed
+//   page size of '10000' rows.
+//
+// It is a 400 on the whole request, not a warning — so sending `pageSize` at
+// all meant every run failed. Pagination is unchanged; only the size is
+// Google's to decide.
+//
+// Which makes the ceiling below generous rather than tight: five pages is up
+// to fifty thousand leads, and Sky Blue will not see that many this decade.
+// It is here to stop a runaway loop, not to ration anything.
 const MAX_PAGES = 5;
-const PAGE_SIZE = 200;
 
 /**
  * An access token, from the refresh token.
@@ -256,7 +267,6 @@ export async function fetchPage({ token, customerId, query, pageToken, fetchImpl
       headers,
       body: JSON.stringify({
         query,
-        pageSize: PAGE_SIZE,
         ...(pageToken ? { pageToken } : {}),
       }),
     }

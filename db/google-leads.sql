@@ -159,9 +159,19 @@ begin
   if lead_out is null and cust_out is null and digits is not null then
     insert into public.leads (name, phone, email, status, source)
     values (
-      -- Google does not always give a name — a phone lead often has only the
-      -- number. "Google lead" beats null, which renders as a blank row.
-      coalesce(nullif(btrim(coalesce(p_name, '')), ''), 'Google lead'),
+      -- NO NAME IS THE COMMON CASE, not the exception. Of the first seven
+      -- leads on this account, five carried only a phone number.
+      --
+      -- So the placeholder has to be DISTINGUISHABLE. "Google lead" five
+      -- times over is a board of identical rows nobody can tell apart or
+      -- search for; "Google lead · 6330" is the same honest placeholder and
+      -- names which one it is. Last four digits, the way every log line and
+      -- every other screen in this CRM refers to a number.
+      coalesce(
+        nullif(btrim(coalesce(p_name, '')), ''),
+        case when digits is not null then 'Google lead · ' || right(digits, 4)
+             else 'Google lead' end
+      ),
       p_phone,
       nullif(btrim(coalesce(p_email, '')), ''),
       'new',
@@ -188,9 +198,14 @@ begin
   -- platform guessed, and a blank field is the only safe thing to write into.
   if lead_out is not null then
     update public.leads
-       set name  = case when coalesce(btrim(name), '') in ('', 'Google lead')
-                          and coalesce(btrim(coalesce(p_name, '')), '') <> ''
-                        then p_name else name end,
+       -- `like 'Google lead%'` so the numbered placeholders are replaced too.
+       -- Matching the bare string only would have left "Google lead · 6330"
+       -- in place forever, which is the shape of bug where a fix to the
+       -- placeholder quietly disables the thing that clears it.
+       set name  = case when coalesce(btrim(name), '') = ''
+                          or coalesce(btrim(name), '') like 'Google lead%'
+                        then coalesce(nullif(btrim(coalesce(p_name, '')), ''), name)
+                        else name end,
            email = coalesce(nullif(btrim(coalesce(email, '')), ''), nullif(btrim(coalesce(p_email, '')), '')),
            phone = coalesce(nullif(btrim(coalesce(phone, '')), ''), p_phone)
      where id = lead_out;

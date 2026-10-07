@@ -49,12 +49,35 @@ if (idArg) process.env.GOOGLE_ADS_CLIENT_ID = idArg;
 if (secretArg) process.env.GOOGLE_ADS_CLIENT_SECRET = secretArg;
 if (refreshArg) process.env.GOOGLE_ADS_REFRESH_TOKEN = refreshArg;
 
+const USAGE =
+  "Usage: node scripts/google-leads-check.mjs <customer-id> <client-id> <client-secret> <refresh-token>\n\n" +
+  "  customer-id     the Ads account number, e.g. 146-936-2727. Dashes are\n" +
+  "                  fine; they get stripped, because the API rejects them\n" +
+  "                  with a 404 that reads as 'no such account'.\n" +
+  "  client-id       ends in .apps.googleusercontent.com\n" +
+  "  client-secret   begins GOCSPX-\n" +
+  "  refresh-token   begins 1//, from scripts/google-oauth.mjs\n";
+
 if (!customerId) {
+  console.error(USAGE);
+  process.exit(1);
+}
+
+// A CUSTOMER ID IS TEN DIGITS. Checked, because the failure it catches is one
+// argument out of place — and the symptom is a complaint about the LAST
+// argument, which sends you looking at the refresh token.
+//
+// Pass the client id first and this script strips its letters and reports an
+// "account" of 2158977961365223305: nineteen digits, obviously not an account
+// number, and silently accepted by the first version of this file.
+if (customerId.length !== 10) {
   console.error(
-    "Usage: node scripts/google-leads-check.mjs <customer-id> <client-id> <client-secret> <refresh-token>\n\n" +
-      "The customer id is the Ads account number. Dashes are fine here —\n" +
-      "they get stripped, because the API rejects them with a 404 that reads\n" +
-      "as 'no such account'."
+    `That is not an Ads customer id: ${customerId} (${customerId.length} digits, expected 10).\n\n` +
+      (customerArg && /apps\.googleusercontent\.com|GOCSPX|^1\/\//.test(String(customerArg))
+        ? "It looks like a client id, secret or refresh token — the arguments\n" +
+          "are probably shifted. The ACCOUNT NUMBER comes first.\n\n"
+        : "") +
+      USAGE
   );
   process.exit(1);
 }
@@ -82,7 +105,13 @@ try {
         "  expires them after seven days. Re-run scripts/google-oauth.mjs.\n"
     );
   } else if (/not set in Netlify/i.test(err.message)) {
-    console.error("  Pass all four arguments, or set them in the environment.\n");
+    // accessToken() is written for the scheduled function, where "not set in
+    // Netlify" is the right advice. Here it is not — nobody running this at a
+    // terminal is missing a Netlify variable, they are missing an argument.
+    console.error(
+      "  (That message comes from the deployed function's wording. Running\n" +
+        "  here, it means an argument is missing.)\n\n" + USAGE
+    );
   }
   process.exit(1);
 }

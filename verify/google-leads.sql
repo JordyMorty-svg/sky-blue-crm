@@ -304,9 +304,22 @@ begin
   select * into l from public.leads where id = new_id;
   perform pg_temp.chk(
     'THE POINT: a lead with no name still gets a readable one',
-    l.name = 'Google lead',
+    l.name = 'Google lead · 0155',
     'name = ' || coalesce(l.name, 'null') || ' — null renders as a blank row '
     'on the board, which reads as a bug rather than as missing information');
+
+  -- AND IT HAS TO BE DISTINGUISHABLE. Five of the first seven real leads on
+  -- this account carried no name, so a single shared placeholder would be a
+  -- board of identical rows nobody can tell apart, search for, or hand to
+  -- somebody else to call.
+  perform public.record_google_lead('LSA-6b', null, '(541) 555-0156', null,
+    now(), 'PHONE_CALL', null, null, null, true, null);
+
+  perform pg_temp.chk(
+    'THE POINT: two nameless leads do not get the same name',
+    (select count(distinct name) from public.leads
+      where name like 'Google lead%') = 2,
+    (select string_agg(name, ', ') from public.leads where name like 'Google lead%'));
 
   -- ...and a later lead from the same number that DOES have a name fills it in.
   perform public.record_google_lead('LSA-7', 'Sam Ortiz', '(541) 555-0155',
@@ -316,13 +329,18 @@ begin
   perform pg_temp.chk(
     'THE POINT: and a real name later replaces the placeholder',
     l.name = 'Sam Ortiz',
-    'name = ' || coalesce(l.name, 'null') || ' — "Google lead" is a stand-in, '
-    'not a name worth protecting');
+    'name = ' || coalesce(l.name, 'null') || ' — a numbered placeholder is '
+    'still a stand-in; matching only the bare string "Google lead" would have '
+    'left every numbered one in place forever');
   perform pg_temp.chk('...and a missing email is filled in',
     l.email = 'sam@example.com', coalesce(l.email, 'null'));
 
-  select count(*) into n from public.leads;
-  perform pg_temp.chk('both leads landed on one person', n = 1, n || ' leads');
+  -- Scoped to the number under test. The block also creates a second
+  -- nameless lead on a different number to prove the placeholders differ, and
+  -- a bare count(*) would read that as a duplicate.
+  select count(*) into n from public.leads where phone = '(541) 555-0155';
+  perform pg_temp.chk('both leads for that number landed on one person',
+    n = 1, n || ' leads');
 end $$;
 
 -- A lead Google has wiped: no contact details at all. Kept for the money,
