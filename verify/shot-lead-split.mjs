@@ -143,7 +143,8 @@ const STUBS = (entry) => ({
         export const TEMPERATURES = [{ key: "warm", label: "Warm" }];
         export function serviceFor() { return { label: "Residential window washing" }; }
         export function sourceFor() { return { label: "Door knock" }; }
-        export function quoCallHref(p) { return p ? "openphone://dial?number=+1" + p + "&action=call" : null; }
+        export const QUO_WEB = "https://my.quo.com/";
+        export function quoCallHref(p) { return p ? "openphone://dial?number=%2B1" + p + "&action=call" : null; }
         export function telHref(p) { return p ? "tel:" + p : null; }
         export function formatPhone(p) {
           const d = String(p || "").replace(/\D/g, "");
@@ -271,6 +272,7 @@ for (const [name, cfg] of Object.entries(PAGES)) {
     readFileSync("src/pages/leads/LeadDetail.css", "utf8") +
     readFileSync("src/pages/leads/LeadComms.css", "utf8") +
     readFileSync("src/components/RecordTabs.css", "utf8") +
+    readFileSync("src/components/CallBar.css", "utf8") +
     readFileSync("src/components/TextThread.css", "utf8");
 
   for (const width of [390, 1100]) {
@@ -293,10 +295,10 @@ for (const [name, cfg] of Object.entries(PAGES)) {
           .map((t) => t.textContent.trim()),
         toggle: document.querySelector(".detail__historytoggle")?.textContent?.trim() || null,
         timelineRows: document.querySelectorAll(".detail__timeline li").length,
-        callText: document.querySelector(".comms__call")?.textContent?.trim() || null,
-        callHref: document.querySelector(".comms__call")?.getAttribute("href") || null,
-        callHeight: document.querySelector(".comms__call")
-          ? Math.round(r(document.querySelector(".comms__call")).height) : null,
+        callText: document.querySelector(".callbar__call")?.textContent?.trim() || null,
+        callHref: document.querySelector(".callbar__call")?.getAttribute("href") || null,
+        callHeight: document.querySelector(".callbar__call")
+          ? Math.round(r(document.querySelector(".callbar__call")).height) : null,
         commsRows: document.querySelectorAll(".comms__timeline li").length,
         bubbles: document.querySelectorAll(".thread__bubble").length,
         shortTaps: [...document.querySelectorAll("button, a")]
@@ -370,8 +372,17 @@ console.log("\n-- nothing fell off the page --\n");
     /\(425\) 951-3646/.test(c.text),
     "ten unbroken digits is a number you lose your place in");
 
-  chk("...and reads as a time, not a raw date",
-    /Last reached out today at \d/.test(c.text),
+  // Matched on the SHAPE, not on the word "today".
+  //
+  // The fixture is "three hours ago", so what that renders as depends on
+  // what time the suite runs — at 1am it is correctly "yesterday". The
+  // first version asserted "today at", which was a test that failed once a
+  // day for a function that was working. The day arithmetic itself is
+  // pinned properly in the whenReached section below, against fixed dates
+  // and an injected clock; what matters here is that the page renders a
+  // relative phrase rather than a raw timestamp.
+  chk("...and reads as a phrase a person uses, not a raw date",
+    /Last reached out (today at \d|yesterday|\d+ days ago|on \w{3} \d)/.test(c.text),
     (c.text.match(/Last reached out[^\n]*/) || [""])[0]);
 
   chk("THE POINT: the full history moved to Communication",
@@ -383,6 +394,130 @@ console.log("\n-- nothing fell off the page --\n");
 
   chk("the form kept the fields it is for",
     /Phone/.test(d.text) && /Address/.test(d.text) && /Estimate/.test(d.text));
+}
+
+console.log("\n-- there is a way to ring somebody from a desktop --\n");
+
+{
+  // THE BUG THIS SECTION EXISTS FOR.
+  //
+  // Quo publishes no API for placing a call, so the only route is one of
+  // its apps, and `openphone://dial` is documented for the MOBILE apps
+  // only. On a desktop without the Quo app registered as a handler, the
+  // Call button does nothing at all — no dialler, no error, no call.
+  //
+  // It shipped that way with a comment in leadService.js claiming the
+  // pages "also offer QUO_WEB as a plain link". They did not. Nothing
+  // imported QUO_WEB, and the only way to find out was to press Call on a
+  // laptop and watch nothing happen.
+  const js = readFileSync(join(dir, "comms.js"), "utf8");
+  const css =
+    readFileSync("src/index.css", "utf8") +
+    readFileSync("src/pages/leads/LeadDetail.css", "utf8") +
+    readFileSync("src/pages/leads/LeadComms.css", "utf8") +
+    readFileSync("src/components/CallBar.css", "utf8") +
+    readFileSync("src/components/RecordTabs.css", "utf8");
+
+  const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
+  await page.setContent(SHELL(css, js));
+  await page.waitForSelector(".callbar", { timeout: 6000 });
+
+  // window.open is replaced rather than allowed: a real popup would open a
+  // live Quo tab from a test run, and what is being measured is WHETHER it
+  // is called and with what, not what Quo serves.
+  //
+  // navigator.clipboard is REPLACED rather than permitted, because a page
+  // built with setContent has no origin and the Clipboard API is only
+  // exposed in a secure context — it is undefined here, which is exactly
+  // the older-browser case the component's catch exists for. Recording the
+  // argument tests the contract that matters: what we hand the clipboard.
+  await page.evaluate(() => {
+    globalThis.__opened = [];
+    globalThis.__copied = [];
+    window.open = (...a) => { globalThis.__opened.push(a); return null; };
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: (t) => { globalThis.__copied.push(t); return Promise.resolve(); } },
+    });
+  });
+
+  const m0 = await page.evaluate(() => ({
+    call: document.querySelector(".callbar__call")?.getAttribute("href") || null,
+    web: document.querySelector(".callbar__web")?.textContent?.trim() || null,
+    hint: document.querySelector(".callbar__hint")?.textContent?.trim() || "",
+  }));
+
+  chk("THE POINT: there is a second button beside Call",
+    m0.web === "Copy & open Quo",
+    `got ${JSON.stringify(m0.web)} — without it, pressing Call on a laptop ` +
+      `does nothing and the feature looks broken`);
+
+  chk("...and the page says so in words",
+    /only works on a phone/i.test(m0.hint),
+    m0.hint);
+
+  chk("Call still goes to the Quo app on a phone",
+    /^openphone:\/\/dial/.test(m0.call || ""), m0.call);
+
+  await page.click(".callbar__web");
+  await page.waitForTimeout(200);
+
+  const m1 = await page.evaluate(() => ({
+    opened: globalThis.__opened,
+    clip: globalThis.__copied[0] ?? null,
+    copies: globalThis.__copied.length,
+    label: document.querySelector(".callbar__web")?.textContent?.trim(),
+  }));
+
+  chk("THE POINT: it opens Quo",
+    m1.opened.length === 1 && /^https:\/\/my\./.test(m1.opened[0][0]),
+    JSON.stringify(m1.opened));
+
+  chk("...in a new tab, without handing it window.opener",
+    String(m1.opened[0][2] || "").includes("noopener"),
+    String(m1.opened[0][2]));
+
+  chk("THE POINT: ...with the number already on the clipboard, in E.164",
+    m1.clip === "+14259513646",
+    `${JSON.stringify(m1.clip)} — the whole point is not having to read ` +
+      `ten digits off one screen and type them into another`);
+
+  chk("...and says it copied", /Copied/.test(m1.label || ""), m1.label);
+
+  await page.screenshot({ path: "verify/shot-lead-callbar-1100.png", fullPage: true });
+  await page.close();
+}
+
+{
+  // Copying can fail — a denied permission, an older browser, an insecure
+  // context. Quo must still open: arriving there with the number in your
+  // head is half the job done; arriving nowhere is none of it.
+  const js = readFileSync(join(dir, "comms.js"), "utf8");
+  const css = readFileSync("src/index.css", "utf8") +
+    readFileSync("src/components/CallBar.css", "utf8");
+
+  const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
+  await page.setContent(SHELL(css, js));
+  await page.waitForSelector(".callbar__web", { timeout: 6000 });
+
+  await page.evaluate(() => {
+    globalThis.__opened = [];
+    window.open = (...a) => { globalThis.__opened.push(a); return null; };
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: () => Promise.reject(new Error("denied")) },
+    });
+  });
+
+  await page.click(".callbar__web");
+  await page.waitForTimeout(200);
+
+  const opened = await page.evaluate(() => globalThis.__opened);
+  chk("THE POINT: Quo opens even when the copy is refused",
+    opened.length === 1,
+    "a failed clipboard must not also swallow the navigation");
+
+  await page.close();
 }
 
 console.log("\n-- leaving the form does not throw the edits away --\n");
@@ -399,7 +534,8 @@ console.log("\n-- leaving the form does not throw the edits away --\n");
   const css =
     readFileSync("src/index.css", "utf8") +
     readFileSync("src/pages/leads/LeadDetail.css", "utf8") +
-    readFileSync("src/components/RecordTabs.css", "utf8");
+    readFileSync("src/components/RecordTabs.css", "utf8") +
+    readFileSync("src/components/CallBar.css", "utf8");
 
   const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
   await page.setContent(SHELL(css, js));
@@ -427,7 +563,8 @@ console.log("\n-- leaving the form does not throw the edits away --\n");
   const css =
     readFileSync("src/index.css", "utf8") +
     readFileSync("src/pages/leads/LeadDetail.css", "utf8") +
-    readFileSync("src/components/RecordTabs.css", "utf8");
+    readFileSync("src/components/RecordTabs.css", "utf8") +
+    readFileSync("src/components/CallBar.css", "utf8");
 
   const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
   await page.setContent(SHELL(css, js));
@@ -545,7 +682,8 @@ console.log("\n-- opening it --\n");
   const css =
     readFileSync("src/index.css", "utf8") +
     readFileSync("src/pages/leads/LeadDetail.css", "utf8") +
-    readFileSync("src/components/RecordTabs.css", "utf8");
+    readFileSync("src/components/RecordTabs.css", "utf8") +
+    readFileSync("src/components/CallBar.css", "utf8");
 
   const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
   await page.setContent(SHELL(css, js));

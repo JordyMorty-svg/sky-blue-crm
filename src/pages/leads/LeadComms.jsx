@@ -1,21 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import TextThread from "../../components/TextThread";
+import CallBar from "../../components/CallBar";
 import RecordTabs from "../../components/RecordTabs";
 import {
   ALL_STATUSES,
   fetchLead,
-  formatPhone,
-  quoCallHref,
   serviceFor,
   sourceFor,
-  telHref,
 } from "../../services/leadService";
 import {
   describeEvent,
   fetchContactTimeline,
   formatStamp,
-  whenReached,
 } from "../../services/contactService";
 // Shared page chrome — see the note in LeadQuotes.jsx.
 import "./LeadDetail.css";
@@ -87,7 +84,6 @@ export default function LeadComms() {
   if (loading) return <div className="detail__state">Loading…</div>;
   if (!lead) return <div className="detail__state">{error || "Not found."}</div>;
 
-  const callHref = quoCallHref(lead.phone) || telHref(lead.phone);
 
   return (
     <div className="detail">
@@ -125,40 +121,16 @@ export default function LeadComms() {
           and what will they already have heard from us?" — and apart they
           answer none of it. "4 attempts" beside a Call button is the line
           that stops a fifth. */}
-      <section className="comms__reach">
-        {lead.phone ? (
-          <>
-            <div className="comms__number">
-              {/* Formatted, because this is the number somebody reads off
-                  the screen while dialling by hand on a different phone.
-                  "4259513646" is ten digits to keep in your head;
-                  "(425) 951-3646" is three chunks. formatPhone leaves
-                  anything that is not a plain US number untouched rather
-                  than mangling it. */}
-              <span className="comms__phone">{formatPhone(lead.phone)}</span>
-              {callHref && (
-                <a className="comms__call" href={callHref}>
-                  Call
-                </a>
-              )}
-            </div>
-            <p className="comms__last">
-              {lead.last_contacted_at ? (
-                <>
-                  Last reached out {whenReached(lead.last_contacted_at)}
-                  {lead.contact_attempts > 1
-                    ? ` · ${lead.contact_attempts} attempts`
-                    : ""}
-                </>
-              ) : (
-                "Nobody has reached out yet."
-              )}
-            </p>
-          </>
-        ) : (
-          <p className="comms__last">No phone number on file.</p>
-        )}
-      </section>
+      {/* The number, both ways to ring it, and when anybody last tried.
+          A shared component because this page and its twin on the other
+          side of the lead/customer line drew the identical card twice —
+          and because the desktop fallback it carries had to be added to
+          both at once. See CallBar.jsx. */}
+      <CallBar
+        phone={lead.phone}
+        lastContactedAt={lead.last_contacted_at}
+        attempts={lead.contact_attempts}
+      />
 
       <TextThread
         phone={lead.phone}

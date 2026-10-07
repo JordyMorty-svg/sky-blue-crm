@@ -1,19 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import TextThread from "../../components/TextThread";
+import CallBar from "../../components/CallBar";
 import RecordTabs from "../../components/RecordTabs";
 import { fetchCustomer } from "../../services/customerService";
 import {
   ALL_STATUSES,
-  formatPhone,
-  quoCallHref,
-  telHref,
 } from "../../services/leadService";
 import {
   describeEvent,
   fetchContactTimeline,
   formatStamp,
-  whenReached,
 } from "../../services/contactService";
 // Shared page chrome — see the note in CustomerQuotes.jsx.
 import "./Customers.css";
@@ -86,7 +83,6 @@ export default function CustomerComms() {
   if (!customer) return <div className="customers__empty">{error || "Not found."}</div>;
 
   const propertyType = customer.property_type || "residential";
-  const callHref = quoCallHref(customer.phone) || telHref(customer.phone);
 
   return (
     <div className="custdetail">
@@ -107,34 +103,16 @@ export default function CustomerComms() {
 
       {error && <p className="custdetail__error">{error}</p>}
 
-      <section className="comms__reach">
-        {customer.phone ? (
-          <>
-            <div className="comms__number">
-              <span className="comms__phone">{formatPhone(customer.phone)}</span>
-              {callHref && (
-                <a className="comms__call" href={callHref}>
-                  Call
-                </a>
-              )}
-            </div>
-            <p className="comms__last">
-              {customer.last_contacted_at ? (
-                <>
-                  Last reached out {whenReached(customer.last_contacted_at)}
-                  {customer.contact_attempts > 1
-                    ? ` · ${customer.contact_attempts} attempts`
-                    : ""}
-                </>
-              ) : (
-                "Nobody has reached out yet."
-              )}
-            </p>
-          </>
-        ) : (
-          <p className="comms__last">No phone number on file.</p>
-        )}
-      </section>
+      {/* The number, both ways to ring it, and when anybody last tried.
+          A shared component because this page and its twin on the other
+          side of the lead/customer line drew the identical card twice —
+          and because the desktop fallback it carries had to be added to
+          both at once. See CallBar.jsx. */}
+      <CallBar
+        phone={customer.phone}
+        lastContactedAt={customer.last_contacted_at}
+        attempts={customer.contact_attempts}
+      />
 
       <TextThread
         phone={customer.phone}

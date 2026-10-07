@@ -266,6 +266,7 @@ const CSS = () =>
   readFileSync("src/pages/customers/Customers.css", "utf8") +
   readFileSync("src/pages/leads/LeadComms.css", "utf8") +
   readFileSync("src/components/RecordTabs.css", "utf8") +
+    readFileSync("src/components/CallBar.css", "utf8") +
   readFileSync("src/components/RecordMenu.css", "utf8") +
   readFileSync("src/components/QuotesPanel.css", "utf8") +
   readFileSync("src/components/TextThread.css", "utf8");
@@ -322,9 +323,9 @@ for (const [name, entry] of Object.entries(PAGES)) {
           .map((t) => t.textContent.trim()),
         bubbles: document.querySelectorAll(".thread__bubble").length,
         quotesPanel: document.querySelectorAll(".quotes").length,
-        callHref: document.querySelector(".comms__call")?.getAttribute("href") || null,
-        callHeight: document.querySelector(".comms__call")
-          ? Math.round(r(document.querySelector(".comms__call")).height) : null,
+        callHref: document.querySelector(".callbar__call")?.getAttribute("href") || null,
+        callHeight: document.querySelector(".callbar__call")
+          ? Math.round(r(document.querySelector(".callbar__call")).height) : null,
         commsRows: document.querySelectorAll(".comms__timeline li").length,
       };
     });

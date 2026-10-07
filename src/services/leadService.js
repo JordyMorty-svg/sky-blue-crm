@@ -377,8 +377,17 @@ export function quoCallHref(phone) {
   return `openphone://dial?number=${encodeURIComponent(e164)}&action=call`;
 }
 
-// The web app, for a desktop that cannot follow the deep link above.
-export const QUO_WEB = "https://my.openphone.com/";
+/**
+ * The Quo web app, for a desktop that cannot follow the deep link above.
+ *
+ * ONE CONSTANT because the company renamed from OpenPhone to Quo and both
+ * hosts have been live at once. my.quo.com is the one Quo's own webhook
+ * payloads emit today (`links.quo`), which is better evidence than any
+ * documentation page. If it ever stops resolving, this line is the whole
+ * change — which is the point of it being a constant rather than a URL
+ * typed into two components.
+ */
+export const QUO_WEB = "https://my.quo.com/";
 
 /**
  * A US number in E.164, or null.

@@ -1,0 +1,111 @@
+/* The number, the two ways to ring it, and when anybody last tried.
+   Shared by the lead's and the customer's communication pages, so it
+   borrows nothing from either stylesheet. */
+
+.callbar {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 8px;
+}
+
+.callbar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Big, because it gets read aloud off the screen while somebody dials by
+   hand on a phone that is not the one showing this page. */
+.callbar__phone {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.01em;
+  /* Takes the rest of the line on a wide screen so the two buttons sit
+     together at the right rather than drifting apart from each other. */
+  flex: 1 1 auto;
+}
+
+/* Both buttons are 44px and sit side by side. Deliberately NOT one primary
+   and one tiny text link: on a desktop the second one is the one that
+   works, and making it look like an afterthought would send people to the
+   button that does nothing. */
+.callbar__call,
+.callbar__web {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 11px 22px;
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  /* box-sizing is border-box globally (src/index.css), which is what keeps
+     min-height 44px from becoming 66px once the padding is added. */
+}
+
+.callbar__call {
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  color: #ffffff;
+}
+
+.callbar__web {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+}
+
+@media (hover: hover) {
+  .callbar__call:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+  }
+
+  .callbar__web:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    color: #1e40af;
+  }
+}
+
+.callbar__call:focus-visible,
+.callbar__web:focus-visible {
+  outline: 2px solid #1e40af;
+  outline-offset: 2px;
+}
+
+/* "4 attempts" is the line that stops a fifth, so it sits directly under
+   the buttons rather than somewhere else on the page. */
+.callbar__last {
+  margin: 12px 0 0;
+  font-size: var(--text-sm);
+  color: #64748b;
+}
+
+/* Smaller and quieter than the line above it: this is an explanation, not
+   a fact about the customer. */
+.callbar__hint {
+  margin: 6px 0 0;
+  font-size: var(--text-xs);
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+@media (max-width: 480px) {
+  /* The number gets its own line once the two buttons no longer fit beside
+     it, rather than being squeezed to three characters and an ellipsis. */
+  .callbar__phone {
+    flex: 1 1 100%;
+  }
+
+  .callbar__call,
+  .callbar__web {
+    flex: 1 1 0;
+  }
+}
