@@ -93,10 +93,14 @@ function quoSaying(byId) {
     }
     if (answer === "throw") throw new Error("socket hang up");
 
+    // An answer may be a bare status or { status, errorCode } — Quo
+    // carries the carrier's reason on errorCode, and the reconciler used
+    // to read three other field names instead.
+    const body = typeof answer === "string" ? { status: answer } : answer;
     return {
       status: 200,
       ok: true,
-      json: async () => ({ data: { id, status: answer } }),
+      json: async () => ({ data: { id, ...body } }),
     };
   };
   impl.seen = seen;
@@ -123,6 +127,76 @@ function quoSaying(byId) {
 
   chk("a 404 is 'unknown', not a failure",
       (await M.askQuo("m1", { fetchImpl: quoSaying({ m1: "404" }) })).status === "unknown");
+}
+
+// ---------------------------------------------------------------------------
+// WHY a text did not arrive
+// ---------------------------------------------------------------------------
+//
+// THE BUG THIS SECTION EXISTS FOR. Quo reports the carrier's reason on
+// `errorCode`. The reconciler read `error`, `errorMessage` and
+// `failureReason` — three names, none of them the field — so every
+// undelivered text in the CRM recorded the caller's fallback, "Quo reports
+// the carrier did not deliver it". That sentence is what you say when
+// there is no reason; there was a reason, in the payload, the whole time.
+//
+// Two texts to Hayden's number came back with exactly that, and working out
+// that the carrier was refusing them rather than the CRM failing to send
+// took an afternoon and a check from inside Quo.
+
+{
+  const withCode = async (code) =>
+    (await M.askQuo("m1", {
+      fetchImpl: quoSaying({ m1: { status: "undelivered", errorCode: code } }),
+    })).error;
+
+  chk("THE POINT: the carrier's code is read from errorCode",
+      /30007/.test(await withCode(30007)),
+      await withCode(30007));
+
+  chk("...and turned into something a person can act on",
+      /spam|unwanted/i.test(await withCode(30007)),
+      await withCode(30007));
+
+  chk("a landline says so", /landline/i.test(await withCode(30006)), await withCode(30006));
+  chk("a blocked number says so", /[Bb]locked/.test(await withCode(30004)), await withCode(30004));
+  chk("an unregistered sender says so", /10DLC/.test(await withCode(30034)), await withCode(30034));
+
+  // THE WORDING IS LOAD-BEARING. sb_sms_permanent() in db/sms-delivery.sql
+  // closes a number for good when the reason matches
+  // "landline|unreachable|disconnected|invalid|not in service…". A spam
+  // filter is temporary and must NOT match it; a landline must.
+  const PERMANENT = /(destination not found|destination.*unknown|landline|unreachable|not sms|cannot receive|unallocated|disconnected|invalid (phone|number|destination)|no route)/i;
+
+  chk("THE POINT: a spam filter does not read as a permanently dead number",
+      !PERMANENT.test(await withCode(30007)),
+      `"${await withCode(30007)}" — closing a number because one message was ` +
+        `filtered would stop the CRM ever texting that customer again`);
+  chk("...nor does a queue overflow", !PERMANENT.test(await withCode(30001)));
+  chk("...but a landline does", PERMANENT.test(await withCode(30006)));
+  chk("...and so does an unreachable handset", PERMANENT.test(await withCode(30003)));
+
+  // A code nobody has catalogued is returned AS the code: a number somebody
+  // can search for beats a word somebody cannot.
+  chk("an unknown code is still passed through",
+      /99999/.test(await withCode(99999)), await withCode(99999));
+
+  // Compared against the NUMERIC answer, not just checked for the digits.
+  //
+  // The first version asserted /30007/, which also matches the
+  // "Carrier error 30007" fallback — so a mutant that stopped parsing
+  // strings entirely passed. Quo sends a number today; the payload shape
+  // has changed once already, and a string would otherwise silently lose
+  // the sentence and keep only the code.
+  chk("THE POINT: a string code reads the same as a numeric one",
+      (await withCode("30007")) === (await withCode(30007)),
+      `"${await withCode("30007")}" vs "${await withCode(30007)}"`);
+
+  // No code at all is the one case the old fallback was actually for.
+  chk("no code leaves the reason empty for the caller to fill",
+      (await M.askQuo("m1", {
+        fetchImpl: quoSaying({ m1: { status: "undelivered" } }),
+      })).error === null);
 
   let threw = false;
   try {

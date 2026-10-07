@@ -305,6 +305,59 @@ export function reviewSms({ customerName, reviewUrl, sentByName = null }) {
   );
 }
 
+// --- what the carrier said ---------------------------------------------------
+
+/**
+ * A carrier error code, in words.
+ *
+ * WHY THIS EXISTS. When a text does not arrive, Quo reports `errorCode` on
+ * the message — "the carrier or provider error code when one is available".
+ * The reconciler was reading `error`, `errorMessage` and `failureReason`,
+ * none of which is that field, so every undelivered text in the CRM said
+ * "Quo reports the carrier did not deliver it" — a sentence that tells you
+ * the thing you already knew and nothing you needed.
+ *
+ * Hayden's number is why this got written. Two texts to it came back
+ * undelivered with no reason given, and the answer — that the carrier was
+ * refusing them, not the CRM — took an afternoon and a check from inside
+ * Quo to establish. The code was in the payload the whole time.
+ *
+ * The codes are the 10DLC ones the US carriers emit, which Quo passes
+ * through. An unrecognised code is returned AS the code rather than
+ * flattened into "unknown": a number somebody can search for beats a word
+ * somebody cannot.
+ *
+ * THE WORDING IS LOad-BEARING. sb_sms_permanent() in db/sms-delivery.sql
+ * decides whether to stop texting a number by matching this text against
+ * "landline|unreachable|disconnected|invalid…". So these sentences say
+ * "unreachable" when the handset really is unreachable and avoid it when
+ * the problem is temporary — a spam filter or a queue overflow must not
+ * close a customer's number for good.
+ */
+const CARRIER_CODES = {
+  30001: "The carrier queue overflowed — temporary, worth retrying",
+  30002: "The Quo account is suspended",
+  30003: "Unreachable handset — switched off, or out of coverage",
+  30004: "Blocked by the recipient or their carrier",
+  30005: "Unknown destination — the number is not in service",
+  30006: "A landline, or a number that cannot receive texts",
+  30007: "Filtered by the carrier as spam or unwanted",
+  30008: "The carrier gave no reason",
+  30034: "The number is not registered for A2P 10DLC",
+  30035: "Not registered for A2P 10DLC, or over its daily limit",
+  30036: "The message expired before the carrier could deliver it",
+  30410: "The carrier did not answer in time",
+};
+
+export function carrierReason(code) {
+  if (code == null || code === "") return null;
+  // Quo sends it as a number; the shape has changed once already, so a
+  // string "30007" is accepted too rather than silently missing.
+  const n = Number(String(code).trim());
+  const known = Number.isFinite(n) ? CARRIER_CODES[n] : null;
+  return known ? `${known} (${n})` : `Carrier error ${code}`;
+}
+
 // --- sending ----------------------------------------------------------------
 
 export async function postToQuo(to, body) {

@@ -20,7 +20,7 @@
 // first run, including the ones that failed weeks ago.
 
 import { rpc } from "./db.mjs";
-import { QUO_BASE } from "./sms.mjs";
+import { QUO_BASE, carrierReason } from "./sms.mjs";
 import { sendItAnotherWay } from "./anotherWay.mjs";
 
 /**
@@ -62,7 +62,19 @@ export async function askQuo(sid, { fetchImpl = fetch } = {}) {
     // add a reason it is worth having, and sb_sms_permanent() is written to
     // treat an unrecognised reason as NOT permanent, so a surprise here
     // cannot suppress anybody by accident.
-    error: data.error || data.errorMessage || data.failureReason || null,
+    // errorCode FIRST, and it was missing entirely.
+    //
+    // Quo's message object carries the carrier's reason on `errorCode` —
+    // the other three names were guesses, and none of them is the field.
+    // So every undelivered text recorded "Quo reports the carrier did not
+    // deliver it", which is the caller's fallback for "no reason given"
+    // and was in fact "we looked in the wrong place".
+    error:
+      carrierReason(data.errorCode) ||
+      data.error ||
+      data.errorMessage ||
+      data.failureReason ||
+      null,
   };
 }
 
