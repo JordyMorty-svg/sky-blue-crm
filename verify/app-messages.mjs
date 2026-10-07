@@ -75,6 +75,68 @@ console.log("\n-- which events carry an app-sent message --\n");
   chk("an inbound reply is not a delivery event", !isDelivered(inbound));
 }
 
+console.log("\n-- a call that arrives at the texts endpoint --\n");
+//
+// THE BUG THIS SECTION EXISTS FOR, and it had been live since the webhook
+// was created.
+//
+// Quo replaced its four per-type webhook endpoints with one unified
+// subscription, so the natural setup is a single webhook carrying call
+// events and message events together — and a subscription has exactly one
+// URL. Sky Blue's was pointed at /api/sms-inbound with `call.completed`
+// ticked alongside the message events.
+//
+// A call payload has no `text` and no `to`. It fell past both delivery
+// branches, hit the outgoing-copy gate (its type is not "received"),
+// reached keepAppMessage, found nothing to keep, and returned 200. No row,
+// no warning, no log line, no error anywhere. Every call placed since the
+// webhook was set up disappeared into the texts endpoint, and the symptom
+// was indistinguishable from Quo never calling at all.
+
+{
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync("netlify/functions/sms-inbound.mjs", "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
+
+  // SCOPED TO THE REQUEST HANDLER, not to the whole file.
+  //
+  // isDelivered and the outgoing gate both appear earlier in the file as
+  // definitions, so comparing positions across the whole source compares
+  // where things are WRITTEN rather than where they RUN — and reported the
+  // routing as last when it is first. The same mistake, in the same shape,
+  // as the one in verify/quo-calls.mjs.
+  const entry = src.slice(src.indexOf("export default async (req)"));
+  const gate = entry.search(/\/\^call\\\./);
+  const delivered = entry.indexOf("isDelivered(evt)");
+  const outgoingGate = entry.indexOf('evt.direction === "outgoing"');
+
+  chk("THE POINT: a call event is handed to the call handler",
+    gate > -1 && /handleCallEvent\(payload\)/.test(entry),
+    "a call payload has no text and no recipient, so every branch below " +
+      "silently drops it and answers 200");
+
+  chk("...before anything treats it as a message",
+    gate > -1 && delivered > -1 && gate < delivered && gate < outgoingGate,
+    `routing at ${gate}, delivery branch at ${delivered}, outgoing gate at ${outgoingGate}`);
+
+  // Matched on the TYPE, not on the absence of text. "It has no body so it
+  // must be a call" would also catch a photo sent with no caption, which is
+  // a message and belongs on the thread.
+  chk("THE POINT: routed on the event type, not on an empty body",
+    /\^call\\\./.test(entry) && !/!evt\.body[\s\S]{0,40}handleCallEvent/.test(entry),
+    "an MMS with no caption is a message, not a call");
+
+  // And the real parser agrees about what a call looks like.
+  const callEvt = readEvent({
+    type: "call.completed",
+    data: { resource: { id: "AC1", direction: "outgoing", status: "answered", duration: 252 } },
+  });
+  chk("a call really does look like nothing to the message parser",
+    !isDelivered(callEvt) && String(callEvt.body) === "" && callEvt.to == null,
+    "which is exactly why it vanished without a sound");
+}
+
 console.log("\n-- the rule that must not break --\n");
 
 {

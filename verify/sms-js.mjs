@@ -139,6 +139,49 @@ const chk = (what, pass, detail = "") => {
     M.signatureValid({ ...base, header: `v1,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= ${good}` })
   );
 
+  // SEVERAL SECRETS, which is the other half of the same idea.
+  //
+  // Quo issues a signing secret per webhook SUBSCRIPTION, and Sky Blue has
+  // two — one carrying messages, one carrying calls. Which secret signs a
+  // request depends on which subscription fired, so a verifier that knows
+  // one of them 403s every event from the other: the endpoint is live, the
+  // configuration looks right, and nothing works. The fix is to let the
+  // variable hold both.
+  const OTHER = "whsec_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+  chk(
+    "THE POINT: a second secret in the list still validates",
+    M.signatureValid({ ...base, secret: `${OTHER},${secret}`, header: good }),
+    "with one webhook per URL there are two secrets, and either may sign"
+  );
+
+  chk(
+    "...whichever order they are in",
+    M.signatureValid({ ...base, secret: `${secret},${OTHER}`, header: good })
+  );
+
+  chk(
+    "...separated by spaces or newlines, not only commas",
+    M.signatureValid({ ...base, secret: `${OTHER} ${secret}`, header: good }) &&
+      M.signatureValid({ ...base, secret: `${OTHER}\n${secret}`, header: good })
+  );
+
+  chk(
+    "...and extra whitespace does not break it",
+    M.signatureValid({ ...base, secret: `  ${secret} ,  ${OTHER}  `, header: good })
+  );
+
+  chk(
+    "THE POINT: a list of WRONG secrets is still rejected",
+    !M.signatureValid({ ...base, secret: `${OTHER},whsec_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB`, header: good }),
+    "accepting several must not become accepting anything"
+  );
+
+  chk(
+    "an empty list is rejected",
+    !M.signatureValid({ ...base, secret: "  , ,  ", header: good })
+  );
+
   chk(
     "an unknown signature version is ignored, not trusted",
     !M.signatureValid({ ...base, header: good.replace("v1,", "v9,") })

@@ -31,6 +31,7 @@ export const TOLERANCE_SECONDS = 5 * 60;
  * whose implementation you cannot read is a strange thing to trust.
  */
 export function signatureValid({ id, timestamp, body, header, secret, now = Date.now() }) {
+  // `secret` may be one secret or several — see the note below.
   if (!id || !timestamp || !header || !secret) return false;
 
   // Replay guard, before any cryptography.
@@ -38,36 +39,66 @@ export function signatureValid({ id, timestamp, body, header, secret, now = Date
   if (!Number.isFinite(ts)) return false;
   if (Math.abs(now / 1000 - ts) > TOLERANCE_SECONDS) return false;
 
-  // whsec_ prefixes a base64 secret. The bytes it decodes to are the HMAC
-  // key — hashing the printable string instead produces a signature that is
-  // wrong in a way nothing reports.
-  const raw = String(secret).startsWith("whsec_") ? String(secret).slice(6) : String(secret);
-  let key;
-  try {
-    key = Buffer.from(raw, "base64");
-  } catch {
-    return false;
-  }
-  if (key.length === 0) return false;
-
-  const expected = crypto
-    .createHmac("sha256", key)
-    .update(`${id}.${timestamp}.${body}`, "utf8")
-    .digest("base64");
+  // SEVERAL SECRETS, not one, and this is why.
+  //
+  // Quo issues a separate signing secret per webhook SUBSCRIPTION. Sky Blue
+  // needs two — one carrying messages, one carrying calls — so there are two
+  // secrets, and which one arrives depends on which subscription fired. A
+  // single-secret verifier means every event from the other subscription is
+  // a 403: the endpoint is live, the config looks right, and nothing works.
+  // That is a miserable afternoon, and it is also exactly what rotating a
+  // secret looks like, where the old and the new are both valid for a while.
+  //
+  // So the value may hold several, separated by commas or whitespace. Any
+  // one of them matching is a pass. Paste both into QUO_WEBHOOK_SECRET and
+  // there is nothing left to get wrong.
+  // Split on commas AND whitespace, then drop the empties. That one line
+  // is the whole parser: a leading separator makes an empty first element
+  // and filter(Boolean) removes it, so no trim() is needed — and an empty
+  // value yields an empty list, whose loop below runs zero times and falls
+  // through to `return false`.
+  //
+  // Both of those were written out explicitly at first — a .trim() and an
+  // `if (secrets.length === 0) return false` — and mutation testing showed
+  // neither could fail on its own. A condition that cannot fail is one
+  // nobody can reason about later, so they went.
+  const secrets = String(secret).split(/[\s,]+/).filter(Boolean);
 
   // The header is a space-delimited list, so a secret can be rotated without
   // downtime — both the old and the new signature ride along until the old
   // one is retired. Any one matching is a pass.
-  for (const part of String(header).split(" ")) {
-    const [version, value] = part.split(",");
-    if (version !== "v1" || !value) continue;
+  const offered = String(header)
+    .split(" ")
+    .map((part) => part.split(","))
+    .filter(([version, value]) => version === "v1" && value)
+    .map(([, value]) => value);
 
-    const a = Buffer.from(expected);
-    const b = Buffer.from(value);
-    // Length-checked first: timingSafeEqual throws on a mismatch, and an
-    // attacker sending one character would otherwise 500 the endpoint —
-    // which Quo treats as retryable and hammers.
-    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
+  for (const one of secrets) {
+    // whsec_ prefixes a base64 secret. The bytes it decodes to are the HMAC
+    // key — hashing the printable string instead produces a signature that
+    // is wrong in a way nothing reports.
+    const raw = one.startsWith("whsec_") ? one.slice(6) : one;
+    let key;
+    try {
+      key = Buffer.from(raw, "base64");
+    } catch {
+      continue;
+    }
+    if (key.length === 0) continue;
+
+    const expected = crypto
+      .createHmac("sha256", key)
+      .update(`${id}.${timestamp}.${body}`, "utf8")
+      .digest("base64");
+
+    for (const value of offered) {
+      const a = Buffer.from(expected);
+      const b = Buffer.from(value);
+      // Length-checked first: timingSafeEqual throws on a mismatch, and an
+      // attacker sending one character would otherwise 500 the endpoint —
+      // which Quo treats as retryable and hammers.
+      if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
+    }
   }
 
   return false;

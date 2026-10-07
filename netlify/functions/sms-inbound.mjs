@@ -21,6 +21,8 @@
 import { rpc } from "../lib/db.mjs";   // its real home; followUps.mjs only re-exports it
 import { sendSms, smsMode, toE164, postToQuo } from "../lib/sms.mjs";
 import { sendItAnotherWay } from "../lib/anotherWay.mjs";
+// Calls, when they arrive HERE. See the note at the routing gate below.
+import { handleCallEvent } from "./quo-calls.mjs";
 
 // Standard Webhooks signature checking now lives in netlify/lib/webhooks.mjs,
 // shared with the Resend endpoint. Re-exported so every existing import of
@@ -245,6 +247,31 @@ export default async (req) => {
     // Signed but unparseable. 200 rather than 400: it is genuinely from Quo,
     // and a 4xx would have them retry something that will never parse.
     console.error("[sms-inbound] signed payload was not JSON");
+    return new Response(null, { status: 200 });
+  }
+
+  // CALLS GO TO THE CALL HANDLER, whichever URL they were sent to.
+  //
+  // Quo replaced its four per-type webhook endpoints with one unified
+  // subscription, so the natural setup is a single webhook carrying call
+  // events and message events together — and a subscription has one URL.
+  // Sky Blue's was pointed here, at the texts endpoint, with
+  // `call.completed` ticked.
+  //
+  // What happened to those calls is worth spelling out, because it is the
+  // quietest possible failure. A call payload has no `text` and no `to`.
+  // It fell through the delivery branches, hit the outgoing-copy gate below
+  // (its type is not "received"), reached keepAppMessage, found nothing to
+  // keep, and returned 200. No row, no warning, no log line. Every call
+  // placed since the webhook was created vanished here.
+  //
+  // Rather than ask somebody to split one webhook into two and keep two
+  // signing secrets in step, this hands anything whose type begins with
+  // "call." to the handler that understands it. /api/quo-calls still works
+  // exactly as before; a webhook aimed at either URL now does the right
+  // thing with either kind of event.
+  if (/^call\./i.test(String(payload?.type || payload?.event || ""))) {
+    await handleCallEvent(payload);
     return new Response(null, { status: 200 });
   }
 

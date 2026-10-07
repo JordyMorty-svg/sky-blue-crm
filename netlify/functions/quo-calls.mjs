@@ -202,52 +202,26 @@ export function isCallCompleted(evt) {
   return Boolean(evt.id && evt.status);
 }
 
-export default async (req) => {
-  if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
-  }
-
-  // Read as text, sign the text. Parsing first and re-serialising changes
-  // the bytes and every signature fails.
-  const raw = await req.text();
-
-  // One secret unless Quo issued two. Both subscriptions are usually made in
-  // the same console with the same secret, so QUO_WEBHOOK_SECRET is the
-  // normal answer and the call-specific one is the escape hatch.
-  const secret = process.env.QUO_CALL_WEBHOOK_SECRET || process.env.QUO_WEBHOOK_SECRET;
-
-  if (!secret) {
-    // Refused, not waved through. An unsigned public endpoint that writes to
-    // a customer's history is somewhere anyone who learns the URL can invent
-    // a phone call, and "the secret isn't set yet" is not a reason to accept
-    // one.
-    console.error("[quo-calls] QUO_WEBHOOK_SECRET is not set; refusing");
-    return new Response("Forbidden", { status: 403 });
-  }
-
-  const ok = signatureValid({
-    id: req.headers.get("webhook-id"),
-    timestamp: req.headers.get("webhook-timestamp"),
-    body: raw,
-    header: req.headers.get("webhook-signature"),
-    secret,
-  });
-
-  if (!ok) {
-    console.warn("[quo-calls] rejected: bad signature");
-    return new Response("Forbidden", { status: 403 });
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(raw);
-  } catch {
-    // Signed but unparseable. 200 rather than 400: it is genuinely from Quo,
-    // and a 4xx would have them retry something that will never parse.
-    console.error("[quo-calls] signed payload was not JSON");
-    return new Response(null, { status: 200 });
-  }
-
+/**
+ * Everything a call event means, with the signature already checked.
+ *
+ * EXPORTED, and that is the point of the split. Quo replaced its four
+ * per-type webhook endpoints with one unified subscription, so the natural
+ * shape now is ONE webhook in Quo carrying call events and message events
+ * together — and a single subscription can only have one URL.
+ *
+ * Sky Blue's was pointed at /api/sms-inbound with `call.completed` ticked.
+ * That endpoint read the call, found no `to` and no text, and dropped it:
+ * 200, no row, no log, nothing to see. Calls had been disappearing into the
+ * texts endpoint since the day it was set up.
+ *
+ * So rather than make somebody split one webhook into two and keep two
+ * secrets in step, sms-inbound.mjs imports this and hands over anything
+ * whose type begins with "call.". Both URLs now do the right thing with
+ * either kind of event, and a webhook pointed at the wrong one of them
+ * still works.
+ */
+export async function handleCallEvent(payload) {
   const evt = readCall(payload);
 
   // ONE LINE PER INVOCATION, WHATEVER HAPPENS, AND IT IS NOT CHATTY NOISE.
@@ -390,6 +364,56 @@ export default async (req) => {
     // handled by anything.
     console.error("[quo-calls] could not record a call", err);
   }
+
+}
+
+export default async (req) => {
+  if (req.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+
+  // Read as text, sign the text. Parsing first and re-serialising changes
+  // the bytes and every signature fails.
+  const raw = await req.text();
+
+  // One secret unless Quo issued two. Both subscriptions are usually made in
+  // the same console with the same secret, so QUO_WEBHOOK_SECRET is the
+  // normal answer and the call-specific one is the escape hatch.
+  const secret = process.env.QUO_CALL_WEBHOOK_SECRET || process.env.QUO_WEBHOOK_SECRET;
+
+  if (!secret) {
+    // Refused, not waved through. An unsigned public endpoint that writes to
+    // a customer's history is somewhere anyone who learns the URL can invent
+    // a phone call, and "the secret isn't set yet" is not a reason to accept
+    // one.
+    console.error("[quo-calls] QUO_WEBHOOK_SECRET is not set; refusing");
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  const ok = signatureValid({
+    id: req.headers.get("webhook-id"),
+    timestamp: req.headers.get("webhook-timestamp"),
+    body: raw,
+    header: req.headers.get("webhook-signature"),
+    secret,
+  });
+
+  if (!ok) {
+    console.warn("[quo-calls] rejected: bad signature");
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    // Signed but unparseable. 200 rather than 400: it is genuinely from Quo,
+    // and a 4xx would have them retry something that will never parse.
+    console.error("[quo-calls] signed payload was not JSON");
+    return new Response(null, { status: 200 });
+  }
+
+  await handleCallEvent(payload);
 
   return new Response(null, { status: 200 });
 };

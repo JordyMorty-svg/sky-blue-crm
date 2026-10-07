@@ -345,27 +345,38 @@ console.log("\n-- the rules that must not break --\n");
     /if \(!secret\)[\s\S]{0,200}?status: 403/.test(src),
     "a 200 here would have Quo believe the event was handled and never resend it");
 
-  // The signature check must come before anything is believed. Matched on
-  // the position of the FIRST rpc call, not on one function's name: the
-  // handler now writes through record_quo_call_with_notes, record_call_
-  // summary and record_call_transcript, and an assertion naming one of them
-  // went quietly false the moment that one was renamed — indexOf returned
-  // -1, and -1 is before everything.
-  const write = src.search(/\brpc\(\s*"/);
-  chk("THE POINT: nothing is written before the signature is checked",
-    verify > -1 && write > -1 && verify < write);
+  // The signature check must come before anything is believed.
+  //
+  // CHECKED INSIDE THE DEFAULT EXPORT, not across the whole file.
+  //
+  // The first version compared the position of the first `rpc(` against the
+  // position of signatureValid(). That was a lexical proxy for execution
+  // order, and it broke the moment the call handling was lifted into an
+  // exported handleCallEvent() above the request handler — the rpc calls
+  // were suddenly earlier in the FILE while still running later in the
+  // REQUEST. The assertion went red while the property it cared about was
+  // untouched, which is the same class of mistake as a check that passes
+  // for the wrong reason.
+  const entry = src.slice(src.indexOf("export default async (req)"));
+  const verifyAt = entry.indexOf("signatureValid({");
+  const workAt = entry.indexOf("handleCallEvent(");
 
-  // Read as text, sign the text. Parsing first and re-serialising changes
-  // the bytes — key order and whitespace both — and every signature fails.
+  chk("THE POINT: nothing is believed before the signature is checked",
+    verifyAt > -1 && workAt > -1 && verifyAt < workAt,
+    `signature at ${verifyAt}, work at ${workAt}`);
+
+  chk("...and the request handler itself writes nothing",
+    !/\brpc\(\s*"/.test(entry),
+    "every write goes through handleCallEvent, which runs after the check");
+
   // indexOf RETURNS -1 WHEN IT FINDS NOTHING, and -1 is less than every
-  // position in the file. The first version of this check was
-  // `indexOf("await req.text()") < verify`, which was true both when the
-  // raw read came first and when it had been deleted outright — so
-  // replacing it with JSON.stringify(await req.json()), the exact mistake
-  // this line exists to catch, passed.
-  const rawRead = src.indexOf("await req.text()");
+  // position — so `rawRead < verifyAt` is true both when the raw read comes
+  // first and when it has been deleted outright. The `> -1` is the whole
+  // check; without it, replacing req.text() with JSON.stringify(req.json())
+  // passes.
+  const rawRead = entry.indexOf("await req.text()");
   chk("THE POINT: the raw body is what gets signed, and it is still read raw",
-    rawRead > -1 && rawRead < verify && src.indexOf("JSON.parse(raw)") > verify,
+    rawRead > -1 && rawRead < verifyAt && entry.indexOf("JSON.parse(raw)") > verifyAt,
     "re-serialising the JSON first changes the bytes — key order and " +
       "whitespace both — and then every signature fails");
 
