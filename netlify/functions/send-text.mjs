@@ -27,6 +27,8 @@
 
 import { rpc } from "../lib/db.mjs";
 import { sendSms, segmentsFor } from "../lib/sms.mjs";
+// One copy, shared with backfill-texts.mjs. See netlify/lib/whoIs.mjs.
+import { whoIs } from "../lib/whoIs.mjs";
 
 // Quo accepts up to 1600 characters in one API call; past that it is
 // rejected outright. Refused here with a sentence somebody can act on,
@@ -36,29 +38,6 @@ import { sendSms, segmentsFor } from "../lib/sms.mjs";
 // the customer's lock screen, so the limit is doing more than one job.
 const MAX_CHARS = 1600;
 
-/**
- * Who is calling, by their Supabase user id.
- *
- * The id, not just a yes/no, because a message typed by a person records who
- * typed it — that is what puts "Hayden" under the bubble in the thread
- * instead of nothing, and it is the difference between reading a
- * conversation and reading a transcript with one speaker missing.
- */
-async function whoIs(req) {
-  const token = (req.headers.get("authorization") || "").replace("Bearer ", "");
-  if (!token) return null;
-
-  const res = await fetch(`${process.env.VITE_SUPABASE_URL}/auth/v1/user`, {
-    headers: {
-      apikey: process.env.VITE_SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  if (!res.ok) return null;
-
-  const user = await res.json().catch(() => null);
-  return user?.id || null;
-}
 
 /**
  * The reasons sendSms() can give, in words for somebody holding a phone.

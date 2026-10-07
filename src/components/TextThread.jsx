@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   describeMessage,
   fetchThread,
+  importFromQuo,
   prettyPhone,
   segmentsFor,
   sendText,
@@ -39,6 +40,12 @@ export default function TextThread({
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+
+  // Importing is its own state, separate from loading and from sending.
+  // "Pulling from Quo" and "loading the thread" look identical on screen and
+  // mean different things to whoever pressed the button.
+  const [importing, setImporting] = useState(false);
+  const [importNote, setImportNote] = useState("");
 
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -124,6 +131,49 @@ export default function TextThread({
     }
   }
 
+  /**
+   * Pull the rest of this conversation out of Quo.
+   *
+   * Offered rather than automatic, and that is deliberate. An import that
+   * ran on page load would hit Quo's API every time anybody opened a lead,
+   * for a backlog that only needs fetching once — and the first thing it
+   * would do on a slow connection is make the thread look empty for a
+   * second longer.
+   */
+  async function handleImport() {
+    if (importing) return;
+    setImporting(true);
+    setImportNote("");
+    try {
+      const result = await importFromQuo(phone);
+
+      if (!result.ok) {
+        setImportNote(result.error || "Couldn't import from Quo.");
+        return;
+      }
+
+      // The counts, in words, because "0" on its own reads as a failure and
+      // usually is not: it means the CRM already had everything.
+      if (result.imported > 0) {
+        setImportNote(
+          `Brought in ${result.imported} ${result.imported === 1 ? "message" : "messages"}` +
+            (result.more ? " — press again for older ones." : ".")
+        );
+        await load();
+        onSent?.();
+      } else if (result.scanned > 0) {
+        setImportNote("Nothing new — the CRM already has this conversation.");
+      } else {
+        setImportNote("Quo has no texts with this number.");
+      }
+    } catch (e) {
+      console.error(e);
+      setImportNote("Couldn't reach the server to import.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   // Enter sends, Shift+Enter makes a new line. The same way every messaging
   // app anyone uses already works, so nobody has to be told.
   function handleKeyDown(e) {
@@ -174,6 +224,23 @@ export default function TextThread({
             ) : (
               rows.map((row) => <Bubble key={row.id} row={row} />)
             )}
+          </div>
+
+          {/* THE IMPORT, under the thread rather than over it.
+              Replies arrive on their own now; this is for the backlog from
+              before the inbound webhook worked, which is a one-off per
+              number. Putting it above the conversation would give the most
+              prominent spot on the panel to a button most people press once. */}
+          <div className="thread__import">
+            <button
+              type="button"
+              className="thread__older"
+              onClick={handleImport}
+              disabled={importing}
+            >
+              {importing ? "Pulling from Quo…" : "Load older from Quo"}
+            </button>
+            {importNote && <span className="thread__note">{importNote}</span>}
           </div>
 
           <form className="thread__compose" onSubmit={handleSend}>

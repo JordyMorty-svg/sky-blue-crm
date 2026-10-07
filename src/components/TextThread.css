@@ -269,3 +269,42 @@
     max-height: 300px;
   }
 }
+
+/* The import control.
+   Quiet on purpose: it is a one-off per number, and a button that competes
+   with Send would be the loudest thing on a panel whose job is the
+   conversation. */
+.thread__import {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.thread__older {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line, #d8dee6);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft, #5a6472);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.thread__older:hover:not(:disabled) {
+  background: var(--tint, #f3f6fa);
+  color: var(--ink, #1d2531);
+}
+
+.thread__older:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.thread__note {
+  font-size: 0.82rem;
+  color: var(--ink-soft, #5a6472);
+}

@@ -156,3 +156,44 @@ export function prettyPhone(phone) {
   if (ten.length !== 10) return String(phone ?? "");
   return `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}`;
 }
+
+/**
+ * Pull this number's conversation history out of Quo into the CRM.
+ *
+ * WHAT THIS IS FOR. The thread shows what the CRM has, and until the inbound
+ * webhook started working the CRM had only its own half — every reply any
+ * customer ever sent went to a 403. This asks Quo for the rest.
+ *
+ * Resolves rather than throwing when Quo says no, for the same reason
+ * sendText() does: "the Quo key is wrong" and "that number has no history"
+ * are answers, and a thrown error would put "something went wrong" on screen
+ * for a case the system can describe exactly.
+ *
+ * Safe to call twice. Every message deduplicates on its Quo id in
+ * import_quo_text(), so a second press imports only what is genuinely new —
+ * which is also how `more` is meant to be used.
+ */
+export async function importFromQuo(phone) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const res = await fetch("/api/backfill-texts", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${session?.access_token || ""}`,
+    },
+    body: JSON.stringify({ phone }),
+  });
+
+  if (res.status === 401) {
+    return { ok: false, error: "Sign in again to import from Quo." };
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!data) {
+    throw new Error("Couldn't reach the server.");
+  }
+  return data;
+}
