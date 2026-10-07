@@ -64,6 +64,7 @@ await build({
           contents: `
             export * from "${process.cwd()}/netlify/lib/sms.mjs";
             export { signatureValid, keyword, readEvent, isDeliveryFailure, failureReason } from "${process.cwd()}/netlify/functions/sms-inbound.mjs";
+            export { signatureProblem, parseSignature, keysFor, quoSecrets, webhookHeaders } from "${process.cwd()}/netlify/lib/webhooks.mjs";
             export { default as webhook } from "${process.cwd()}/netlify/functions/sms-inbound.mjs";
           `,
           loader: "js",
@@ -217,6 +218,261 @@ const chk = (what, pass, detail = "") => {
     threw = true;
   }
   chk("a malformed signature is refused without throwing", !threw);
+}
+
+// --- WHY it was refused -----------------------------------------------------
+//
+// signatureValid() answers false for seven different reasons, and both
+// endpoints used to log all seven as "rejected: bad signature". That cost a
+// whole evening: the call webhook started refusing everything, Jordan
+// re-copied the signing secret, verified it was correct, and the log had no
+// way to tell him the secret was never the problem.
+//
+// So the refusal has to name itself. These tests are about the naming, and
+// the assertion that matters is the LAST one: the seven reasons must be seven
+// distinct sentences. A message that cannot distinguish two causes is the bug
+// this block exists to prevent, and it is invisible to any test that only
+// checks each reason in isolation.
+{
+  const crypto = await import("node:crypto");
+
+  const secret = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw";
+  const id = "msg_p5jXN8AQM9LWM0D4loKWxJek";
+  const timestamp = "1614265330";
+  const body = '{"test": 2432232314}';
+  const good = "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE=";
+  const now = Number(timestamp) * 1000;
+  const base = { id, timestamp, body, secret, now, header: good };
+
+  chk(
+    "THE POINT: a good signature has no problem to report",
+    M.signatureProblem(base) === null,
+    "null means valid; anything else is a sentence about what is wrong"
+  );
+
+  const why = {
+    noSecret: M.signatureProblem({ ...base, secret: null }),
+    nothing: M.signatureProblem({ ...base, header: null, id: null, timestamp: null }),
+    unreadable: M.signatureProblem({ ...base, header: "t=1614265330,v1=abc" }),
+    noId: M.signatureProblem({ ...base, id: null }),
+    notNumber: M.signatureProblem({ ...base, timestamp: "soon" }),
+    stale: M.signatureProblem({ ...base, now: now + 3600 * 1000 }),
+    unusable: M.signatureProblem({ ...base, secret: "whsec_" }),
+    mismatch: M.signatureProblem({
+      ...base,
+      secret: "whsec_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    }),
+  };
+
+  chk("no secret set says so", /no signing secret/i.test(why.noSecret));
+
+  chk(
+    "THE POINT: no headers at all says it was not Quo",
+    /did not come from Quo/i.test(why.nothing),
+    "an empty-handed request is somebody else finding the URL, not a bad secret"
+  );
+
+  chk(
+    "a signature in a scheme we do not read lists the headers that arrived",
+    /headers present/i.test(why.unreadable) && /webhook-signature/.test(why.unreadable)
+  );
+
+  chk("a missing webhook-id is named", /webhook-id/.test(why.noId));
+  chk("a non-numeric timestamp is named", /not a number/i.test(why.notNumber));
+
+  chk(
+    "THE POINT: a stale request reports HOW stale, in seconds",
+    /\b3600s\b/.test(why.stale),
+    "a few seconds over is a slow retry and an hour is a wrong clock — the number is the diagnosis"
+  );
+
+  chk(
+    "a secret that decodes to nothing is named as such",
+    /usable key/i.test(why.unusable)
+  );
+
+  chk(
+    "THE POINT: a real mismatch is the only one that says the secret is wrong",
+    /did not match/i.test(why.mismatch) && /key lengths/i.test(why.mismatch),
+    "this is the message that should send somebody back to the Quo console, and no other"
+  );
+
+  chk(
+    "...and it reports the key length, which is how a truncated paste is spotted",
+    /\b24 bytes\b/.test(why.mismatch)
+  );
+
+  chk(
+    "a quoted secret is called out, because Netlify stores the quotes",
+    /quote character/i.test(
+      M.signatureProblem({ ...base, secret: `"${secret}"` })
+    )
+  );
+
+  // THE ONE THAT MATTERS.
+  const reasons = Object.values(why);
+  chk(
+    "THE POINT: every refusal reason is a different sentence",
+    new Set(reasons).size === reasons.length,
+    `${reasons.length} causes produced ${new Set(reasons).size} distinct messages — ` +
+      "two causes with one message is the bug this whole block is about"
+  );
+
+  chk(
+    "...and none of them is empty or the word false",
+    reasons.every((r) => typeof r === "string" && r.length > 10)
+  );
+
+  // These strings go to a log Netlify keeps. A reason that quotes the secret
+  // back, or the signature, hands over the thing it was protecting.
+  //
+  // A SENTINEL, not the vector's secret, and that detail is the whole test.
+  // The first version of this check looked for the valid secret in every
+  // reason — and the one message that interpolates a secret is the MISMATCH
+  // message, which by definition is built from a secret that did not work.
+  // So a mutant that appended the configured secret to that message survived:
+  // the assertion was looking for a string that was never going to be there.
+  // Each reason is now checked against the secret that produced it.
+  const SENTINEL = "ZZZdoNotLogMeZZZ";
+  const leaks = [
+    M.signatureProblem({ ...base, secret: `whsec_${SENTINEL}` }),
+    M.signatureProblem({ ...base, secret: SENTINEL }),
+    M.signatureProblem({ ...base, secret: `whsec_${SENTINEL},whsec_${SENTINEL}` }),
+    ...reasons,
+  ];
+
+  chk(
+    "THE POINT: no refusal reason quotes back the secret it tried",
+    leaks.every((r) => typeof r === "string" && !r.includes(SENTINEL)),
+    "the mismatch message is the one built from a secret, so it is the one that can leak it"
+  );
+
+  chk(
+    "...nor the signature it was offered",
+    leaks.every((r) => !r.includes("g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE=")),
+    "a valid signature over a known body is worth something to whoever captured it"
+  );
+
+  // --- the older OpenPhone header -----------------------------------------
+  //
+  // `hmac;1;<timestamp>;<base64>` over `timestamp.body`, with its timestamp
+  // inside the value rather than in a header of its own. Quo documents the
+  // unified webhook in Standard Webhooks terms, but this is what every
+  // integration written before the rename verifies, and a subscription made
+  // through the older console may still sign this way. Accepting it costs one
+  // HMAC; not accepting it looks exactly like a wrong secret.
+  {
+    const key = Buffer.from(secret.slice(6), "base64");
+    const sign = (ts, b) =>
+      crypto.createHmac("sha256", key).update(`${ts}.${b}`, "utf8").digest("base64");
+    const legacy = `hmac;1;${timestamp};${sign(timestamp, body)}`;
+
+    chk(
+      "THE POINT: the older openphone-signature header validates too",
+      M.signatureProblem({ body, secret, now, legacy }) === null,
+      "a subscription signing the old way must not read as a wrong secret"
+    );
+
+    chk(
+      "...and a tampered body under it is still refused",
+      /did not match/i.test(
+        M.signatureProblem({ body: '{"test": 1}', secret, now, legacy })
+      )
+    );
+
+    chk(
+      "...and it names which scheme it tried",
+      /OpenPhone/i.test(
+        M.signatureProblem({ body: '{"test": 1}', secret, now, legacy })
+      ),
+      "two schemes are live, so the reason has to say which one was checked"
+    );
+
+    chk(
+      "...and its own timestamp is held to the same replay tolerance",
+      /3600s/.test(
+        M.signatureProblem({ body, secret, now: now + 3600 * 1000, legacy })
+      ),
+      "the old scheme carries the timestamp in the value, which is easy to forget to check"
+    );
+
+    chk(
+      "a truncated old-style header is refused, not read as unsigned",
+      /headers present/i.test(
+        M.signatureProblem({ body, secret, now, legacy: `hmac;1;${timestamp}` })
+      )
+    );
+  }
+
+  // --- a secret that is not base64 ----------------------------------------
+  //
+  // Not every console hands out a `whsec_`-prefixed base64 secret. When the
+  // value shown is a plain string, the string itself is the key — and
+  // base64-decoding it produces a signature that is wrong with nothing to
+  // say why. Both readings are tried for exactly that reason.
+  {
+    const plain = "sky-blue-cleaning-shared-secret";
+    const sig = crypto
+      .createHmac("sha256", Buffer.from(plain, "utf8"))
+      .update(`${id}.${timestamp}.${body}`, "utf8")
+      .digest("base64");
+
+    chk(
+      "THE POINT: a plain-text secret is used as the key itself",
+      M.signatureProblem({ ...base, secret: plain, header: `v1,${sig}` }) === null,
+      "a non-base64 secret must not be silently mangled into the wrong key"
+    );
+
+    chk(
+      "...and a whsec_ secret is still read as base64, not literally",
+      M.keysFor(secret).length === 1 && M.keysFor(secret)[0].length === 24,
+      "whsec_ says base64, so the printable form is not a candidate"
+    );
+
+    chk(
+      "...while a bare secret offers both readings",
+      M.keysFor(plain).length === 2
+    );
+
+    chk(
+      "a wrong plain-text secret is still refused",
+      /did not match/i.test(
+        M.signatureProblem({ ...base, secret: "not-the-secret", header: `v1,${sig}` })
+      )
+    );
+  }
+}
+
+// --- which secrets a deployment offers --------------------------------------
+//
+// This was `QUO_CALL_WEBHOOK_SECRET || QUO_WEBHOOK_SECRET`, and the `||` was
+// a trap: adding the call-specific variable in order to fix a 403 REPLACED
+// the secret that was already working, so a typo in the new one could not be
+// recovered from by any amount of checking the old one. Both, always.
+{
+  const both = M.quoSecrets({ QUO_WEBHOOK_SECRET: "aaa", QUO_CALL_WEBHOOK_SECRET: "bbb" });
+
+  chk(
+    "THE POINT: both webhook secrets are offered, not the first one set",
+    /aaa/.test(both) && /bbb/.test(both),
+    "the call secret must not replace the one the texts webhook signs with"
+  );
+
+  chk(
+    "either one alone is offered",
+    M.quoSecrets({ QUO_WEBHOOK_SECRET: "aaa" }) === "aaa" &&
+      M.quoSecrets({ QUO_CALL_WEBHOOK_SECRET: "bbb" }) === "bbb"
+  );
+
+  chk(
+    "neither set yields nothing, so the endpoint refuses rather than opens",
+    M.quoSecrets({}) === ""
+  );
+
+  chk(
+    "the result parses back into two secrets",
+    both.split(/[\s,]+/).filter(Boolean).length === 2
+  );
 }
 
 // --- reading the payload ----------------------------------------------------
@@ -836,6 +1092,77 @@ const chk = (what, pass, detail = "") => {
     method: "POST", headers: quoteFail.headers, body: quoteFail.body,
   }));
   chk("THE POINT: a failed nudge is still not emailed", emailed === null);
+
+  // --- a request signed with the OTHER subscription's secret ---------------
+  //
+  // One webhook in Quo now carries texts and calls together, and a
+  // subscription has one URL — so a call event signed with the call
+  // subscription's secret can legitimately arrive HERE, at the texts
+  // endpoint, and this endpoint routes it to the call handler.
+  //
+  // Which means this endpoint has to accept that secret. When it read only
+  // QUO_WEBHOOK_SECRET, the routing fix was decorative: the event was refused
+  // at the door, before anything could route it anywhere.
+  {
+    const CALL_SECRET = "whsec_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    const callEvent = {
+      type: "call.ringing",
+      data: { resource: { id: "AC-ring", direction: "incoming", status: "ringing" } },
+    };
+
+    const body = JSON.stringify(callEvent);
+    const id = "msg_crosssigned";
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const mac = crypto
+      .createHmac("sha256", Buffer.from(CALL_SECRET.slice(6), "base64"))
+      .update(`${id}.${timestamp}.${body}`, "utf8")
+      .digest("base64");
+
+    const req = () =>
+      new Request("https://example.test/api/sms-inbound", {
+        method: "POST",
+        headers: new Headers({
+          "webhook-id": id,
+          "webhook-timestamp": timestamp,
+          "webhook-signature": `v1,${mac}`,
+        }),
+        body,
+      });
+
+    process.env.QUO_CALL_WEBHOOK_SECRET = CALL_SECRET;
+    const accepted = await M.webhook(req());
+    delete process.env.QUO_CALL_WEBHOOK_SECRET;
+
+    chk(
+      "THE POINT: the texts endpoint accepts a request signed with the CALL secret",
+      accepted.status === 200,
+      `got ${accepted.status} — one webhook carries both kinds of event, so ` +
+        `either subscription's secret is legitimate at either URL`
+    );
+
+    // The refusal, and what it says about itself. Captured rather than
+    // allowed to print, because the log line IS the deliverable here: "bad
+    // signature" is what sent Jordan to re-copy a secret that was already
+    // correct, so this endpoint has to name the cause the same way
+    // quo-calls.mjs now does.
+    const said = [];
+    const realWarn = console.warn;
+    console.warn = (...a) => said.push(a.map(String).join(" "));
+    const refused = await M.webhook(req());
+    console.warn = realWarn;
+
+    chk(
+      "...and refuses it once that secret is no longer configured",
+      refused.status === 403,
+      `got ${refused.status} — accepting several secrets must not become accepting anything`
+    );
+
+    chk(
+      "THE POINT: and the texts endpoint names the reason, not 'bad signature'",
+      said.some((l) => /did not match/i.test(l) && /key lengths/i.test(l)),
+      said.join(" | ") || "(nothing logged)"
+    );
+  }
 
   globalThis.fetch = realFetch2;
   delete process.env.RESEND_API_KEY;

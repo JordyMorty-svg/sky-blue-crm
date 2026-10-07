@@ -18,19 +18,21 @@
 // here on it is, with its real duration, on the right person's history —
 // which is the same gap sms-inbound.mjs closed for texts typed in the app.
 //
-// Required Netlify environment variables:
-//   QUO_WEBHOOK_SECRET          — the same one sms-inbound.mjs uses, if both
-//                                 subscriptions were made with one secret.
-//                                 QUO_CALL_WEBHOOK_SECRET overrides it for
-//                                 the case where Quo issued a separate one.
-//   SUPABASE_SERVICE_ROLE_KEY, VITE_SUPABASE_URL — to write the row.
+// Required Netlify environment variables — ALL OF THEM ALREADY SET, if texts
+// are working. This endpoint introduces no new ones:
+//   QUO_WEBHOOK_SECRET and/or QUO_CALL_WEBHOOK_SECRET — either, or both. Both
+//                                 are tried against every request, so the one
+//                                 Quo signed with wins and the other costs a
+//                                 hash. See quoSecrets().
+//   SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY),
+//   VITE_SUPABASE_URL (or SUPABASE_URL) — to write the row.
 //
 // Optional:
 //   QUO_FROM — the business number. Only used as a fallback for working out
 //              which participant is the customer; the payload normally says.
 
 import { rpc } from "../lib/db.mjs";
-import { signatureValid } from "../lib/webhooks.mjs";
+import { quoSecrets, signatureProblem, webhookHeaders } from "../lib/webhooks.mjs";
 import { toE164 } from "../lib/sms.mjs";
 
 /**
@@ -376,30 +378,21 @@ export default async (req) => {
   // the bytes and every signature fails.
   const raw = await req.text();
 
-  // One secret unless Quo issued two. Both subscriptions are usually made in
-  // the same console with the same secret, so QUO_WEBHOOK_SECRET is the
-  // normal answer and the call-specific one is the escape hatch.
-  const secret = process.env.QUO_CALL_WEBHOOK_SECRET || process.env.QUO_WEBHOOK_SECRET;
-
-  if (!secret) {
-    // Refused, not waved through. An unsigned public endpoint that writes to
-    // a customer's history is somewhere anyone who learns the URL can invent
-    // a phone call, and "the secret isn't set yet" is not a reason to accept
-    // one.
-    console.error("[quo-calls] QUO_WEBHOOK_SECRET is not set; refusing");
-    return new Response("Forbidden", { status: 403 });
-  }
-
-  const ok = signatureValid({
-    id: req.headers.get("webhook-id"),
-    timestamp: req.headers.get("webhook-timestamp"),
+  // EVERY secret this deployment holds, not the first one that is set. Quo
+  // issues one per subscription and either is legitimate here; see
+  // quoSecrets() in netlify/lib/webhooks.mjs for why the `||` this replaced
+  // made a wrong QUO_CALL_WEBHOOK_SECRET unfixable by adding one.
+  const problem = signatureProblem({
+    ...webhookHeaders(req),
     body: raw,
-    header: req.headers.get("webhook-signature"),
-    secret,
+    secret: quoSecrets(),
   });
 
-  if (!ok) {
-    console.warn("[quo-calls] rejected: bad signature");
+  if (problem) {
+    // Named, not "bad signature". Refused, and a 403 rather than a 401:
+    // there is nothing to authenticate with and nothing useful to say to
+    // whoever sent this — but there is plenty useful to say to us.
+    console.warn(`[quo-calls] rejected: ${problem}`);
     return new Response("Forbidden", { status: 403 });
   }
 

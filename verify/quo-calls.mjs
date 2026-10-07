@@ -14,6 +14,7 @@
 // learns the URL invent a call history.
 
 import {
+  default as handler,
   readCall,
   customerNumber,
   isCallCompleted,
@@ -331,20 +332,6 @@ console.log("\n-- the rules that must not break --\n");
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
 
-  // No secret, no entry. An unsigned public endpoint that writes to a
-  // customer's history is somewhere anyone who learns the URL can invent a
-  // phone call — and "the secret isn't configured yet" is the state a fresh
-  // deploy is in, which is exactly when nobody is watching.
-  const noSecret = src.indexOf("if (!secret)");
-  const verify = src.indexOf("signatureValid({");
-  chk("THE POINT: a missing webhook secret is refused, not waved through",
-    noSecret > -1 && noSecret < verify,
-    "otherwise a deploy with the variable unset accepts invented calls from anybody");
-
-  chk("...with a 403",
-    /if \(!secret\)[\s\S]{0,200}?status: 403/.test(src),
-    "a 200 here would have Quo believe the event was handled and never resend it");
-
   // The signature check must come before anything is believed.
   //
   // CHECKED INSIDE THE DEFAULT EXPORT, not across the whole file.
@@ -358,7 +345,10 @@ console.log("\n-- the rules that must not break --\n");
   // untouched, which is the same class of mistake as a check that passes
   // for the wrong reason.
   const entry = src.slice(src.indexOf("export default async (req)"));
-  const verifyAt = entry.indexOf("signatureValid({");
+  // Either spelling: signatureValid() is the boolean, signatureProblem() the
+  // same check with a reason attached. `> -1` below is what makes a rename to
+  // something this does not know about a failure rather than a silent pass.
+  const verifyAt = entry.search(/signature(Valid|Problem)\(\{/);
   const workAt = entry.indexOf("handleCallEvent(");
 
   chk("THE POINT: nothing is believed before the signature is checked",
@@ -443,6 +433,171 @@ console.log("\n-- every invocation says what it did --\n");
   // kind of problem.
   chk("the log still only prints the last four digits",
     /slice\(-4\)/.test(handler) && !/who: evt\.phone,/.test(handler));
+}
+
+console.log("\n-- the endpoint refusing things, for real --\n");
+
+// BEHAVIOURAL, not lexical, and the change is the point.
+//
+// These used to be source-text checks: find `if (!secret)`, find
+// `signatureValid(`, compare their positions. Both properties were real and
+// both checks went red the moment the refusal moved inside
+// signatureProblem() — while the behaviour they described was untouched. A
+// test that fails when the code is reorganised and passes when the behaviour
+// changes is pointed the wrong way round. So the handler is called.
+{
+  const crypto = await import("node:crypto");
+
+  const SECRET = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw";
+  const key = Buffer.from(SECRET.slice(6), "base64");
+
+  // call.ringing: a real event this endpoint is right to ignore, and the one
+  // shape that reaches the end of the handler without touching the database.
+  const body = JSON.stringify({
+    type: "call.ringing",
+    data: { resource: { id: "AC-ringing", direction: "incoming", status: "ringing" } },
+  });
+
+  const post = (signingKey) => {
+    const id = "msg_behavioural";
+    const ts = String(Math.floor(Date.now() / 1000));
+    const headers = { "content-type": "application/json" };
+    if (signingKey) {
+      headers["webhook-id"] = id;
+      headers["webhook-timestamp"] = ts;
+      headers["webhook-signature"] =
+        "v1," +
+        crypto
+          .createHmac("sha256", signingKey)
+          .update(`${id}.${ts}.${body}`, "utf8")
+          .digest("base64");
+    }
+    return new Request("https://crm.skybluecleaningco.com/api/quo-calls", {
+      method: "POST",
+      body,
+      headers,
+    });
+  };
+
+  // console is captured rather than silenced: the log line IS the deliverable
+  // for a refusal, so it has to be inspected.
+  const said = [];
+  const real = { warn: console.warn, error: console.error, log: console.log };
+  const hush = (...a) => said.push(a.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(" "));
+  const run = async (req) => {
+    said.length = 0;
+    Object.assign(console, { warn: hush, error: hush, log: hush });
+    try {
+      return await handler(req);
+    } finally {
+      Object.assign(console, real);
+    }
+  };
+
+  const keep = {
+    w: process.env.QUO_WEBHOOK_SECRET,
+    c: process.env.QUO_CALL_WEBHOOK_SECRET,
+  };
+  const setEnv = (w, c) => {
+    if (w === undefined) delete process.env.QUO_WEBHOOK_SECRET;
+    else process.env.QUO_WEBHOOK_SECRET = w;
+    if (c === undefined) delete process.env.QUO_CALL_WEBHOOK_SECRET;
+    else process.env.QUO_CALL_WEBHOOK_SECRET = c;
+  };
+
+  try {
+    // No secret anywhere. This is the state a fresh deploy is in, which is
+    // exactly when nobody is watching.
+    setEnv(undefined, undefined);
+    let res = await run(post(key));
+    chk("THE POINT: with no secret configured the endpoint refuses",
+      res.status === 403,
+      `got ${res.status} — an unsigned public endpoint that writes to a ` +
+        `customer's history lets anyone who learns the URL invent a call`);
+    chk("...and says that the secret is missing, not that the signature is bad",
+      said.some((l) => /no signing secret/i.test(l)),
+      said.join(" | "));
+
+    // The wrong secret. This is the one Jordan was looking at.
+    setEnv("whsec_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", undefined);
+    res = await run(post(key));
+    chk("a wrong secret is refused",
+      res.status === 403);
+    chk("THE POINT: and the log says the secret did not match, in those words",
+      said.some((l) => /did not match/i.test(l) && /key lengths/i.test(l)),
+      said.join(" | "));
+    chk("...and never prints the secret itself",
+      !said.some((l) => l.includes("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")),
+      "a refusal reason goes to a log Netlify keeps");
+
+    // THE BUG THAT WASTED THE EVENING: the call-specific variable used to
+    // REPLACE the working one, so a typo in it could not be recovered from
+    // by any amount of verifying the other.
+    setEnv(SECRET, "whsec_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    res = await run(post(key));
+    chk("THE POINT: a wrong QUO_CALL_WEBHOOK_SECRET does not break a working QUO_WEBHOOK_SECRET",
+      res.status === 200,
+      `got ${res.status} — both secrets must be tried, because adding the ` +
+        `second one to fix a 403 otherwise causes one`);
+
+    setEnv(undefined, SECRET);
+    res = await run(post(key));
+    chk("...and the call-specific secret alone works too",
+      res.status === 200,
+      `got ${res.status}`);
+
+    setEnv(SECRET, undefined);
+    res = await run(post(key));
+    chk("...as does the shared one alone",
+      res.status === 200,
+      `got ${res.status}`);
+    chk("an ignored event still leaves a line in the log",
+      said.some((l) => /ignored: not a completed call/.test(l)),
+      said.join(" | "));
+
+    // THE OLDER HEADER, posted at the real endpoint.
+    //
+    // `openphone-signature: hmac;1;<ts>;<sig>` over `timestamp.body`. The
+    // library has always been able to read it; whether the ENDPOINT passes it
+    // along is a separate fact, and a mutant that went back to reading the
+    // three modern headers by hand survived every other test here. A
+    // subscription signing the old way would then be refused with "did not
+    // match any secret", which reads as a wrong secret and is not one.
+    {
+      const ts = String(Math.floor(Date.now() / 1000));
+      const sig = crypto
+        .createHmac("sha256", key)
+        .update(`${ts}.${body}`, "utf8")
+        .digest("base64");
+      res = await run(
+        new Request("https://crm.skybluecleaningco.com/api/quo-calls", {
+          method: "POST",
+          body,
+          headers: { "openphone-signature": `hmac;1;${ts};${sig}` },
+        })
+      );
+      chk("THE POINT: the endpoint reads the older openphone-signature header too",
+        res.status === 200,
+        `got ${res.status} — the endpoint has to hand every signature header ` +
+          `to the verifier, not the three it happens to know`);
+    }
+
+    // Headers missing entirely — somebody who found the URL.
+    res = await run(post(null));
+    chk("an unsigned request is refused",
+      res.status === 403);
+    chk("...and is named as not being from Quo at all",
+      said.some((l) => /did not come from Quo/i.test(l)),
+      said.join(" | "));
+
+    // A GET, which is what a browser does to a URL somebody pasted.
+    res = await handler(
+      new Request("https://crm.skybluecleaningco.com/api/quo-calls", { method: "GET" })
+    );
+    chk("a GET is refused with 405", res.status === 405);
+  } finally {
+    setEnv(keep.w, keep.c);
+  }
 }
 
 console.log(bad === 0 ? "\nall ok — only calls that happened, only to the right person\n"

@@ -33,7 +33,13 @@ import { handleCallEvent } from "./quo-calls.mjs";
 // calls signatureValid() directly, and with only the re-export it threw
 // "signatureValid is not defined" on every request. Which is to say: the SMS
 // webhook was completely broken and nothing but verify/sms-js.mjs said so.
-import { signatureValid, TOLERANCE_SECONDS } from "../lib/webhooks.mjs";
+import {
+  quoSecrets,
+  signatureProblem,
+  signatureValid,
+  TOLERANCE_SECONDS,
+  webhookHeaders,
+} from "../lib/webhooks.mjs";
 export { signatureValid, TOLERANCE_SECONDS };
 
 // The carrier keyword sets, as the CTIA defines them. Matched on the whole
@@ -225,18 +231,21 @@ export default async (req) => {
   // the bytes and every signature fails.
   const raw = await req.text();
 
-  const ok = signatureValid({
-    id: req.headers.get("webhook-id"),
-    timestamp: req.headers.get("webhook-timestamp"),
+  // Every secret this deployment holds, not just the SMS one. Now that this
+  // endpoint also handles call events — see the handover below — a request
+  // signed with the call subscription's secret is legitimate here.
+  const problem = signatureProblem({
+    ...webhookHeaders(req),
     body: raw,
-    header: req.headers.get("webhook-signature"),
-    secret: process.env.QUO_WEBHOOK_SECRET,
+    secret: quoSecrets(),
   });
 
-  if (!ok) {
-    // Terse, and a 403 rather than a 401: there is nothing to authenticate
-    // with and nothing useful to say to whoever sent this.
-    console.warn("[sms-inbound] rejected: bad signature");
+  if (problem) {
+    // A 403 rather than a 401: there is nothing to authenticate with and
+    // nothing useful to say to whoever sent this. But the LOG says which of
+    // the seven reasons it was, because "bad signature" sent Jordan to
+    // re-copy a secret that was already correct.
+    console.warn(`[sms-inbound] rejected: ${problem}`);
     return new Response("Forbidden", { status: 403 });
   }
 
