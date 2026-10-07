@@ -65,11 +65,29 @@ create table if not exists public.google_leads (
   charged        boolean,
 
   phone_norm     text,
+
+  -- DID THIS LEAD EXIST ALREADY? The question the first import answers and
+  -- nothing else can answer afterwards.
+  --
+  -- Sky Blue entered most of these by hand, because nothing was bringing them
+  -- across. So the import is a reconciliation, not an influx: most rows
+  -- attach to somebody already on the board, and the few that DON'T are the
+  -- leads that fell through the cracks — the ones Google charged for and
+  -- nobody ever called.
+  --
+  -- Recorded rather than inferred. Comparing leads.created_at against this
+  -- row's timestamp works only while the hand-entered ones are visibly older,
+  -- which is true today and false for anything entered the same morning.
+  created_lead   boolean,
+
   created_at     timestamptz not null default now(),
   -- When GOOGLE says it happened, not when we noticed. A poll that runs every
   -- hour must not stamp an 08:05 lead as 09:00.
   lead_at        timestamptz
 );
+
+-- For a database where the table was created before this column existed.
+alter table public.google_leads add column if not exists created_lead boolean;
 
 create index if not exists google_leads_lead_idx on public.google_leads (lead_id);
 create index if not exists google_leads_customer_idx on public.google_leads (customer_id);
@@ -126,6 +144,7 @@ declare
   lead_out uuid;
   cust_out uuid;
   existed  boolean;
+  made_one boolean := false;
 begin
   if coalesce(btrim(p_google_lead_id), '') = '' then
     -- No id means no dedupe, and no dedupe means every poll re-creates every
@@ -183,6 +202,10 @@ begin
       'new'
     )
     returning id into lead_out;
+
+    -- Nobody in the CRM owned this number. Worth knowing later: these are the
+    -- leads that were paid for and never reached anybody.
+    made_one := true;
   end if;
 
   -- An EXISTING record may be missing what Google just told us. Filled in,
@@ -229,11 +252,11 @@ begin
 
   insert into public.google_leads (
     google_lead_id, lead_id, customer_id, lead_type, category_id, service_id,
-    lead_status, charged, phone_norm, lead_at
+    lead_status, charged, phone_norm, lead_at, created_lead
   )
   values (
     p_google_lead_id, lead_out, cust_out, p_lead_type, p_category, p_service,
-    p_status, p_charged, digits, when_
+    p_status, p_charged, digits, when_, made_one
   )
   -- Two polls overlapping in the same second. The select above catches the
   -- ordinary repeat; this catches the race, and both mean "already had it".

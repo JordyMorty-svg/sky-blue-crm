@@ -244,6 +244,58 @@ begin
   perform pg_temp.chk('but the timeline still records the paid lead', n = 1);
 end $$;
 
+-- WHICH ONES DID WE MISS. The question the first import exists to answer.
+--
+-- Most of these leads were entered by hand, because nothing was bringing them
+-- across — so the import is a reconciliation. The rows that did NOT attach to
+-- somebody already on the board are the leads Google charged for that nobody
+-- ever called, and that fact is only visible at import time unless it is
+-- written down.
+--
+-- Recorded rather than inferred from timestamps: comparing leads.created_at
+-- against the import's own clock works while the hand-entered rows are
+-- visibly older and fails for anything entered the same morning. The first
+-- version of this check did exactly that and reported every lead as new.
+do $$
+declare made int; attached int;
+begin
+  perform pg_temp.reset();
+
+  insert into public.leads (id, name, phone, status, source)
+  values ('d0000000-0000-0000-0000-00000000000a', 'Already Known',
+          '(541) 555-0188', 'quoted', 'door');
+
+  perform public.record_google_leads($j$[
+    {"id":"M1","name":"Already Known","phone":"+15415550188","at":"2026-09-11T09:00:00Z","type":"MESSAGE","charged":true},
+    {"id":"M2","phone":"+15415550199","at":"2026-09-12T09:00:00Z","type":"PHONE_CALL","charged":true}
+  ]$j$::jsonb);
+
+  select count(*) into made from public.google_leads where created_lead;
+  select count(*) into attached from public.google_leads where not created_lead;
+
+  perform pg_temp.chk(
+    'THE POINT: a lead nobody had is recorded as one the import created',
+    made = 1,
+    made || ' marked created — these are the ones that were paid for and '
+    'never reached anybody, and the fact is invisible an hour later');
+
+  perform pg_temp.chk(
+    'THE POINT: ...and one that already existed is recorded as attached',
+    attached = 1,
+    attached || ' marked attached — inferring this from created_at works only '
+    'while the hand-entered rows are visibly older');
+
+  perform pg_temp.chk('...and the one it created is on New',
+    (select status from public.leads
+      where id = (select lead_id from public.google_leads where created_lead)) = 'new');
+
+  perform pg_temp.chk(
+    'THE POINT: ...while the one it attached to keeps the status it had',
+    (select status from public.leads
+      where id = (select lead_id from public.google_leads where not created_lead)) = 'quoted',
+    'an import must not drag a quoted lead back to New');
+end $$;
+
 -- A number typed one way and sent another is still the same person. Same
 -- sb_phone_key() matching the whole CRM uses.
 do $$
