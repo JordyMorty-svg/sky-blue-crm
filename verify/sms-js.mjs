@@ -64,7 +64,7 @@ await build({
           contents: `
             export * from "${process.cwd()}/netlify/lib/sms.mjs";
             export { signatureValid, keyword, readEvent, isDeliveryFailure, failureReason } from "${process.cwd()}/netlify/functions/sms-inbound.mjs";
-            export { signatureProblem, parseSignature, keysFor, quoSecrets, webhookHeaders } from "${process.cwd()}/netlify/lib/webhooks.mjs";
+            export { signatureProblem, parseSignature, keysFor, quoSecrets, secondsFrom, webhookHeaders } from "${process.cwd()}/netlify/lib/webhooks.mjs";
             export { default as webhook } from "${process.cwd()}/netlify/functions/sms-inbound.mjs";
           `,
           loader: "js",
@@ -352,6 +352,98 @@ const chk = (what, pass, detail = "") => {
     leaks.every((r) => !r.includes("g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE=")),
     "a valid signature over a known body is worth something to whoever captured it"
   );
+
+  // --- the unit the timestamp arrives in ----------------------------------
+  //
+  // QUO SENDS MILLISECONDS. Standard Webhooks specifies seconds, so the
+  // replay guard compared ~1.79e12 against a clock of ~1.79e9 and refused
+  // every request Quo had ever sent. For weeks that was reported as "bad
+  // signature", and a correct secret was re-copied twice chasing it.
+  //
+  // The log line that gave it away — "the signature timestamp is
+  // -1789551345639s away from now" — is why a refusal has to carry its
+  // numbers. No amount of checking the secret could have found this.
+  {
+    chk(
+      "THE POINT: a 13-digit timestamp is read as milliseconds",
+      M.secondsFrom("1791350000000") === 1791350000,
+      "Quo's webhook-timestamp is a millisecond epoch and the spec says seconds"
+    );
+
+    chk(
+      "...while a 10-digit one is left alone",
+      M.secondsFrom("1791350000") === 1791350000
+    );
+
+    chk(
+      "...and the vector's own timestamp is unchanged",
+      M.secondsFrom(timestamp) === Number(timestamp)
+    );
+
+    chk(
+      "a timestamp that is not a number at all is null, not NaN",
+      M.secondsFrom("soon") === null && M.secondsFrom(undefined) === null,
+      "NaN compares false against every threshold, so it would read as in-tolerance"
+    );
+
+    // End to end, with a signature Quo's own maths would produce: the
+    // timestamp is milliseconds and the signed string carries it EXACTLY as
+    // the header spells it. Normalising before signing would break this.
+    const msNow = 1791350000000;
+    const msTs = String(msNow);
+    const msSig = crypto
+      .createHmac("sha256", Buffer.from(secret.slice(6), "base64"))
+      .update(`${id}.${msTs}.${body}`, "utf8")
+      .digest("base64");
+
+    chk(
+      "THE POINT: a millisecond-stamped request validates",
+      M.signatureProblem({
+        id,
+        timestamp: msTs,
+        body,
+        secret,
+        header: `v1,${msSig}`,
+        now: msNow,
+      }) === null,
+      "this is the live failure: every real Quo webhook was refused on the clock"
+    );
+
+    chk(
+      "...and the signature is still computed over the raw header value",
+      M.signatureProblem({
+        id,
+        timestamp: msTs,
+        body,
+        secret,
+        // The same instant, signed as if the timestamp had been normalised to
+        // seconds first. Quo hashed the milliseconds, so this must NOT pass.
+        header:
+          "v1," +
+          crypto
+            .createHmac("sha256", Buffer.from(secret.slice(6), "base64"))
+            .update(`${id}.${msNow / 1000}.${body}`, "utf8")
+            .digest("base64"),
+        now: msNow,
+      }) !== null,
+      "normalising the timestamp before signing would break every signature"
+    );
+
+    chk(
+      "THE POINT: and a millisecond timestamp an hour old is still refused",
+      /3600s/.test(
+        M.signatureProblem({
+          id,
+          timestamp: msTs,
+          body,
+          secret,
+          header: `v1,${msSig}`,
+          now: msNow + 3600 * 1000,
+        })
+      ),
+      "accepting the unit must not accept a replay"
+    );
+  }
 
   // --- the older OpenPhone header -----------------------------------------
   //

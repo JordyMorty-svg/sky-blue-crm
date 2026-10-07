@@ -90,6 +90,39 @@ export function parseSignature({ id, timestamp, header, legacy }) {
 }
 
 /**
+ * A webhook timestamp in seconds, whatever unit it arrived in.
+ *
+ * QUO SENDS MILLISECONDS. Standard Webhooks specifies seconds, every
+ * reference implementation reads seconds, and Quo's `webhook-timestamp` is a
+ * millisecond epoch. So the replay guard compared a value around 1.79e12
+ * against a clock around 1.79e9 and refused every request ever sent — with
+ * "bad signature", which is how this cost two evenings. The log line that
+ * finally said it was:
+ *
+ *   rejected: the signature timestamp is -1789551345639s away from now,
+ *   outside the 300s tolerance
+ *
+ * A number that large is not a clock problem and not a replay; it is a unit.
+ * That line is the entire argument for naming a refusal instead of printing
+ * "bad signature": the cause was in the number, and nothing was printing the
+ * number.
+ *
+ * TEN DIGITS OR THIRTEEN, and there is no ambiguity to agonise over: as
+ * seconds, 1e11 is the year 5138, so anything above it is not a second count
+ * anybody meant. The threshold cannot be reached from the other direction
+ * either — a millisecond epoch has been above 1e11 since 1973.
+ *
+ * ONLY THE REPLAY WINDOW USES THIS. The signed string must carry the
+ * timestamp EXACTLY as the header spelled it, because that is what Quo
+ * hashed; normalising it before signing would break every signature.
+ */
+export function secondsFrom(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.abs(n) > 1e11 ? n / 1000 : n;
+}
+
+/**
  * Every HMAC key one configured secret could reasonably mean.
  *
  * TWO ENCODINGS, and this is not belt-and-braces for its own sake.
@@ -181,8 +214,8 @@ export function signatureProblem({
   if (sig.needsId && !id) return "no webhook-id header, but a v1 signature that needs it";
 
   // Replay guard, before any cryptography.
-  const ts = Number(sig.timestamp);
-  if (!Number.isFinite(ts)) return `the signature timestamp is not a number: ${sig.timestamp}`;
+  const ts = secondsFrom(sig.timestamp);
+  if (ts === null) return `the signature timestamp is not a number: ${sig.timestamp}`;
   const skew = Math.round(now / 1000 - ts);
   if (Math.abs(skew) > TOLERANCE_SECONDS) {
     // The number matters: a few seconds over is a slow retry, an hour is a
