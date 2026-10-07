@@ -305,3 +305,65 @@ revoke all on function public.import_quo_texts(jsonb) from public, anon, authent
 comment on function public.import_quo_texts(jsonb) is
   'One page of historical texts from Quo, as [{phone, body, sid, at, outgoing}].
    Returns how many were new.';
+
+-- ---------------------------------------------------------------------------
+-- 5. Repairing the messages imported before this file was right
+-- ---------------------------------------------------------------------------
+--
+-- The first version of this migration set sent_at and left created_at to its
+-- default of now(). sms_thread() orders on created_at and the bubble is
+-- stamped from created_at, so those rows are sitting in the table with the
+-- right time in a column nothing on the screen reads.
+--
+-- Re-pressing the button does not fix them. import_quo_text() deduplicates on
+-- provider_sid and skips a message it already has — which is the behaviour
+-- that makes the button safe to press twice, and exactly why it cannot
+-- correct its own earlier mistakes.
+--
+-- WHY THIS IS SAFE ON EVERY OTHER ROW. It touches only `inbound` and `app`
+-- messages — the two kinds the webhook and the importer write — and for a
+-- message that arrived live, when_ was now() and both columns were set to the
+-- same instant. So this is a no-op on every row except the ones it exists to
+-- fix. Everything the CRM itself sent is 'quote', 'manual', 'reminder' and so
+-- on, where sent_at is when Quo accepted it and created_at is when it was
+-- queued; those are two different facts and this does not touch them.
+create or replace function public.repair_imported_text_times()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n integer;
+begin
+  update public.sms_messages
+     set created_at = sent_at
+   where kind in ('inbound', 'app')
+     and sent_at is not null
+     -- Nothing to do for the overwhelming majority. Also what makes running
+     -- this a second time free.
+     and created_at is distinct from sent_at;
+
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
+revoke all on function public.repair_imported_text_times() from public, anon, authenticated;
+
+comment on function public.repair_imported_text_times() is
+  'Moves imported texts to the time they actually happened. Idempotent, and a
+   no-op on anything the CRM sent itself.';
+
+-- Run on apply, so re-running this file is the whole fix.
+do $$
+declare n integer;
+begin
+  n := public.repair_imported_text_times();
+  if n > 0 then
+    raise notice
+      '% imported message(s) moved to the time they actually happened.', n;
+  else
+    raise notice 'No imported messages needed their time corrected.';
+  end if;
+end $$;

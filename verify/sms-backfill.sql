@@ -469,6 +469,97 @@ begin
     'true precisely so this does not change');
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- 6. Repairing what the first version of this file got wrong
+-- ---------------------------------------------------------------------------
+--
+-- Those rows cannot fix themselves: import_quo_text() deduplicates on
+-- provider_sid, so pressing the button again skips them. The repair is what
+-- re-running the migration is for.
+
+do $$
+declare n int; r record;
+begin
+  perform pg_temp.reset();
+
+  -- Exactly what the first version wrote: the real time in sent_at, today in
+  -- created_at.
+  insert into public.sms_messages
+    (direction, phone, body, kind, status, provider_sid, created_at, sent_at)
+  values
+    ('in',  '+15415550101', 'Old reply', 'inbound', 'received', 'r-1',
+     now(), '2026-08-01T10:00:00Z'),
+    ('out', '+15415550101', 'Old send',  'app',     'sent',     'r-2',
+     now(), '2026-08-02T11:00:00Z');
+
+  -- And a message the CRM sent itself, where the two columns are two
+  -- different facts: queued at one time, accepted by Quo a moment later.
+  insert into public.sms_messages
+    (direction, phone, body, kind, status, provider_sid, created_at, sent_at)
+  values
+    ('out', '+15415550101', 'A quote', 'quote', 'sent', 'r-3',
+     '2026-09-01T09:00:00Z', '2026-09-01T09:00:04Z');
+
+  n := public.repair_imported_text_times();
+  perform pg_temp.chk('the repair reports what it moved', n = 2, n || ' rows');
+
+  select * into r from public.sms_messages where provider_sid = 'r-1';
+  perform pg_temp.chk(
+    'THE POINT: an already-imported reply is moved to when it happened',
+    r.created_at = '2026-08-01T10:00:00Z',
+    'created_at = ' || coalesce(r.created_at::text, 'null') || ' — these rows '
+    'cannot fix themselves: the importer skips a message it already has');
+
+  select * into r from public.sms_messages where provider_sid = 'r-2';
+  perform pg_temp.chk('...and so is an already-imported outgoing one',
+    r.created_at = '2026-08-02T11:00:00Z', coalesce(r.created_at::text, 'null'));
+
+  select * into r from public.sms_messages where provider_sid = 'r-3';
+  perform pg_temp.chk(
+    'THE POINT: a message the CRM sent itself is left alone',
+    r.created_at = '2026-09-01T09:00:00Z',
+    'created_at = ' || coalesce(r.created_at::text, 'null') || ' — for a CRM '
+    'send, created_at is when it was queued and sent_at is when Quo accepted '
+    'it. They are two facts, not one fact stored badly');
+
+  -- Running it again must find nothing, or it is not safe to leave in a
+  -- migration file somebody re-runs.
+  perform pg_temp.chk('running the repair again does nothing',
+    public.repair_imported_text_times() = 0);
+end $$;
+
+-- RE-RUNNING THE MIGRATION IS THE FIX, so that is what this checks.
+--
+-- Everything above calls repair_imported_text_times() directly, which proves
+-- the function works and says nothing about whether applying the file calls
+-- it. A mutation run deleted the call from the do-block at the end of
+-- db/sms-backfill.sql and every check still passed — while the instruction
+-- given to the person with the broken rows ("re-run the migration") had
+-- quietly stopped working.
+
+do $$
+begin
+  perform pg_temp.reset();
+  insert into public.sms_messages
+    (direction, phone, body, kind, status, provider_sid, created_at, sent_at)
+  values
+    ('in', '+15415550101', 'Needs moving', 'inbound', 'received', 'apply-1',
+     now(), '2026-07-04T12:00:00Z');
+end $$;
+
+\i db/sms-backfill.sql
+
+do $$
+declare r record;
+begin
+  select * into r from public.sms_messages where provider_sid = 'apply-1';
+  perform pg_temp.chk(
+    'THE POINT: applying the migration repairs the rows, without being asked twice',
+    r.created_at = '2026-07-04T12:00:00Z',
+    'created_at = ' || coalesce(r.created_at::text, 'null') || ' — "re-run '
+    'db/sms-backfill.sql" is the whole instruction, and it has to be true');
+end $$;
+
 do $$
 begin
   raise notice '';
