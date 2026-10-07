@@ -16,6 +16,7 @@
 import {
   default as handler,
   readCall,
+  redact,
   customerNumber,
   isCallCompleted,
   readNotes,
@@ -311,6 +312,129 @@ console.log("\n-- what was said on the call --\n");
     readNotes({ data: { resource: { callId: "AC-y" } } }).summary === null);
 }
 
+console.log("\n-- what Quo actually sends --\n");
+
+// THE PAYLOAD THAT WAS BEING THROWN AWAY.
+//
+// The call id here is NOT the real one. A Quo call id is `AC` plus 32 hex
+// characters, which is the shape of a Twilio Account SID — Quo runs on
+// Twilio — and GitHub's push protection rejects any push containing one.
+// It cannot tell a call id from an account credential, and this repository
+// is public. Pasting a real id back in from a log will block the push.
+//
+// Read off the live Netlify log on 6 Oct: `status: 'completed'`, and a
+// duration of null. db/call-tracking.sql had been matching the status
+// against a hand-written list of words that did not include that one, so
+// every call placed through Quo was dropped with a log line suggesting it
+// might have been a duplicate. Quo's own API, asked about the same call
+// afterwards, reports it as 17 seconds.
+{
+  const LIVE = {
+    type: "call.completed",
+    data: {
+      resource: {
+        id: "AC-example-call-id",
+        direction: "outgoing",
+        status: "completed",
+        createdAt: "2026-10-07T03:24:33.000Z",
+        answeredAt: "2026-10-07T03:24:43.413Z",
+        completedAt: "2026-10-07T03:25:00.413Z",
+        duration: null,
+      },
+      context: { participants: { workspace: ["+15417303593"], external: ["+14259513646"] } },
+    },
+  };
+
+  const evt = readCall(LIVE);
+
+  chk("THE POINT: an answeredAt is read as the answer",
+    evt.answered === true,
+    "the status is `completed` whether anybody picked up or not, so this " +
+      "field is the only thing that can tell those apart");
+
+  chk("THE POINT: a missing duration is derived from the two timestamps",
+    evt.duration === 17,
+    `duration = ${evt.duration} — call.completed fires before Quo has worked ` +
+      `out the length, so the gap between answeredAt and completedAt is it`);
+
+  chk("it is still treated as a completed call",
+    isCallCompleted(evt));
+
+  // THREE STATES. A missing field is not a "no".
+  const noField = readCall({
+    type: "call.completed",
+    data: { resource: { id: "AC-x", status: "completed", direction: "outgoing" } },
+  });
+  chk("THE POINT: a payload with no answeredAt field at all says 'unknown', not 'no'",
+    noField.answered === null,
+    `answered = ${noField.answered} — folding absent into false would mark ` +
+      `every older payload shape as nobody-answered`);
+
+  const nulled = readCall({
+    type: "call.completed",
+    data: { resource: { id: "AC-y", status: "completed", answeredAt: null, duration: 0 } },
+  });
+  chk("...while a present-but-null one is Quo saying nobody picked up",
+    nulled.answered === false,
+    `answered = ${nulled.answered}`);
+
+  // Quo's own duration wins when it has one.
+  const given = readCall({
+    type: "call.completed",
+    data: {
+      resource: {
+        id: "AC-z", status: "completed", duration: 42,
+        answeredAt: "2026-10-07T03:24:43.000Z",
+        completedAt: "2026-10-07T03:25:43.000Z",
+      },
+    },
+  });
+  chk("a duration Quo DID send is not second-guessed",
+    given.duration === 42,
+    `duration = ${given.duration} — the derived 60 would be the time the ` +
+      `call was up, not the time it was connected`);
+
+  // The fractional seconds that crashed the write.
+  const frac = readNotes({
+    type: "call.transcript.completed",
+    data: { resource: { callId: "AC-f", dialogue: [{ text: "hi" }], duration: 6.55675 } },
+  });
+  chk("THE POINT: a fractional duration is rounded to an integer",
+    frac.duration === 7,
+    "Quo sent `6.55675` and Postgres answered `invalid input syntax for " +
+      "type integer`, which took the transcript and the summary down with it");
+
+  chk("...and the call event rounds the same way",
+    readCall({ data: { resource: { id: "AC-g", duration: "12.4" } } }).duration === 12);
+}
+
+console.log("\n-- the log says what arrived, without the customer's number --\n");
+
+{
+  const masked = redact({
+    id: "AC-example-call-id",
+    status: "completed",
+    duration: null,
+    participants: ["+14259513646", "+1 (541) 730-3593"],
+    nested: { from: "4259513646" },
+  });
+
+  chk("THE POINT: phone numbers in a logged payload are cut to the last four",
+    !JSON.stringify(masked).includes("4259513646") &&
+      JSON.stringify(masked).includes("3646"),
+    JSON.stringify(masked));
+
+  chk("...in nested objects and arrays too",
+    masked.nested.from === "…3646" && masked.participants[1] === "…3593",
+    JSON.stringify(masked));
+
+  chk("an id is not a phone number and is left alone",
+    masked.id === "AC-example-call-id");
+
+  chk("and the shape survives, which is the point of printing it",
+    masked.status === "completed" && masked.duration === null);
+}
+
 console.log("\n-- the rules that must not break --\n");
 
 {
@@ -598,6 +722,114 @@ console.log("\n-- the endpoint refusing things, for real --\n");
   } finally {
     setEnv(keep.w, keep.c);
   }
+}
+
+console.log("\n-- what the database is actually told --\n");
+
+// THE ARGUMENTS, not the source text.
+//
+// A mutant that deleted `p_answered` from the rpc call survived every other
+// test in this file: the payload reader still produced the fact, the
+// database still knew what to do with it, and nothing checked that the two
+// were connected. The endpoint is bundled with db.mjs stubbed — the same
+// trick verify/sms-js.mjs uses — so the call can be inspected.
+{
+  const { build } = await import("esbuild");
+  const { mkdtempSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+
+  const dir = mkdtempSync(join(tmpdir(), "quocalls-"));
+  const out = "verify/.quo-calls-bundle.mjs";
+
+  await build({
+    entryPoints: [join(dir, "entry.js")],
+    bundle: true,
+    format: "esm",
+    platform: "node",
+    outfile: out,
+    plugins: [
+      {
+        name: "entry",
+        setup(b) {
+          b.onResolve({ filter: /entry\.js$/ }, (a) => ({ path: a.path, namespace: "e" }));
+          b.onLoad({ filter: /.*/, namespace: "e" }, () => ({
+            contents: `export { handleCallEvent } from "${process.cwd()}/netlify/functions/quo-calls.mjs";`,
+            loader: "js",
+            resolveDir: process.cwd(),
+          }));
+          b.onResolve({ filter: /db\.mjs$/ }, (a) => ({ path: a.path, namespace: "db" }));
+          b.onLoad({ filter: /.*/, namespace: "db" }, () => ({
+            contents:
+              "export async function rpc(fn, args) { (globalThis.__rpc ||= []).push({ fn, args }); return 1; }" +
+              "export async function rpcQuietly(fn, args) { return rpc(fn, args); }" +
+              "export function supabaseHeaders() { return {}; }",
+            loader: "js",
+          }));
+        },
+      },
+    ],
+    logLevel: "warning",
+  });
+
+  const { handleCallEvent: handle } = await import("./.quo-calls-bundle.mjs");
+
+  globalThis.__rpc = [];
+  const quiet = console.log;
+  console.log = () => {};
+  await handle({
+    type: "call.completed",
+    data: {
+      resource: {
+        id: "AC-args",
+        direction: "outgoing",
+        status: "completed",
+        answeredAt: "2026-10-07T03:24:43.000Z",
+        completedAt: "2026-10-07T03:25:00.000Z",
+        duration: null,
+      },
+      context: { participants: { external: ["+14259513646"] } },
+    },
+  });
+  console.log = quiet;
+
+  const call = globalThis.__rpc.find((c) => /record_quo_call/.test(c.fn));
+
+  chk("the webhook calls the recorder", Boolean(call),
+    "calls: " + globalThis.__rpc.map((c) => c.fn).join(", "));
+
+  chk("THE POINT: the answered fact reaches the database",
+    call?.args?.p_answered === true,
+    `p_answered = ${JSON.stringify(call?.args?.p_answered)} — the status is ` +
+      `'completed' either way, so without this the database has nothing to ` +
+      `tell a conversation from a phone nobody picked up`);
+
+  chk("...along with the duration it worked out",
+    call?.args?.p_duration === 17,
+    `p_duration = ${JSON.stringify(call?.args?.p_duration)}`);
+
+  chk("...and Quo's own status, unaltered",
+    call?.args?.p_status === "completed",
+    "the endpoint reports what arrived; db/call-outcome.sql decides what it means");
+
+  globalThis.__rpc = [];
+  await (async () => {
+    const q = console.log;
+    console.log = () => {};
+    await handle({
+      type: "call.completed",
+      data: { resource: { id: "AC-noanswer", direction: "outgoing", status: "completed",
+                          answeredAt: null, duration: 0 },
+              context: { participants: { external: ["+14259513646"] } } },
+    });
+    console.log = q;
+  })();
+  const second = globalThis.__rpc.find((c) => /record_quo_call/.test(c.fn));
+  chk("a call nobody answered says so, rather than saying nothing",
+    second?.args?.p_answered === false,
+    `p_answered = ${JSON.stringify(second?.args?.p_answered)}`);
+
+  delete globalThis.__rpc;
 }
 
 console.log(bad === 0 ? "\nall ok — only calls that happened, only to the right person\n"

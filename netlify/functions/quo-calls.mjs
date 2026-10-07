@@ -45,6 +45,33 @@ import { toE164 } from "../lib/sms.mjs";
  * events put it under `data.object`, so the two shapes are already live at
  * the same time and a parser that knows only one of them is already wrong.
  */
+function hasKey(obj, key) {
+  return Boolean(obj) && Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+/**
+ * The same object with every phone number cut down to its last four digits.
+ *
+ * Printed into a Netlify log, which is kept, searchable, and visible to
+ * anyone with access to the account. The field names and the shape are what
+ * is worth having there; the customer's number is not, and the rest of this
+ * codebase has always logged `who: '3646'` for the same reason.
+ *
+ * Seven digits is the shortest thing that could be a phone number and the
+ * longest thing that could not be anything else — an id like `AC96e3f2…` has
+ * letters in it and is left alone.
+ */
+export function redact(value) {
+  if (Array.isArray(value)) return value.map(redact);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, redact(v)]));
+  }
+  if (typeof value === "string" && /^\+?[\d\s()-]{7,}$/.test(value)) {
+    return `…${value.replace(/\D/g, "").slice(-4)}`;
+  }
+  return value;
+}
+
 export function readCall(payload) {
   const type = payload?.type || payload?.event || null;
   const data = payload?.data || payload || {};
@@ -63,12 +90,41 @@ export function readCall(payload) {
 
   const status = obj.status || null;
 
+  // DID SOMEBODY PICK UP. The one fact that survives Quo renaming a status.
+  //
+  // `completed` is what Quo sends when a call ends, whether anybody answered
+  // it or not — the live webhook, the whole time, has been sending
+  // `status: 'completed', duration: null` for calls that were real
+  // seventeen-second conversations. There is nothing in the status to read.
+  //
+  // THREE STATES, not two. A missing answeredAt FIELD is "the payload did
+  // not say"; a present-but-null one is Quo saying nobody picked up. Folding
+  // those together would turn every older payload shape into "not answered"
+  // and bury the real calls in it.
+  const answered = hasKey(obj, "answeredAt") ? Boolean(obj.answeredAt) : null;
+
   // Seconds. Number() rather than trusting it: a string "55" compares
   // false against every numeric threshold and would silently turn a real
   // conversation into "no answer".
   const rawDuration = obj.duration ?? obj.durationSeconds ?? null;
-  const duration =
+  let duration =
     rawDuration == null || rawDuration === "" ? null : Number(rawDuration);
+
+  // DERIVED WHEN QUO HAS NOT WORKED IT OUT YET, which on this account is
+  // every call: call.completed fires the moment the call ends and carries a
+  // null duration, while the same call read back from the API a minute later
+  // reports 17s. The two timestamps are both in the payload, and the gap
+  // between them is the call.
+  if (!Number.isFinite(duration) && obj.answeredAt && obj.completedAt) {
+    const span = (Date.parse(obj.completedAt) - Date.parse(obj.answeredAt)) / 1000;
+    if (Number.isFinite(span) && span >= 0) duration = span;
+  }
+
+  // ROUNDED. The database column is an integer and Quo sends fractions —
+  // a transcript arrived with `duration: 6.55675` and Postgres rejected the
+  // whole write with `invalid input syntax for type integer`, which took the
+  // summary down with it.
+  if (Number.isFinite(duration)) duration = Math.round(duration);
 
   // WHEN IT HAPPENED, not when this request arrived.
   //
@@ -85,6 +141,7 @@ export function readCall(payload) {
     direction,
     status,
     duration: Number.isFinite(duration) ? duration : null,
+    answered,
     at,
     phone: customerNumber(obj, ctx),
     raw: obj,
@@ -159,11 +216,14 @@ export function readNotes(payload) {
     summary: asArray(obj.summary),
     nextSteps: asArray(obj.nextSteps ?? obj.next_steps),
     dialogue: Array.isArray(obj.dialogue) ? obj.dialogue : null,
+    // ROUNDED, because call_notes.duration_seconds is an integer and Quo
+    // sends fractional seconds on the transcript event. `6.55675` took down
+    // the entire write with "invalid input syntax for type integer".
     duration:
       obj.duration == null || obj.duration === ""
         ? null
         : Number.isFinite(Number(obj.duration))
-          ? Number(obj.duration)
+          ? Math.round(Number(obj.duration))
           : null,
   };
 }
@@ -245,6 +305,7 @@ export async function handleCallEvent(payload) {
     direction: evt.direction,
     status: evt.status,
     duration: evt.duration,
+    answered: evt.answered,
     // Last four only, the way the rest of this codebase logs numbers.
     who: evt.phone ? String(evt.phone).slice(-4) : null,
   };
@@ -338,6 +399,9 @@ export async function handleCallEvent(payload) {
       p_status: evt.status,
       p_duration: evt.duration,
       p_at: evt.at,
+      // The fact, not the word. db/call-outcome.sql reads this before it
+      // reads the status, because the status is `completed` either way.
+      p_answered: evt.answered,
     });
 
     if (id) {
@@ -357,7 +421,19 @@ export async function handleCallEvent(payload) {
       console.log(
         "[quo-calls] NOT recorded — either a repeat, an outcome we don't log, " +
           "or a number with no lead or customer in the CRM",
-        seen
+        seen,
+        // THE WHOLE RESOURCE, on this branch only.
+        //
+        // This is the branch that was wrong for a month, and the reason it
+        // took a month is that the log printed the six fields this code had
+        // decided to care about — so a status it did not recognise looked
+        // exactly like a duplicate. On the one branch where the CRM has
+        // declined to write something down, print what arrived instead of a
+        // summary of it.
+        //
+        // Numbers are masked: a Netlify log is not a place to keep a
+        // customer list.
+        { payload: redact(evt.raw) }
       );
     }
   } catch (err) {
