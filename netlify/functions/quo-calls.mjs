@@ -127,6 +127,54 @@ export function customerNumber(obj, ctx = {}) {
 }
 
 /**
+ * The AI summary of a call, or its transcript.
+ *
+ * Both arrive on the SAME subscription as call.completed — Quo replaced its
+ * four per-type webhook endpoints with one unified create, so a single
+ * subscription pointed at this URL carries all three with one signing
+ * secret. That is why they are handled here rather than in an endpoint of
+ * their own.
+ *
+ * `callId`, not `id`. The resource IS the summary; the call it belongs to
+ * is named separately, and reading `id` here would attach every summary to
+ * nothing.
+ */
+export function readNotes(payload) {
+  const type = payload?.type || payload?.event || null;
+  const data = payload?.data || payload || {};
+  const obj = data.resource || data.object || data || {};
+
+  const asArray = (v) =>
+    v == null ? null : Array.isArray(v) ? v.filter(Boolean) : [String(v)];
+
+  return {
+    type,
+    callId: obj.callId || obj.call_id || null,
+    // 'absent' | 'in-progress' | 'completed' | 'failed'. Anything other
+    // than completed carries null content, and recording it would make a
+    // call look summarised when it is not.
+    status: obj.processingStatus || obj.status || null,
+    summary: asArray(obj.summary),
+    nextSteps: asArray(obj.nextSteps ?? obj.next_steps),
+    dialogue: Array.isArray(obj.dialogue) ? obj.dialogue : null,
+    duration:
+      obj.duration == null || obj.duration === ""
+        ? null
+        : Number.isFinite(Number(obj.duration))
+          ? Number(obj.duration)
+          : null,
+  };
+}
+
+export function isSummary(type) {
+  return /^call\.summary\.completed$/.test(String(type || "").toLowerCase());
+}
+
+export function isTranscript(type) {
+  return /^call\.transcript\.completed$/.test(String(type || "").toLowerCase());
+}
+
+/**
  * Is this the event we subscribed to?
  *
  * `call.completed` is the only one with a terminal status and a duration on
@@ -225,6 +273,62 @@ export default async (req) => {
     who: evt.phone ? String(evt.phone).slice(-4) : null,
   };
 
+  // The summary and the transcript, before the completed-call branch.
+  //
+  // isCallCompleted() deliberately excludes them — they are completions of
+  // a recording, not of a call, and treating one as a call would write a
+  // second row for a call already on the timeline. They have their own
+  // handling because they carry their own content.
+  if (isSummary(evt.type) || isTranscript(evt.type)) {
+    const note = readNotes(payload);
+    const kind = isSummary(evt.type) ? "summary" : "transcript";
+
+    if (!note.callId) {
+      console.warn(`[quo-calls] a ${kind} with no callId`, { type: evt.type });
+      return new Response(null, { status: 200 });
+    }
+
+    // Quo publishes the event for every processing state, and only
+    // 'completed' carries words. The rest are progress reports.
+    if (note.status && String(note.status).toLowerCase() !== "completed") {
+      console.log(`[quo-calls] ${kind} not ready`, {
+        callId: note.callId,
+        status: note.status,
+      });
+      return new Response(null, { status: 200 });
+    }
+
+    try {
+      const attached = isSummary(evt.type)
+        ? await rpc("record_call_summary", {
+            p_call_id: note.callId,
+            p_summary: note.summary,
+            p_next: note.nextSteps,
+          })
+        : await rpc("record_call_transcript", {
+            p_call_id: note.callId,
+            p_dialogue: note.dialogue,
+            p_duration: note.duration,
+          });
+
+      console.log(
+        attached
+          ? `[quo-calls] ${kind} attached to the call`
+          : `[quo-calls] ${kind} kept, but no call row to show it on yet`,
+        {
+          callId: note.callId,
+          lines: note.summary?.length ?? note.dialogue?.length ?? 0,
+        }
+      );
+    } catch (err) {
+      // Most likely db/call-notes.sql has not been run. Named rather than
+      // buried, because that is a one-line fix and otherwise a mystery.
+      console.error(`[quo-calls] could not record a ${kind}`, err);
+    }
+
+    return new Response(null, { status: 200 });
+  }
+
   if (!isCallCompleted(evt)) {
     // A ringing or answered event for a call still in progress, or a
     // recording/transcript/summary completion. Ordinary — one subscription
@@ -246,7 +350,12 @@ export default async (req) => {
   }
 
   try {
-    const id = await rpc("record_quo_call", {
+    // record_quo_call_with_notes, not record_quo_call: a summary can reach
+    // us BEFORE the call.completed that creates the row, and the plain
+    // function would then write "4m 12s" over the top of it. The wrapper
+    // does what it always did and puts the notes back on afterwards. See
+    // db/call-notes.sql.
+    const id = await rpc("record_quo_call_with_notes", {
       p_call_id: evt.id,
       p_phone: evt.phone,
       p_direction: evt.direction,

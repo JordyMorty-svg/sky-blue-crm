@@ -13,7 +13,14 @@
 // a stranger; and an endpoint that skips the signature lets anyone who
 // learns the URL invent a call history.
 
-import { readCall, customerNumber, isCallCompleted } from "../netlify/functions/quo-calls.mjs";
+import {
+  readCall,
+  customerNumber,
+  isCallCompleted,
+  readNotes,
+  isSummary,
+  isTranscript,
+} from "../netlify/functions/quo-calls.mjs";
 
 let bad = 0;
 const chk = (what, pass, detail = "") => {
@@ -208,6 +215,101 @@ console.log("\n-- which events are ours --\n");
     !isCallCompleted(readCall({ type: "message.delivered", data: { object: { id: "m1" } } })));
 }
 
+console.log("\n-- what was said on the call --\n");
+//
+// Quo's AI summary and the transcript arrive on the SAME subscription as
+// call.completed — the four per-type webhook endpoints were replaced by one
+// unified create, so one subscription carries all three under one signing
+// secret. Which is why they are parsed here rather than in an endpoint of
+// their own.
+
+{
+  const SUMMARY = {
+    type: "call.summary.completed",
+    data: {
+      resource: {
+        callId: "AC-summary",
+        processingStatus: "completed",
+        summary: ["Customer asked for pricing details."],
+        nextSteps: ["Send follow-up email."],
+      },
+    },
+  };
+
+  const n = readNotes(SUMMARY);
+
+  // callId, NOT id. The resource IS the summary; the call it belongs to is
+  // named separately. Reading `id` here attaches every summary to nothing,
+  // and nothing is exactly what that failure looks like.
+  chk("THE POINT: a summary is keyed on callId, not on its own id",
+    n.callId === "AC-summary",
+    `${n.callId} — this is the id contact_log already stores as ` +
+      `provider_call_id, which is what makes the summary land on the call`);
+
+  chk("...carrying the words", n.summary?.[0] === "Customer asked for pricing details.");
+  chk("...and the action items", n.nextSteps?.[0] === "Send follow-up email.");
+  chk("...and whether it finished processing", n.status === "completed");
+
+  chk("a summary event is recognised",
+    isSummary(SUMMARY.type) && !isTranscript(SUMMARY.type));
+
+  // THE EXCLUSION THAT MATTERS. A summary is a completion — of a
+  // recording, not of a call — and treating it as a completed call would
+  // write a second row for a call already on the timeline.
+  chk("THE POINT: a summary is NOT a completed call",
+    !isCallCompleted(readCall(SUMMARY)),
+    "it would otherwise write a second row for a call already logged");
+
+  const TRANSCRIPT = {
+    type: "call.transcript.completed",
+    data: {
+      resource: {
+        callId: "AC-transcript",
+        duration: 42,
+        processingStatus: "completed",
+        dialogue: [
+          { userId: "US123", identifier: null, content: "Thanks for calling", start: 0, end: 3 },
+          { userId: null, identifier: "+15550000002", content: "Hi, about pricing", start: 3, end: 7 },
+        ],
+      },
+    },
+  };
+
+  const t = readNotes(TRANSCRIPT);
+  chk("a transcript is recognised, and is not a summary",
+    isTranscript(TRANSCRIPT.type) && !isSummary(TRANSCRIPT.type));
+  chk("...with both sides of the dialogue", t.dialogue?.length === 2);
+  chk("...and the duration as a number", t.duration === 42);
+  chk("THE POINT: a transcript is NOT a completed call either",
+    !isCallCompleted(readCall(TRANSCRIPT)));
+
+  // Quo publishes the event for every processing state and only
+  // 'completed' carries words. The rest are progress reports, and storing
+  // one would make a call look summarised when it is not.
+  for (const status of ["absent", "in-progress", "failed"]) {
+    const part = readNotes({
+      type: "call.summary.completed",
+      data: { resource: { callId: "AC-x", processingStatus: status, summary: null } },
+    });
+    chk(`a summary still ${status} carries no words`,
+      part.status === status && part.summary === null);
+  }
+
+  // The older payload shape, the way readCall handles both.
+  const legacy = readNotes({
+    type: "call.summary.completed",
+    data: { object: { callId: "AC-old", summary: "One sentence, not an array." } },
+  });
+  chk("data.object is read too", legacy.callId === "AC-old");
+  chk("THE POINT: a bare string summary becomes a one-item array",
+    Array.isArray(legacy.summary) && legacy.summary[0] === "One sentence, not an array.",
+    "the database column is text[]; a raw string would be rejected and the " +
+      "summary lost for a payload shape Quo has already used once");
+
+  chk("a summary with no content at all is empty, not a crash",
+    readNotes({ data: { resource: { callId: "AC-y" } } }).summary === null);
+}
+
 console.log("\n-- the rules that must not break --\n");
 
 {
@@ -244,9 +346,12 @@ console.log("\n-- the rules that must not break --\n");
     "a 200 here would have Quo believe the event was handled and never resend it");
 
   // The signature check must come before anything is believed. Matched on
-  // the position of the RPC, not on the presence of the call: a verifier
-  // that runs after the write is not a verifier.
-  const write = src.indexOf('rpc("record_quo_call"');
+  // the position of the FIRST rpc call, not on one function's name: the
+  // handler now writes through record_quo_call_with_notes, record_call_
+  // summary and record_call_transcript, and an assertion naming one of them
+  // went quietly false the moment that one was renamed — indexOf returned
+  // -1, and -1 is before everything.
+  const write = src.search(/\brpc\(\s*"/);
   chk("THE POINT: nothing is written before the signature is checked",
     verify > -1 && write > -1 && verify < write);
 
