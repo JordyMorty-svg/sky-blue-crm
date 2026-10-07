@@ -134,6 +134,7 @@ export default function LeadComms() {
 
       <TextThread
         phone={lead.phone}
+        theirName={lead.name}
         leadId={id}
         // A text writes a contact_log row and bumps last_contacted_at, both
         // of which are on screen above and below. Without the reload they
@@ -156,7 +157,7 @@ export default function LeadComms() {
         ) : (
           <ol className="comms__timeline">
             {rows.map((row, i) => {
-              const { title, meta, tone } = describeEvent(row, statusLabel);
+              const { title, meta, tone } = describeEvent(row, statusLabel, lead.name);
               return (
                 <li
                   className={`comms__event comms__event--${tone}`}

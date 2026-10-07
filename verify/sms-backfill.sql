@@ -92,6 +92,72 @@ begin
     'replied today" about an August message is the kind of wrong somebody acts on');
 end $$;
 
+-- THE THREAD ITSELF, not the columns underneath it.
+--
+-- This is the check that caught the bug this whole migration exists to
+-- prevent, after the migration had already shipped. p_at was being written
+-- to sms_messages.sent_at — and sms_thread() orders on created_at, and the
+-- bubble is stamped from created_at. So an August reply imported perfectly
+-- still appeared at the bottom of the thread, dated today.
+--
+-- Every assertion above passed. They were all reading the column the import
+-- wrote instead of the column the screen reads. Asking sms_thread() is the
+-- only way to test the thing anybody actually looks at.
+do $$
+declare first_body text; second_body text; first_at timestamptz; n int;
+begin
+  if to_regproc('public.sms_thread') is null then
+    raise exception 'Run db/sms-thread.sql before this file.';
+  end if;
+
+  perform pg_temp.reset();
+
+  -- Inserted NEWEST FIRST, deliberately. Inserted in date order the rows
+  -- come back in the right order whatever column is used to sort them, and
+  -- the bug hides.
+  -- BOTH DIRECTIONS among the old ones, because the two recorders insert
+  -- separately and a test with only one of them leaves the other free to
+  -- regress. The outgoing case in particular hid behind a "today" message
+  -- whose import time and real time were the same.
+  perform public.import_quo_text('+15415550101', 'Typed today', 'QM-t-new',
+    now(), true);
+  perform public.import_quo_text('+15415550101', 'Replied in August', 'QM-t-old',
+    '2026-08-01T10:00:00Z', false);
+  perform public.import_quo_text('+15415550101', 'Sent in July', 'QM-t-older',
+    '2026-07-01T10:00:00Z', true);
+
+  select body into second_body from (
+    select body, row_number() over () as rn
+      from public.sms_thread('+15415550101', 50)
+  ) t where rn = 2;
+
+  select body, created_at into first_body, first_at
+    from public.sms_thread('+15415550101', 50) limit 1;
+
+  perform pg_temp.chk(
+    'THE POINT: an imported message WE sent sorts by when it happened',
+    first_body = 'Sent in July',
+    'the thread opens with "' || coalesce(first_body, 'null') || '" — the '
+    'outgoing recorder has its own insert, and a test that only covers '
+    'replies leaves it free to regress');
+
+  perform pg_temp.chk(
+    'THE POINT: and so does one they sent',
+    second_body = 'Replied in August',
+    'the thread opens with "' || coalesce(first_body, 'null') || '" — sms_thread() '
+    'orders on created_at, so writing only sent_at leaves every imported '
+    'message at the bottom of the conversation');
+
+  perform pg_temp.chk(
+    'THE POINT: ...and carries the date the thread will show',
+    first_at = '2026-07-01T10:00:00Z',
+    'created_at = ' || coalesce(first_at::text, 'null') || ' — the bubble is '
+    'stamped from this column, not from sent_at');
+
+  select count(*) into n from public.sms_thread('+15415550101', 50);
+  perform pg_temp.chk('...with all three messages in the thread', n = 3, n || ' rows');
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- 2. Again: importing twice changes nothing
 -- ---------------------------------------------------------------------------
@@ -251,6 +317,56 @@ begin
 
   select count(*) into n from public.sms_messages where provider_sid in ('QM-empty', 'QM-blank');
   perform pg_temp.chk('...leaving nothing behind', n = 0, n || ' rows');
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 3b. WHERE IT LANDS IN THE THREAD
+-- ---------------------------------------------------------------------------
+--
+-- THE CHECK THAT CAUGHT THE REAL BUG, and it only caught it because it calls
+-- sms_thread() instead of reading the row back.
+--
+-- The first version of this migration set sent_at and left created_at to its
+-- default of now(). Every assertion above passed. But sms_thread() ORDERS ON
+-- created_at and the bubble is STAMPED from created_at — so an August reply
+-- still appeared at the bottom of the conversation with today's date on it,
+-- which is the exact symptom the whole migration was written to prevent.
+--
+-- Reading a column back proves the column was written. Only asking the
+-- screen's own query proves the screen is right.
+
+do $$
+declare r record; n int;
+begin
+  if to_regproc('public.sms_thread') is null then
+    raise exception 'Run db/sms-thread.sql before this file — these checks use it.';
+  end if;
+
+  perform pg_temp.reset();
+
+  -- Written in the wrong order on purpose: newest first, oldest second, the
+  -- way an import actually arrives behind messages the CRM already had.
+  perform public.import_quo_text('+15415550101', 'TODAY', 's-new', now(), true);
+  perform public.import_quo_text('+15415550101', 'AUGUST', 's-old',
+    '2026-08-01T10:00:00Z', false);
+
+  select count(*) into n from public.sms_thread('+15415550101', 50);
+  perform pg_temp.chk('both messages are in the thread', n = 2, n || ' rows');
+
+  select * into r from public.sms_thread('+15415550101', 50) limit 1;
+
+  perform pg_temp.chk(
+    'THE POINT: the older message comes FIRST in the thread',
+    r.body = 'AUGUST',
+    'first row is "' || coalesce(r.body, 'null') || '" — inserted second, so '
+    'anything ordering on insertion time puts it last');
+
+  perform pg_temp.chk(
+    'THE POINT: ...and carries the date it actually happened',
+    r.created_at = '2026-08-01T10:00:00Z',
+    'created_at = ' || coalesce(r.created_at::text, 'null') || ' — this is the '
+    'column the thread orders on AND the one the bubble is stamped from. '
+    'Setting only sent_at fixes a column nothing on the screen reads');
 end $$;
 
 -- ---------------------------------------------------------------------------

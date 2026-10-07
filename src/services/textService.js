@@ -5,6 +5,12 @@ import { supabase } from "../supabaseClient";
 // person typing can see the answer to and will notice disagreeing with the
 // bill. gsm.mjs imports nothing, so this pulls no server code in with it.
 import { segmentsFor } from "../../netlify/lib/gsm.mjs";
+// Imported AND re-exported. A bare `export { firstName } from "./names"`
+// would satisfy every importer of this module and leave describeMessage()
+// below calling an undefined name at runtime — the same trap that broke
+// sms-inbound.mjs when signatureValid moved to webhooks.mjs.
+import { firstName } from "./names";
+export { firstName };
 
 /**
  * Reading and writing one text conversation.
@@ -94,15 +100,26 @@ const AUTOMATIC = new Set([
   "nudge_booked",
 ]);
 
-export function describeMessage(row) {
+export function describeMessage(row, theirName = null) {
   const mine = row.direction === "out";
 
   return {
     mine,
-    // Who said it. "Them" is deliberately not the customer's name: the panel
-    // is already on their record and repeating it on every other bubble is
-    // noise.
-    who: mine ? row.sent_by || (AUTOMATIC.has(row.kind) ? "Automatic" : "Sky Blue") : "Them",
+    // Who said it.
+    //
+    // THEIR NAME WHEN WE HAVE IT. The first version said "Them" on every
+    // incoming bubble, on the reasoning that the panel is already on their
+    // record. That reasoning held while a thread was one person's record —
+    // it stopped holding the moment the thread became the PHONE NUMBER, and
+    // one number is routinely a lead from April, a second lead from June,
+    // and a customer. "Them" on a conversation that spans three records does
+    // not say which of them you are reading.
+    //
+    // FIRST NAME ONLY. "Dana" is how somebody refers to a customer out loud;
+    // "Dana Reyes" above every other line is a database field on a screen.
+    who: mine
+      ? row.sent_by || (AUTOMATIC.has(row.kind) ? "Automatic" : "Sky Blue")
+      : firstName(theirName) || "Them",
     // An automatic message looks different on purpose. Reading back a
     // conversation, the difference between "Hayden wrote this" and "the
     // nightly run wrote this" changes what you say next, and the two are
@@ -111,6 +128,7 @@ export function describeMessage(row) {
     state: deliveryState(row),
   };
 }
+
 
 /**
  * What the little line under an outgoing bubble says.

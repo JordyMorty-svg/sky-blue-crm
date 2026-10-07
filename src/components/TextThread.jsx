@@ -27,6 +27,9 @@ import "./TextThread.css";
  */
 export default function TextThread({
   phone,
+  // Whose conversation this is, for the label under their bubbles. Optional:
+  // a record with no name still gets a readable thread, it just says "Them".
+  theirName = null,
   leadId = null,
   customerId = null,
   // Sending a text writes a contact_log row, which the history panel on the
@@ -222,7 +225,9 @@ export default function TextThread({
                 the Quo app will show up.
               </p>
             ) : (
-              rows.map((row) => <Bubble key={row.id} row={row} />)
+              rows.map((row) => (
+                <Bubble key={row.id} row={row} theirName={theirName} />
+              ))
             )}
           </div>
 
@@ -280,8 +285,8 @@ export default function TextThread({
   );
 }
 
-function Bubble({ row }) {
-  const { mine, who, automatic, state } = describeMessage(row);
+function Bubble({ row, theirName }) {
+  const { mine, who, automatic, state } = describeMessage(row, theirName);
 
   return (
     <div className={`thread__row ${mine ? "thread__row--mine" : "thread__row--theirs"}`}>

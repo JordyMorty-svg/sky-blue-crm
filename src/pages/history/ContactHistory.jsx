@@ -209,7 +209,7 @@ export default function ContactHistory() {
       ) : (
         <ol className="chist__timeline">
           {rows.map((row, i) => {
-            const { title, meta, tone } = describeEvent(row, statusLabel);
+            const { title, meta, tone } = describeEvent(row, statusLabel, person?.name);
             return (
               <li
                 className={`chist__event chist__event--${tone}`}

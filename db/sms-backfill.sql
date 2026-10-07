@@ -76,10 +76,23 @@ begin
   who := public.sb_contact_for_phone(p_phone);
 
   insert into public.sms_messages (
-    direction, phone, body, kind, lead_id, customer_id, status, provider_sid, sent_at
+    direction, phone, body, kind, lead_id, customer_id, status, provider_sid,
+    -- BOTH COLUMNS, and getting this wrong is the whole feature.
+    --
+    -- sms_thread() orders on created_at and the bubble is stamped from
+    -- created_at. Setting only sent_at fixes a column nothing on the screen
+    -- reads: every imported message still appears at the bottom of the
+    -- thread with today's date on it, which is precisely the symptom this
+    -- migration was written to prevent. Caught by running sms_thread()
+    -- against an import rather than by reading the insert.
+    --
+    -- created_at defaults to now(), and for a live message when_ IS now(),
+    -- so the live path is unchanged.
+    created_at, sent_at
   )
   values (
-    'in', e164, p_body, 'inbound', who.lead_id, who.customer_id, 'received', p_sid, when_
+    'in', e164, p_body, 'inbound', who.lead_id, who.customer_id, 'received', p_sid,
+    when_, when_
   )
   -- THE LINE THAT WAS MISSING. db/sms-app-messages.sql made provider_sid
   -- unique precisely so a retry could not duplicate a message, and then this
@@ -141,10 +154,13 @@ begin
   who := public.sb_contact_for_phone(p_phone);
 
   insert into public.sms_messages (
-    direction, phone, body, kind, lead_id, customer_id, status, provider_sid, sent_at
+    direction, phone, body, kind, lead_id, customer_id, status, provider_sid,
+    -- See record_inbound_sms above: the thread reads created_at, not sent_at.
+    created_at, sent_at
   )
   values (
-    'out', e164, p_body, 'app', who.lead_id, who.customer_id, 'sent', p_sid, when_
+    'out', e164, p_body, 'app', who.lead_id, who.customer_id, 'sent', p_sid,
+    when_, when_
   )
   on conflict (provider_sid) where provider_sid is not null do nothing
   returning sms_messages.id into new_id;

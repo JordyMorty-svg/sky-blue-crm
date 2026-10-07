@@ -116,6 +116,7 @@ export default function CustomerComms() {
 
       <TextThread
         phone={customer.phone}
+        theirName={customer.name}
         customerId={id}
         // A text writes a contact_log row and bumps last_contacted_at, both
         // of which are on screen above and below.
@@ -137,7 +138,7 @@ export default function CustomerComms() {
         ) : (
           <ol className="comms__timeline">
             {rows.map((row, i) => {
-              const { title, meta, tone } = describeEvent(row, statusLabel);
+              const { title, meta, tone } = describeEvent(row, statusLabel, customer.name);
               return (
                 <li
                   className={`comms__event comms__event--${tone}`}

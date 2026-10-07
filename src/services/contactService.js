@@ -1,4 +1,6 @@
 import { supabase } from "../supabaseClient";
+// One copy, shared with textService.js — see src/services/names.js.
+import { firstName } from "./names";
 import { planFor } from "./leadService";
 
 /**
@@ -45,6 +47,26 @@ export async function recordContact({
 // The SQL returns raw values and the labels live here, the same way
 // SERVICE_PLANS owns plan wording. Renaming "Booked" is a one-line change
 // rather than a migration.
+
+// THE ROWS THAT ARE ABOUT THEM, NOT ABOUT US.
+//
+// Three kinds on this timeline describe something the customer did, and all
+// three used to say "they". That reads fine on a page you opened on purpose
+// and badly everywhere else: the thread is keyed on the PHONE NUMBER, so one
+// conversation is routinely a lead from April, a second lead from June and a
+// customer — and "They called" does not say which of them called.
+//
+// Functions rather than strings because the possessive does not fit a
+// template: "Dana called" and "Missed Dana's call" need different shapes, and
+// a single "{name}" placeholder would have produced "Missed Dana call".
+//
+// Each falls back to the original wording when there is no name, which is an
+// ordinary state — a lead from the website form with a number and nothing else.
+const THEIR_SIDE = {
+  call_in: (who) => (who ? `${who} called` : "They called"),
+  call_missed: (who) => (who ? `Missed ${who}'s call` : "Missed their call"),
+  text_in: (who) => (who ? `${who} replied` : "They replied"),
+};
 
 const CONTACT_KINDS = {
   // A call somebody actually had. Since db/call-tracking.sql this is the
@@ -110,14 +132,16 @@ function titleCase(s) {
  * counts as a money event versus context, so the page doesn't have to know
  * anything about event kinds.
  */
-export function describeEvent(row, statusLabel = titleCase) {
+export function describeEvent(row, statusLabel = titleCase, theirName = null) {
   const move =
     row.from_status && row.to_status
       ? `${statusLabel(row.from_status)} → ${statusLabel(row.to_status)}`
       : null;
 
   if (row.source === "contact") {
-    const base = CONTACT_KINDS[row.kind] || titleCase(row.kind);
+    const who = firstName(theirName);
+    const base =
+      THEIR_SIDE[row.kind]?.(who) || CONTACT_KINDS[row.kind] || titleCase(row.kind);
     return {
       // A call that also moved the lead says so on the same line, because it
       // was one action — see the from_status/to_status columns on contact_log.
