@@ -244,8 +244,35 @@ const SHELL = (css, js) => `<!doctype html><html><head><style>
 </style></head><body><div id="root"></div><script>${js}</script></body></html>`;
 
 const measured = {};
+const built = {};
 
-for (const [name, cfg] of Object.entries(PAGES)) {
+/**
+ * Bundle a page and collect the CSS **esbuild emits**, not a list typed here.
+ *
+ * THE HARNESS USED TO HAND-ASSEMBLE THE STYLESHEETS, in six places, and it
+ * got it wrong twice.
+ *
+ * First src/index.css was missing, so `box-sizing: border-box` was missing
+ * with it — `min-height: 44px` applied to the content box, the padding was
+ * added on top, and the Call button measured 66px and rendered as a ball.
+ * Then CallBar arrived and one of the six lists kept TextThread.css while
+ * another dropped it, so a screenshot went out showing the whole message
+ * thread with no styling at all — unstyled, in a picture sent to Jordan as
+ * evidence that the page looked right.
+ *
+ * The app was fine both times. The harness was lying, which is worse: a
+ * screenshot is the one artefact nobody re-checks.
+ *
+ * So the list is gone. Each component already does `import "./X.css"`, and
+ * with the default loader esbuild follows those imports and writes one
+ * stylesheet next to the bundle — exactly what Vite does for the real app.
+ * Adding a stylesheet to a component now needs no change here at all.
+ *
+ * index.css is the one exception, because main.jsx imports it and main.jsx
+ * is not part of any page bundle. It goes first, as the reset must.
+ */
+async function bundlePage(name, entry) {
+  if (built[name]) return built[name];
   const out = join(dir, `${name}.js`);
   await build({
     entryPoints: ["virtual-entry"],
@@ -255,25 +282,20 @@ for (const [name, cfg] of Object.entries(PAGES)) {
     outfile: out,
     jsx: "automatic",
     logLevel: "error",
-    loader: { ".css": "text" },
-    plugins: [STUBS(cfg.entry)],
+    plugins: [STUBS(entry)],
   });
 
-  const js = readFileSync(out, "utf8");
-  // index.css FIRST, and leaving it out is not a detail.
-  //
-  // It carries the global reset, and `box-sizing: border-box` with it.
-  // Without that, `min-height: 44px` applies to the CONTENT box and the
-  // padding is added on top — so the Call button measured 66px tall and
-  // border-radius:999px rounded it into a ball. The app was fine; the
-  // harness was lying, which is the worse of the two.
-  const css =
-    readFileSync("src/index.css", "utf8") +
-    readFileSync("src/pages/leads/LeadDetail.css", "utf8") +
-    readFileSync("src/pages/leads/LeadComms.css", "utf8") +
-    readFileSync("src/components/RecordTabs.css", "utf8") +
-    readFileSync("src/components/CallBar.css", "utf8") +
-    readFileSync("src/components/TextThread.css", "utf8");
+  built[name] = {
+    js: readFileSync(out, "utf8"),
+    css:
+      readFileSync("src/index.css", "utf8") +
+      readFileSync(out.replace(/\.js$/, ".css"), "utf8"),
+  };
+  return built[name];
+}
+
+for (const [name, cfg] of Object.entries(PAGES)) {
+  const { js, css } = await bundlePage(name, cfg.entry);
 
   for (const width of [390, 1100]) {
     const page = await browser.newPage({ viewport: { width, height: 1100 } });
@@ -301,6 +323,25 @@ for (const [name, cfg] of Object.entries(PAGES)) {
           ? Math.round(r(document.querySelector(".callbar__call")).height) : null,
         commsRows: document.querySelectorAll(".comms__timeline li").length,
         bubbles: document.querySelectorAll(".thread__bubble").length,
+        // IS ANYTHING ACTUALLY STYLED?
+        //
+        // The backstop for the whole class of harness bug above. A missing
+        // stylesheet does not throw and does not fail any assertion about
+        // text or structure — the page renders, the words are all there,
+        // and it is only a screenshot that shows browser defaults. Every
+        // one of these elements has a border-radius in its own stylesheet,
+        // so a zero means that stylesheet never arrived.
+        unstyled: [
+          [".rectabs__tab", document.querySelector(".rectabs__tab")],
+          [".callbar__call", document.querySelector(".callbar__call")],
+          [".thread__bubble", document.querySelector(".thread__bubble")],
+          [".thread__input", document.querySelector(".thread__input")],
+          [".thread__send", document.querySelector(".thread__send")],
+        ]
+          .filter(([, el]) => el)
+          .filter(([, el]) => parseFloat(getComputedStyle(el).borderRadius) === 0)
+          .map(([sel]) => sel),
+
         shortTaps: [...document.querySelectorAll("button, a")]
           .filter((el) => {
             const b = r(el);
@@ -314,6 +355,11 @@ for (const [name, cfg] of Object.entries(PAGES)) {
 
     measured[`${name}-${width}`] = m;
     chk(`${name} @${width} — nothing overflows sideways`, m.docW <= m.winW, `${m.docW} > ${m.winW}`);
+
+    chk(`${name} @${width} — THE POINT: everything on screen is actually styled`,
+      m.unstyled.length === 0,
+      `${m.unstyled.join(", ")} rendered with browser defaults — a stylesheet ` +
+        `the component imports never reached the page, which no other check sees`);
     chk(`${name} @${width} — the two buttons are there, in order`,
       m.tabLabels.join("|") === "Quotes|Communication", m.tabLabels.join("|"));
     chk(`${name} @${width} — ...and they are the same width`,
@@ -410,13 +456,7 @@ console.log("\n-- there is a way to ring somebody from a desktop --\n");
   // pages "also offer QUO_WEB as a plain link". They did not. Nothing
   // imported QUO_WEB, and the only way to find out was to press Call on a
   // laptop and watch nothing happen.
-  const js = readFileSync(join(dir, "comms.js"), "utf8");
-  const css =
-    readFileSync("src/index.css", "utf8") +
-    readFileSync("src/pages/leads/LeadDetail.css", "utf8") +
-    readFileSync("src/pages/leads/LeadComms.css", "utf8") +
-    readFileSync("src/components/CallBar.css", "utf8") +
-    readFileSync("src/components/RecordTabs.css", "utf8");
+  const { js, css } = await bundlePage("comms", PAGES.comms.entry);
 
   const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
   await page.setContent(SHELL(css, js));
@@ -492,9 +532,7 @@ console.log("\n-- there is a way to ring somebody from a desktop --\n");
   // Copying can fail — a denied permission, an older browser, an insecure
   // context. Quo must still open: arriving there with the number in your
   // head is half the job done; arriving nowhere is none of it.
-  const js = readFileSync(join(dir, "comms.js"), "utf8");
-  const css = readFileSync("src/index.css", "utf8") +
-    readFileSync("src/components/CallBar.css", "utf8");
+  const { js, css } = await bundlePage("comms", PAGES.comms.entry);
 
   const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
   await page.setContent(SHELL(css, js));
@@ -530,12 +568,7 @@ console.log("\n-- leaving the form does not throw the edits away --\n");
   // QuotesPanel's beforeSend was written to stop it. Quotes are a separate
   // page now, so that hook is gone from this page — and the two buttons at
   // the top do the exact same thing to the exact same edits.
-  const js = readFileSync(join(dir, "detail.js"), "utf8");
-  const css =
-    readFileSync("src/index.css", "utf8") +
-    readFileSync("src/pages/leads/LeadDetail.css", "utf8") +
-    readFileSync("src/components/RecordTabs.css", "utf8") +
-    readFileSync("src/components/CallBar.css", "utf8");
+  const { js, css } = await bundlePage("detail", PAGES.detail.entry);
 
   const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
   await page.setContent(SHELL(css, js));
@@ -559,12 +592,7 @@ console.log("\n-- leaving the form does not throw the edits away --\n");
 {
   // And a save that FAILS must not navigate. Going somewhere else off a page
   // whose edits just failed to save is the same bug one step quieter.
-  const js = readFileSync(join(dir, "detail.js"), "utf8");
-  const css =
-    readFileSync("src/index.css", "utf8") +
-    readFileSync("src/pages/leads/LeadDetail.css", "utf8") +
-    readFileSync("src/components/RecordTabs.css", "utf8") +
-    readFileSync("src/components/CallBar.css", "utf8");
+  const { js, css } = await bundlePage("detail", PAGES.detail.entry);
 
   const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
   await page.setContent(SHELL(css, js));
@@ -677,13 +705,7 @@ console.log("\n-- the collapsed status history --\n");
 console.log("\n-- opening it --\n");
 
 {
-  const out = join(dir, "detail.js");
-  const js = readFileSync(out, "utf8");
-  const css =
-    readFileSync("src/index.css", "utf8") +
-    readFileSync("src/pages/leads/LeadDetail.css", "utf8") +
-    readFileSync("src/components/RecordTabs.css", "utf8") +
-    readFileSync("src/components/CallBar.css", "utf8");
+  const { js, css } = await bundlePage("detail", PAGES.detail.entry);
 
   const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
   await page.setContent(SHELL(css, js));

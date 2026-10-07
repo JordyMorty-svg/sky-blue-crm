@@ -284,6 +284,51 @@ console.log("\n-- the rules that must not break --\n");
     "that judgement belongs in db/call-tracking.sql, next to the data");
 }
 
+console.log("\n-- every invocation says what it did --\n");
+
+{
+  // THE GAP THAT COST AN EVENING.
+  //
+  // Three of the four ways this endpoint declines to record something used
+  // to return silently, so a Netlify log with nothing in it meant either
+  // "Quo never called us" or "Quo called us and we ignored it" — and there
+  // was no way to tell which. Jordan rang his own number from Quo, saw no
+  // row, and the log was empty.
+  const { readFileSync } = await import("node:fs");
+  const body = readFileSync("netlify/functions/quo-calls.mjs", "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
+
+  const handler = body.slice(body.indexOf("const evt = readCall(payload)"));
+
+  // Every branch that returns 200 after the signature check must say
+  // something first. Counted rather than matched one by one: a new silent
+  // branch is exactly the regression this guards.
+  const returns = (handler.match(/return new Response\(null, \{ status: 200 \}\)/g) || []).length;
+  const logs = (handler.match(/console\.(log|warn|error)\(/g) || []).length;
+
+  chk("THE POINT: no branch of the handler returns silently",
+    logs >= returns,
+    `${returns} early returns, ${logs} log lines — a branch that returns ` +
+      `without logging is indistinguishable from Quo never calling at all`);
+
+  chk("...including the one where the database declines to record it",
+    /NOT recorded/.test(handler),
+    "record_quo_call returns null for a repeat, for an outcome we don't log, " +
+      "and for a number nobody owns — all three were silent");
+
+  chk("...and the one where the event is not a completed call",
+    /ignored: not a completed call/.test(handler),
+    "this is what a wrongly-subscribed webhook type looks like, and it " +
+      "looked like nothing");
+
+  // Numbers stay last-four in logs, which this file already relies on
+  // elsewhere; a log that prints customers' full numbers is a different
+  // kind of problem.
+  chk("the log still only prints the last four digits",
+    /slice\(-4\)/.test(handler) && !/who: evt\.phone,/.test(handler));
+}
+
 console.log(bad === 0 ? "\nall ok — only calls that happened, only to the right person\n"
                       : `\n${bad} FAILED\n`);
 process.exit(bad === 0 ? 0 : 1);

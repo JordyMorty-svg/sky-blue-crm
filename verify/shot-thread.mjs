@@ -116,7 +116,6 @@ await build({
   outfile: bundle,
   jsx: "automatic",
   logLevel: "error",
-  loader: { ".css": "text" },
   plugins: [
     {
       name: "entry",
@@ -143,7 +142,14 @@ await build({
 });
 
 const js = readFileSync(bundle, "utf8");
-const css = readFileSync("src/components/TextThread.css", "utf8");
+// The CSS esbuild emitted, not a filename typed here. TextThread.jsx does
+// `import "./TextThread.css"` itself, so this follows whatever it imports —
+// which is what stops the harness and the app drifting apart. See the long
+// note in verify/shot-lead-split.mjs: a hand-written list lost the global
+// reset once and the entire thread stylesheet once.
+const css =
+  readFileSync("src/index.css", "utf8") +
+  readFileSync(bundle.replace(/\.js$/, ".css"), "utf8");
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 
@@ -213,6 +219,18 @@ for (const width of [390, 1100]) {
 
       count: document.querySelector(".thread__count")?.textContent?.trim(),
 
+      // A missing stylesheet throws nothing and fails no assertion about
+      // text or structure; only a screenshot shows it. Each of these has a
+      // border-radius of its own, so a zero means its stylesheet is absent.
+      unstyled: [
+        [".thread__bubble", document.querySelector(".thread__bubble")],
+        [".thread__input", document.querySelector(".thread__input")],
+        [".thread__send", document.querySelector(".thread__send")],
+      ]
+        .filter(([, el]) => el)
+        .filter(([, el]) => parseFloat(getComputedStyle(el).borderRadius) === 0)
+        .map(([sel]) => sel),
+
       // The longest line anybody has to read, in pixels. A percentage cap
       // alone is not a cap on a wide screen: 78% of a desktop panel is a
       // line over a thousand pixels long, and past about 75 characters the
@@ -249,6 +267,10 @@ for (const width of [390, 1100]) {
   });
 
   chk(`${width}px — nothing overflows sideways`, m.docW <= m.winW, `${m.docW} > ${m.winW}`);
+
+  chk(`${width}px — THE POINT: the thread is actually styled`,
+    m.unstyled.length === 0,
+    `${m.unstyled.join(", ")} rendered with browser defaults`);
   chk(`${width}px — every message is on screen`, m.rows === 8, String(m.rows));
 
   chk(

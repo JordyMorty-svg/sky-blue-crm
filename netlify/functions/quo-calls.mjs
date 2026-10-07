@@ -202,17 +202,45 @@ export default async (req) => {
 
   const evt = readCall(payload);
 
+  // ONE LINE PER INVOCATION, WHATEVER HAPPENS, AND IT IS NOT CHATTY NOISE.
+  //
+  // The first version logged only the calls it recorded, with a comment
+  // arguing that a line for every ignored event would bury the ones that
+  // matter. That was wrong, and it cost an evening. Jordan rang his own
+  // number from Quo, nothing appeared on the timeline, and the Netlify log
+  // was completely empty — which is identical to Quo never calling us at
+  // all. Three of the four ways this endpoint declines to record something
+  // returned silently, so "it didn't work" carried no information about
+  // WHICH thing didn't work.
+  //
+  // Sky Blue makes a few dozen calls a week. The entire argument for
+  // staying quiet was a volume problem that does not exist.
+  const seen = {
+    type: evt.type,
+    id: evt.id,
+    direction: evt.direction,
+    status: evt.status,
+    duration: evt.duration,
+    // Last four only, the way the rest of this codebase logs numbers.
+    who: evt.phone ? String(evt.phone).slice(-4) : null,
+  };
+
   if (!isCallCompleted(evt)) {
-    // A ringing or answered event for a call still in progress. Not an
-    // error — one subscription can deliver several event types, and the
-    // completion for this same call is on its way.
+    // A ringing or answered event for a call still in progress, or a
+    // recording/transcript/summary completion. Ordinary — one subscription
+    // delivers several event types — but worth naming, because "the wrong
+    // webhook type is subscribed" looks exactly like this and looked like
+    // nothing at all before.
+    console.log("[quo-calls] ignored: not a completed call", seen);
     return new Response(null, { status: 200 });
   }
 
   if (!evt.phone) {
     console.warn("[quo-calls] no customer number on a completed call", {
-      type: evt.type,
-      id: evt.id,
+      ...seen,
+      // The participants are the whole reason this can happen, so print
+      // what arrived rather than making somebody guess at the shape.
+      participants: payload?.data?.context?.participants ?? evt.raw?.participants ?? null,
     });
     return new Response(null, { status: 200 });
   }
@@ -228,18 +256,25 @@ export default async (req) => {
     });
 
     if (id) {
-      console.log("[quo-calls] logged", {
-        status: evt.status,
-        duration: evt.duration,
-        direction: evt.direction,
-        // Last four only, the way the rest of this codebase logs numbers.
-        who: String(evt.phone).slice(-4),
-      });
+      console.log("[quo-calls] logged", { ...seen, row: id });
+    } else {
+      // THE LINE THAT WAS MISSING. record_quo_call returns null for three
+      // different ordinary reasons and they are not distinguishable from
+      // here — but printing what we sent is enough to tell them apart by
+      // eye, which is all anybody needed:
+      //
+      //   a repeat        — the same id already logged; Quo retries
+      //   not a call      — failed, abandoned, ai-handled, unknown
+      //   nobody we know  — a number with no lead and no customer
+      //
+      // That last one is the one worth staring at during setup: it is what
+      // a test call to a number that is not on any record looks like.
+      console.log(
+        "[quo-calls] NOT recorded — either a repeat, an outcome we don't log, " +
+          "or a number with no lead or customer in the CRM",
+        seen
+      );
     }
-    // No else. record_quo_call() returns null for a retry, for a call that
-    // did not happen, and for a number nobody in the CRM owns — all three
-    // are ordinary, all three are frequent, and a log line for each would
-    // bury the ones that matter.
   } catch (err) {
     // Never 5xx at Quo. It retries, and a retry of a call that WAS in fact
     // recorded is handled by the unique index — but a retry storm is not

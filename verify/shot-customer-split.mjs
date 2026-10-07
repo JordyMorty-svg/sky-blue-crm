@@ -261,16 +261,6 @@ const STUBS = (entry, entryState = null, probeDestination = false) => ({
   },
 });
 
-const CSS = () =>
-  readFileSync("src/index.css", "utf8") +
-  readFileSync("src/pages/customers/Customers.css", "utf8") +
-  readFileSync("src/pages/leads/LeadComms.css", "utf8") +
-  readFileSync("src/components/RecordTabs.css", "utf8") +
-    readFileSync("src/components/CallBar.css", "utf8") +
-  readFileSync("src/components/RecordMenu.css", "utf8") +
-  readFileSync("src/components/QuotesPanel.css", "utf8") +
-  readFileSync("src/components/TextThread.css", "utf8");
-
 const SHELL = (css, js) => `<!doctype html><html><head><style>
   :root {
     --text-xs: 12px; --text-sm: 14px; --text-md: 15px; --text-base: 16px;
@@ -280,6 +270,24 @@ const SHELL = (css, js) => `<!doctype html><html><head><style>
   ${css}
 </style></head><body><div id="root"></div><script>${js}</script></body></html>`;
 
+/**
+ * Bundle a page and collect the CSS **esbuild emits**, not a list typed here.
+ *
+ * The sibling suite hand-assembled its stylesheets and got it wrong twice —
+ * once losing the global reset (so a 44px button measured 66px) and once
+ * losing TextThread.css (so a screenshot went out showing the whole message
+ * thread with no styling at all). The app was right both times; the harness
+ * was lying, which is worse, because a screenshot is the one artefact
+ * nobody re-checks.
+ *
+ * Each component already does `import "./X.css"`. With the default loader
+ * esbuild follows those imports and writes one stylesheet next to the
+ * bundle — the same thing Vite does for the real app — so adding a
+ * stylesheet to a component needs no change here.
+ *
+ * index.css is the exception: main.jsx imports it, and main.jsx is in no
+ * page bundle. It goes first, as a reset must.
+ */
 async function bundle(name, entry, state = null, probeDestination = false) {
   const out = join(dir, `${name}.js`);
   await build({
@@ -290,18 +298,21 @@ async function bundle(name, entry, state = null, probeDestination = false) {
     outfile: out,
     jsx: "automatic",
     logLevel: "error",
-    loader: { ".css": "text" },
     plugins: [STUBS(entry, state, probeDestination)],
   });
-  return readFileSync(out, "utf8");
+  return {
+    js: readFileSync(out, "utf8"),
+    css:
+      readFileSync("src/index.css", "utf8") +
+      readFileSync(out.replace(/\.js$/, ".css"), "utf8"),
+  };
 }
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
-const css = CSS();
 const measured = {};
 
 for (const [name, entry] of Object.entries(PAGES)) {
-  const js = await bundle(name, entry);
+  const { js, css } = await bundle(name, entry);
 
   for (const width of [390, 1100]) {
     const page = await browser.newPage({ viewport: { width, height: 1100 } });
@@ -327,12 +338,29 @@ for (const [name, entry] of Object.entries(PAGES)) {
         callHeight: document.querySelector(".callbar__call")
           ? Math.round(r(document.querySelector(".callbar__call")).height) : null,
         commsRows: document.querySelectorAll(".comms__timeline li").length,
+        // See the note on bundle(): a missing stylesheet throws nothing and
+        // fails no assertion about text or structure. Every element below
+        // has a border-radius of its own, so a zero means its stylesheet
+        // never reached the page.
+        unstyled: [
+          [".rectabs__tab", document.querySelector(".rectabs__tab")],
+          [".callbar__call", document.querySelector(".callbar__call")],
+          [".thread__bubble", document.querySelector(".thread__bubble")],
+          [".recmenu__button", document.querySelector(".recmenu__button")],
+        ]
+          .filter(([, el]) => el)
+          .filter(([, el]) => parseFloat(getComputedStyle(el).borderRadius) === 0)
+          .map(([sel]) => sel),
       };
     });
 
     measured[`${name}-${width}`] = m;
 
     chk(`${name} @${width} — nothing overflows sideways`, m.docW <= m.winW, `${m.docW} > ${m.winW}`);
+
+    chk(`${name} @${width} — THE POINT: everything on screen is actually styled`,
+      m.unstyled.length === 0,
+      `${m.unstyled.join(", ")} rendered with browser defaults`);
     chk(`${name} @${width} — the two buttons are there, in order`,
       m.tabLabels.join("|") === "Quotes|Communication", m.tabLabels.join("|"));
     chk(`${name} @${width} — ...same width, 44px tall`,
@@ -403,7 +431,7 @@ console.log("\n-- Send a quote is still one tap --\n");
   // menu item into a journey: open the menu, land on a page, find the
   // button, press it. The menu item would still be there and still be
   // spelled the same, which is exactly why only a click can tell you.
-  const js = await bundle("detail-nav", PAGES.detail, null, true);
+  const { js, css } = await bundle("detail-nav", PAGES.detail, null, true);
   const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
   await page.setContent(SHELL(css, js));
   await page.waitForSelector(".recmenu__button", { timeout: 6000 });
@@ -448,7 +476,7 @@ console.log("\n-- Send a quote is still one tap --\n");
 {
   // And the other half: arriving with { send: true } opens the modal, so
   // the menu item is still ONE tap end to end.
-  const js = await bundle("quotes-send", PAGES.quotes, { send: true });
+  const { js, css } = await bundle("quotes-send", PAGES.quotes, { send: true });
   const page = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
   await page.setContent(SHELL(css, js));
   await page.waitForSelector(".custdetail", { timeout: 6000 });
@@ -466,9 +494,9 @@ console.log("\n-- Send a quote is still one tap --\n");
   await page.close();
 
   // And arriving WITHOUT that state does not.
-  const js2 = await bundle("quotes-plain", PAGES.quotes);
+  const { js: js2, css: css2 } = await bundle("quotes-plain", PAGES.quotes);
   const page2 = await browser.newPage({ viewport: { width: 1100, height: 1100 } });
-  await page2.setContent(SHELL(css, js2));
+  await page2.setContent(SHELL(css2, js2));
   await page2.waitForSelector(".custdetail", { timeout: 6000 });
   await page2.waitForTimeout(400);
 
