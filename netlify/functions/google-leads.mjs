@@ -368,10 +368,23 @@ export const config = {
   // scheduler should be able to start it. The other scheduled sweep in this
   // codebase is declared the same way.
   //
-  // Hourly at seven past, not on the hour. LSA leads are people waiting for a
-  // call back, so a nightly run would mean somebody rings at 9am about a lead
-  // from 10am yesterday — by which time they have called the next window
-  // cleaner on the list. The offset keeps it off the minute every other
-  // scheduled job in the world runs on.
-  schedule: "7 * * * *",
+  // EVERY FIFTEEN MINUTES, and never on the quarter hour.
+  //
+  // LSA leads are people sitting with a phone in their hand who have just
+  // asked three window cleaners for a price. The one who rings back first
+  // usually gets the job, so the gap between Google having the lead and this
+  // CRM having it is the only part of that race this code controls. Hourly
+  // meant a worst case of 59 minutes, which is long enough to lose.
+  //
+  // 7, 22, 37, 52 rather than */15. Every other scheduled job in the world
+  // fires at :00, :15, :30 and :45, and a queue is busiest exactly then.
+  //
+  // THIS NUMBER IS TIED TO OVERLAP_HOURS. Each run asks Google for leads
+  // newer than the newest one stored, less that overlap, so a run that fails
+  // or never fires is recovered by the next one. That only holds while the
+  // overlap is comfortably longer than the gap between runs — at 6 hours
+  // against 15 minutes there are 24 chances to catch a lead before the window
+  // moves past it. Lengthening this schedule without checking that is how a
+  // missed run becomes a lost customer. verify/google-leads.mjs asserts it.
+  schedule: "7,22,37,52 * * * *",
 };

@@ -641,6 +641,53 @@ console.log("\n-- the rules that must not break --\n");
     "this writes to customer records; nothing outside the scheduler should " +
       "be able to start it");
 
+  // THE RELATIONSHIP THAT HAS TO HOLD, and the one nobody would think to
+  // re-check after editing a cron string.
+  //
+  // Every run asks Google for leads newer than the newest one already stored,
+  // LESS the overlap. A run that fails, or never fires because Netlify was
+  // busy, is therefore recovered by the next one — but only while the overlap
+  // is longer than the gap between runs. Make the schedule daily and leave
+  // the overlap at six hours and the window silently steps over eighteen
+  // hours of leads every day, with no error anywhere: the function succeeds,
+  // logs "ran", and finds nothing.
+  //
+  // Parsed from the file rather than asserted as a literal, so this keeps
+  // working when the schedule changes again.
+  {
+    const cron = src.match(/schedule:\s*"([^"]+)"/)?.[1] ?? "";
+    const overlap = Number(src.match(/OVERLAP_HOURS\s*=\s*(\d+)/)?.[1] ?? NaN);
+    const minuteField = cron.split(/\s+/)[0] ?? "";
+
+    // Minutes within one hour at which this fires. Handles "7", "7,22,37,52"
+    // and "*/15"; anything cleverer than that is worth a human reading it.
+    const minutes = minuteField.startsWith("*/")
+      ? Array.from({ length: Math.ceil(60 / Number(minuteField.slice(2))) },
+          (_, i) => i * Number(minuteField.slice(2)))
+      : minuteField === "*"
+        ? Array.from({ length: 60 }, (_, i) => i)
+        : minuteField.split(",").map(Number).filter(Number.isFinite);
+
+    const hourly = /^\S+\s+\*\s/.test(cron);
+    // Biggest gap between consecutive runs, wrapping past the hour.
+    const sorted = [...minutes].sort((a, b) => a - b);
+    const gapMins = hourly && sorted.length
+      ? Math.max(...sorted.map((m, i) =>
+          i === 0 ? m + 60 - sorted[sorted.length - 1] : m - sorted[i - 1]))
+      : Infinity;
+
+    chk("THE POINT: the re-read overlap is far longer than the gap between runs",
+      Number.isFinite(overlap) && gapMins * 4 <= overlap * 60,
+      `gap ${gapMins} min vs overlap ${overlap} h — a run that fails or never ` +
+        "fires must be recoverable by the next one, and a window that steps " +
+        "past a lead reports success and finds nothing");
+
+    chk("...and it does not fire on the quarter hour, where every other job does",
+      minutes.length > 0 && minutes.every((m) => m % 15 !== 0),
+      `minutes ${minutes.join(",")} — :00, :15, :30 and :45 are the busiest ` +
+        "minutes on any scheduler");
+  }
+
   chk("the customer id is stripped to digits",
     /replace\(\/\\D\/g, ""\)/.test(entry),
     "Google shows it as 146-936-2727 and the API rejects the dashes with a " +
