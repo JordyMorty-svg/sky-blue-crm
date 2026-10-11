@@ -17,7 +17,7 @@
  *   archive     — is not a delete, and must refuse to orphan the default.
  */
 
-import { supabase } from "../lib/supabase";
+import { supabase } from "../supabaseClient";
 
 const COLUMNS = "id, customer_id, label, address, latitude, longitude, is_primary, archived_at, created_at";
 
