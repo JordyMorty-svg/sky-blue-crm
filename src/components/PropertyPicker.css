@@ -1,0 +1,188 @@
+/*
+ * Which building is this job at.
+ *
+ * Tokens and shapes lifted from AddressPicker.css on purpose — this control
+ * sits directly above that one when somebody is adding an address, and two
+ * inputs a few pixels apart with different corner radii is the sort of
+ * thing nobody can name and everybody notices.
+ */
+
+.proppick {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* One address: a statement. Same weight as the other read-only facts on the
+   schedule screens, not styled as a field, because it isn't one. */
+.proppick__single {
+  margin: 0;
+  font-size: var(--text-lg);
+  color: #0f172a;
+}
+
+.proppick__muted {
+  margin: 0;
+  font-size: var(--text-lg);
+  color: #64748b;
+}
+
+.proppick__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* THE WHOLE ROW IS THE TARGET, not the 20px radio. This gets used one-handed
+   on a driveway, and a hit area the size of a pea is how somebody books the
+   wrong house. */
+.proppick__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 12px 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #ffffff;
+}
+
+.proppick__option:has(input:checked) {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+/* :has() is doing the work above; this keeps the selected row legible on a
+   browser that does not support it rather than leaving it indistinguishable
+   from the others. */
+.proppick__option input:checked {
+  accent-color: #2563eb;
+}
+
+.proppick__option input {
+  margin-top: 3px;
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.proppick__optiontext {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-lg);
+  color: #0f172a;
+  line-height: 1.35;
+}
+
+.proppick__optiontext strong {
+  font-weight: 650;
+}
+
+.proppick__optiontext span {
+  color: #475569;
+}
+
+/* Quiet. It is the way out for the rare case, and styling it as a button
+   would make every booking look like it is asking a question. */
+.proppick__addlink {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font-family: inherit;
+  font-size: var(--text-lg);
+  color: #2563eb;
+  cursor: pointer;
+}
+
+.proppick__addlink:hover {
+  text-decoration: underline;
+}
+
+.proppick__add {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.proppick__label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #334155;
+}
+
+.proppick__hint {
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.proppick__input {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: var(--text-lg);
+  color: #0f172a;
+  font-family: inherit;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.proppick__input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.proppick__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 3px;
+}
+
+.proppick__save,
+.proppick__cancel {
+  padding: 10px 15px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.proppick__save {
+  border: none;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.proppick__save:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.proppick__cancel {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+}
+
+.proppick__note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: #64748b;
+}
+
+.proppick__error {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: #b91c1c;
+}

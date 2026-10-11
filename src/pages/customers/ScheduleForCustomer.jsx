@@ -13,6 +13,7 @@ import ServicePicker from "../../components/ServicePicker";
 import { planFor, DEFAULT_SERVICE } from "../../services/leadService";
 import DayPreview from "../jobs/DayPreview";
 import "../jobs/ScheduleJob.css";
+import PropertyPicker from "../../components/PropertyPicker";
 
 /**
  * Book a job for an existing customer, with no lead in front of it — the
@@ -43,6 +44,10 @@ export default function ScheduleForCustomer() {
   // always is: plan visits generate themselves and are confirmed from the
   // Jobs board. The safe default is also the one that changes nothing.
   const [isExtra, setIsExtra] = useState(true);
+  // WHICH BUILDING. PropertyPicker fills this in with the customer's
+  // primary as soon as it loads, so the common case — one address — never
+  // asks anything.
+  const [propertyId, setPropertyId] = useState(null);
   const [conflicts, setConflicts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -128,6 +133,7 @@ export default function ScheduleForCustomer() {
         servicePlan,
         propertyType,
         isExtra: extraBooking,
+        propertyId,
       });
       navigate(`/customers/${id}`);
     } catch (e) {
@@ -154,13 +160,27 @@ export default function ScheduleForCustomer() {
 
       <div className="scheduleJob__lead">
         <strong>{customer.name}</strong>
-        <span>{customer.address || "No address"}</span>
         <span>{customer.phone}</span>
       </div>
 
       {error && <p className="scheduleJob__error">{error}</p>}
 
       <form className="scheduleJob__form" onSubmit={handleSubmit}>
+        {/* ADDRESS FIRST, before the date. This page used to print the
+            customer's address in the header as a fact; for a customer with
+            two buildings it is the first decision, and a decision cannot
+            live in a header. Everything below it — how long, how much, who
+            goes — depends on which house it is. */}
+        <div className="scheduleJob__field">
+          <label className="scheduleJob__label">Where</label>
+          <PropertyPicker
+            customerId={customer.id}
+            value={propertyId}
+            onChange={setPropertyId}
+            fallback={customer.address || "No address"}
+          />
+        </div>
+
         <div className="scheduleJob__field">
           <AppointmentPicker
             date={apptDate}

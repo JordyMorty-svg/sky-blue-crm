@@ -15,6 +15,7 @@ import ViewSwitcher from "../../components/ViewSwitcher";
 import JobPlanTag from "../../components/JobPlanTag";
 import { JOB_VIEWS } from "../../components/navViews";
 import "./Jobs.css";
+import { jobAddressText } from "../../services/jobAddress";
 
 function formatWhen(iso) {
   if (!iso) return "No time set";
@@ -162,7 +163,7 @@ export default function Jobs() {
                       <span className="jobrow__tag">Recurring</span>
                     </span>
                     <span className="jobrow__meta">
-                      {visit.customer?.address || "No address"} · $
+                      {jobAddressText(visit, "No address")} · $
                       {visit.price} · visit {visit.visit_number}
                     </span>
                     <span className="jobrow__when">
@@ -277,7 +278,7 @@ export default function Jobs() {
                       {job.lead?.name || job.customer?.name || "Job"}
                     </span>
                     <span className="jobrow__meta">
-                      {job.lead?.address || job.customer?.address || "No address"} · $
+                      {jobAddressText(job, "No address")} · $
                       {job.price} · {job.duration_hours}h
                     </span>
                     <span className="jobrow__when">{formatWhen(job.starts_at)}</span>

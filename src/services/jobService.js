@@ -141,6 +141,7 @@ export async function scheduleJob({
   // asked about, but the scheduling screen can add to it — someone who
   // enquired about gutters often books windows at the same time.
   serviceKeys,
+  propertyId = null,
 }) {
   // 1. Find or create the customer (matched by phone number).
   const customerId = await findOrCreateCustomer(lead);
@@ -166,6 +167,11 @@ export async function scheduleJob({
       // Scheduling from a lead is always the customer's first visit on
       // this plan. Follow-ups are created by completeJob and count up.
       visit_number: 1,
+      // Usually null here: a brand new customer's only address is the one
+      // on the lead, and db/properties.sql's backfill has not seen them
+      // yet. It is here for the case that prompted all of this — a lead
+      // that turns out to be about a second building someone already owns.
+      property_id: propertyId,
     })
     .select()
     .single();
@@ -197,6 +203,7 @@ export async function fetchScheduledJobs() {
     .from("jobs")
     .select(`
       *,
+      property:property_id ( id, label, address, latitude, longitude ),
       lead:lead_id ( name, address, phone, email, interior, latitude, longitude ),
       customer:customer_id ( id, name, address, phone, email, latitude, longitude ),
       assignments:job_assignments ( tech:tech_id ( id, full_name ) )
@@ -216,6 +223,7 @@ export async function fetchJob(id) {
     .from("jobs")
     .select(`
       *,
+      property:property_id ( id, label, address, latitude, longitude ),
       lead:lead_id ( name, address, phone, email, interior ),
       customer:customer_id (
         id, name, address, phone, email,
@@ -242,6 +250,7 @@ export async function fetchJobRecord(id) {
     .from("jobs")
     .select(`
       *,
+      property:property_id ( id, label, address, latitude, longitude ),
       lead:lead_id ( name, address, phone, email, interior, notes ),
       customer:customer_id ( id, name, address, phone, email ),
       assignments:job_assignments ( tech:tech_id ( id, full_name ) )
@@ -403,6 +412,7 @@ export async function fetchMyJobs(techId, { status = "scheduled", statuses } = {
     .from("jobs")
     .select(`
       *,
+      property:property_id ( id, label, address, latitude, longitude ),
       lead:lead_id ( name, address, phone, email, interior, latitude, longitude ),
       customer:customer_id ( id, name, address, phone, email, latitude, longitude ),
       assignments:job_assignments ( tech:tech_id ( id, full_name ) )
@@ -679,6 +689,11 @@ export async function scheduleJobForCustomer({
   // paid — but it is NOT one of their plan visits and must not behave like
   // one. See db/one-off-jobs.sql for what went wrong without this.
   isExtra = false,
+  // WHICH BUILDING. Null is not "no address" — it means "wherever the
+  // customer record says", which is what every job did before
+  // db/properties.sql and is still right for the customer who has one.
+  // See src/services/jobAddress.js for the ladder.
+  propertyId = null,
 }) {
   // Plan visits continue the customer's count so discounts keep applying.
   // Extras take 0: they aren't a numbered visit at all, and taking the next
@@ -721,6 +736,7 @@ export async function scheduleJobForCustomer({
       property_type: propertyType || customer.property_type || "residential",
       visit_number: visitNumber,
       is_extra: isExtra,
+      property_id: propertyId,
     })
     .select()
     .single();

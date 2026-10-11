@@ -1,4 +1,5 @@
 import { supabase } from "../supabaseClient";
+import { jobAddressText } from "./jobAddress";
 
 /**
  * What the CRM can hand an accountant at tax time.
@@ -118,6 +119,8 @@ export async function fetchCompletedJobsForTax() {
       `
       id, starts_at, status, paid, price, final_price, payment_method,
       visit_number, service_plan, property_type,
+      address, latitude, longitude,
+      property:property_id ( id, label, address, latitude, longitude ),
       lead:lead_id ( name, address ),
       customer:customer_id ( name, address )
     `
@@ -136,10 +139,12 @@ export function incomeRows(jobs, year) {
     .map((j) => ({
       date: isoDate(j.starts_at),
       customer: j.customer?.name || j.lead?.name || "Unnamed",
-      // The address lives on the customer or the lead, never on the job
-      // itself — jobs has no address column. Asking for one returns a 400
-      // from PostgREST and takes the whole page down with it.
-      address: j.customer?.address || j.lead?.address || "",
+      // THE FROZEN ADDRESS, which is the only right answer on a tax
+      // return. db/properties.sql writes jobs.address when a job completes,
+      // and jobAddress() puts it above every live record — so a customer
+      // who moved in March does not relocate last year's income to their
+      // new house, and the mileage claimed against it still adds up.
+      address: jobAddressText(j),
       plan: j.service_plan || "",
       property: j.property_type || "",
       visit: j.visit_number ?? "",

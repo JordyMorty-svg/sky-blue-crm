@@ -42,6 +42,8 @@ export async function fetchCalendarJobs(onlyTechId = null) {
     .from("jobs")
     .select(`
       id, starts_at, duration_hours, status, price, final_price, notes,
+      address, latitude, longitude,
+      property:property_id ( id, label, address, latitude, longitude ),
       lead:lead_id ( name, address, phone ),
       customer:customer_id ( name, address ),
       assignments:job_assignments ( tech:tech_id ( full_name ) )

@@ -18,6 +18,8 @@ import TechPicker from "../../components/TechPicker";
 import ServicePicker from "../../components/ServicePicker";
 import JobHistory from "../../components/JobHistory";
 import "./JobDetail.css";
+import { jobAddressText } from "../../services/jobAddress";
+import PropertyPicker from "../../components/PropertyPicker";
 
 export default function JobDetail() {
   const { id } = useParams();
@@ -47,6 +49,9 @@ export default function JobDetail() {
   const [error, setError] = useState("");
   const [propertyType, setPropertyType] = useState("residential");
   const [servicePlan, setServicePlan] = useState("one_time");
+  // Which building. Null until the job loads; PropertyPicker reports the
+  // primary if the job has never had one set.
+  const [propertyId, setPropertyId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -68,6 +73,7 @@ export default function JobDetail() {
       setDuration(jobData.duration_hours ?? 3);
       setPrice(jobData.price ?? "");
       setNotes(jobData.notes ?? "");
+      setPropertyId(jobData.property_id ?? null);
       // Empty for a job created before db/job-services.sql. The picker shows
       // nothing selected, which is honest — and the moment anyone picks
       // something, that job stops describing itself as window cleaning by
@@ -132,6 +138,11 @@ export default function JobDetail() {
         // gutters on the day is recorded rather than silently overwriting
         // what the job used to say it was.
         service_keys: serviceKeys,
+        // MOVING AN UPCOMING JOB TO THE OTHER HOUSE. Only ever the pointer:
+        // jobs.address is the frozen photograph and is written once by the
+        // jobs_freeze_address trigger when the job completes. Nothing on a
+        // screen may touch it, which is why it is not in this list.
+        property_id: propertyId,
       });
       await updateJobTechs(id, originalTechs, selectedTechs);
 
@@ -230,14 +241,14 @@ export default function JobDetail() {
             navigate(customerLink, { state: { from: pathname, fromState: state } })
           }
         >
-          <span>{job.lead?.address || job.customer?.address || "No address"}</span>
+          <span>{jobAddressText(job, "No address")}</span>
           <span>{job.lead?.phone || job.customer?.phone}</span>
           <span>{job.services}</span>
           <span className="jobDetail__leadgo">View customer →</span>
         </button>
       ) : (
         <div className="jobDetail__lead">
-          <span>{job.lead?.address || job.customer?.address || "No address"}</span>
+          <span>{jobAddressText(job, "No address")}</span>
           <span>{job.lead?.phone || job.customer?.phone}</span>
           <span>{job.services}</span>
         </div>
@@ -268,6 +279,22 @@ export default function JobDetail() {
       )}
 
       <div className="jobDetail__form">
+        {/* WHERE, as an editable thing rather than a line of header text.
+            First field in the form, because which building it is decides
+            how long it takes, what it costs and who goes.
+
+            A finished job renders an explanation instead of the control —
+            see PropertyPicker. Its address is frozen by the
+            jobs_freeze_address trigger and no screen may move it. */}
+        <label className="jobDetail__label">Where</label>
+        <PropertyPicker
+          customerId={job.customer?.id ?? null}
+          value={propertyId}
+          onChange={setPropertyId}
+          disabled={job.status === "completed"}
+          fallback={jobAddressText(job, "No address")}
+        />
+
         <AppointmentPicker
           date={apptDate}
           time={apptTime}

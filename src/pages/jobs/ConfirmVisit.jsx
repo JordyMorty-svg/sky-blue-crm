@@ -7,6 +7,7 @@ import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import TechPicker from "../../components/TechPicker";
 import DayPreview from "./DayPreview";
 import "./ScheduleJob.css";
+import { jobAddressText } from "../../services/jobAddress";
 
 /**
  * Turns a due recurring visit into a scheduled job.
@@ -105,7 +106,7 @@ export default function ConfirmVisit() {
 
       <div className="scheduleJob__lead">
         <strong>{who}</strong>
-        <span>{job.customer?.address || job.lead?.address || "No address"}</span>
+        <span>{jobAddressText(job, "No address")}</span>
         <span>{job.customer?.phone || job.lead?.phone}</span>
         <span>
           {plan.label} plan · visit {job.visit_number} · ${job.price}

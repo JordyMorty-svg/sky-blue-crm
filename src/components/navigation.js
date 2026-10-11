@@ -1,4 +1,5 @@
 import { isIOS, isAndroid } from "./squarePos";
+import { jobAddress } from "../services/jobAddress";
 
 /**
  * Opening a job's address in whatever maps app the crew actually uses.
@@ -181,13 +182,20 @@ export function openNavigation(url) {
 }
 
 // What to feed the functions above, given a job row.
+//
+// THE ADDRESS AND THE PIN COME FROM ONE PLACE, which is the entire reason
+// jobAddress() exists. This function used to read the address off the
+// customer and the coordinates off the customer-or-lead independently, so a
+// job whose customer had an address but no coordinates picked up the LEAD's
+// pin — and since the pin wins over the text in destinationOf() below, the
+// van was sent to a different house from the one on the screen. A customer
+// with two properties makes that failure routine rather than rare.
 export function placeForJob(job) {
-  const customer = job?.customer;
-  const lead = job?.lead;
+  const { address, latitude, longitude } = jobAddress(job);
   return {
-    address: customer?.address || lead?.address || "",
-    latitude: customer?.latitude ?? lead?.latitude ?? null,
-    longitude: customer?.longitude ?? lead?.longitude ?? null,
-    label: customer?.name || lead?.name || "Job",
+    address: address ?? "",
+    latitude,
+    longitude,
+    label: job?.customer?.name || job?.lead?.name || "Job",
   };
 }

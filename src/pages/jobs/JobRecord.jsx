@@ -17,6 +17,7 @@ import {
   formatStamp,
 } from "../../components/jobFormat";
 import "./JobRecord.css";
+import { jobAddressText } from "../../services/jobAddress";
 
 /**
  * What happened on a finished job.
@@ -163,7 +164,8 @@ export default function JobRecord() {
   if (!job) return <div className="jobrec__state">{error || "Not found."}</div>;
 
   const name = job.customer?.name || job.lead?.name || "Customer";
-  const address = job.customer?.address || job.lead?.address || "";
+  // The frozen address for a finished job; see src/services/jobAddress.js.
+  const address = jobAddressText(job);
   const crew = (job.assignments || [])
     .map((a) => a.tech?.full_name)
     .filter(Boolean);
