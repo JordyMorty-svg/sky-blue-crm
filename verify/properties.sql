@@ -145,6 +145,28 @@ update public.customer_properties set archived_at = null, is_primary = true
  where address like '100 Model Home%';
 
 \echo ''
+\echo '-- switching the primary --'
+\echo ''
+
+-- The obvious client-side version is "clear the old, set the new", which is
+-- two round trips and can leave a customer with no primary at all if the
+-- second never lands. sb_set_primary_property does it in one statement.
+select public.sb_set_primary_property('33333333-3333-3333-3333-333333333333');
+
+select pg_temp.chk(
+  'THE POINT: switching the primary moves it rather than adding a second',
+  (select count(*) from public.customer_properties
+    where customer_id = '11111111-1111-1111-1111-111111111111'
+      and is_primary and archived_at is null) = 1
+  and (select is_primary from public.customer_properties
+        where id = '33333333-3333-3333-3333-333333333333'),
+  'one statement, so it cannot half-happen and leave nobody primary');
+
+-- Back to how the rest of the file expects to find things.
+select public.sb_set_primary_property(
+  (select id from public.customer_properties where address like '100 Model Home%'));
+
+\echo ''
 \echo '-- where is this job? --'
 \echo ''
 

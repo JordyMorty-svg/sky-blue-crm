@@ -280,7 +280,68 @@ create trigger jobs_freeze_address
   execute function public.sb_freeze_job_address();
 
 -- ---------------------------------------------------------------------------
--- 6. Every customer's existing address becomes their primary property
+-- 6. Changing which property is the primary one
+-- ---------------------------------------------------------------------------
+--
+-- ONE TRANSACTION, because the constraint in section 2 makes the obvious
+-- client-side version wrong. "Clear the old primary, then set the new one"
+-- is two round trips from a phone on a driveway: if the second never
+-- arrives the customer is left with no primary at all, and the next job
+-- booked for them silently falls through to the customer record instead.
+--
+-- TWO STATEMENTS INSIDE THE FUNCTION, NOT ONE CLEVER ONE. The first version
+-- of this was a single UPDATE over both rows:
+--
+--     update customer_properties p set is_primary = (p.id = p_id)
+--      where p.customer_id = ... and p.archived_at is null;
+--
+-- which reads beautifully and fails. A plain unique index is checked as
+-- each row is written, not at the end of the statement, so the moment the
+-- new primary is set while the old one is still true the index rejects it —
+-- and whether it does depends on the order Postgres happens to visit the
+-- rows in. verify/properties.sql caught it; a careful read did not.
+--
+-- A unique CONSTRAINT could be declared deferrable and would then behave
+-- the way that version assumed. It cannot be partial, and `where is_primary
+-- and archived_at is null` is the part that lets a customer have no primary
+-- and lets archived rows keep whatever flag they had.
+--
+-- Clearing first and setting second inside one function body is a single
+-- transaction either way, so it still cannot half-happen.
+
+create or replace function public.sb_set_primary_property(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  owner uuid;
+begin
+  select customer_id into owner from public.customer_properties where id = p_id;
+  if owner is null then
+    return;   -- gone, or never existed. Nothing to do and nothing wrong.
+  end if;
+
+  update public.customer_properties
+     set is_primary = false
+   where customer_id = owner and is_primary and id <> p_id;
+
+  update public.customer_properties
+     set is_primary = true, archived_at = null
+   where id = p_id;
+end;
+$$;
+
+comment on function public.sb_set_primary_property(uuid) is
+  'Make one property the primary for its customer, clearing the previous one
+   in the same transaction. Un-archives it: choosing a property as the
+   default is also choosing to use it again.';
+
+grant execute on function public.sb_set_primary_property(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 7. Every customer's existing address becomes their primary property
 -- ---------------------------------------------------------------------------
 --
 -- Without this the picker opens empty for everybody and the feature reads as
@@ -297,7 +358,7 @@ select c.id, btrim(c.address), c.latitude, c.longitude, true
    );
 
 -- ---------------------------------------------------------------------------
--- 7. History is frozen where it stands
+-- 8. History is frozen where it stands
 -- ---------------------------------------------------------------------------
 --
 -- THE POINT OF DOING THIS NOW. Every completed job currently displays an
@@ -327,7 +388,7 @@ update public.jobs j
    and a.address is not null;
 
 -- ---------------------------------------------------------------------------
--- 8. Upcoming jobs point at the primary property
+-- 9. Upcoming jobs point at the primary property
 -- ---------------------------------------------------------------------------
 --
 -- Not frozen — these are still plans, and a typo fixed on the property
@@ -343,7 +404,7 @@ update public.jobs j
    and j.status is distinct from 'completed';
 
 -- ---------------------------------------------------------------------------
--- 9. Row level security
+-- 10. Row level security
 -- ---------------------------------------------------------------------------
 -- Same shape as public.customers in db/rls-phase-1.sql: staff read and write,
 -- admins delete.
@@ -367,7 +428,7 @@ create policy customer_properties_admin_delete on public.customer_properties
   for delete to authenticated using (public.sb_is_admin());
 
 -- ---------------------------------------------------------------------------
--- 10. Diagnostic: who already has this problem?
+-- 11. Diagnostic: who already has this problem?
 -- ---------------------------------------------------------------------------
 -- READ ONLY. Lists customers with more than one property, and flags the ones
 -- also on a recurring plan — the unsolved case named at the top of this file.
