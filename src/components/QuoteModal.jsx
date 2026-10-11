@@ -8,6 +8,7 @@ import {
   smsText,
 } from "../services/quoteService";
 import "./QuoteModal.css";
+import PropertyPicker from "./PropertyPicker";
 
 /**
  * Compose and send a quote, from a lead or a customer.
@@ -102,6 +103,18 @@ export default function QuoteModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null); // { link, emailed, texted, textReason }
+
+  // WHICH BUILDING THIS PRICE IS FOR. Null for a lead, or a customer with
+  // one address — PropertyPicker fills it in with the primary as soon as it
+  // loads, and renders a single line of text rather than a question.
+  //
+  // ONLY THE ID IS KEPT. The first version also stored the chosen address
+  // string to display — which was dead weight the moment PropertyPicker
+  // renders the address itself, and worse, a second copy of a fact that
+  // can go stale. The address stored on the quote and printed in the
+  // customer's email is re-read from the property by the server, so there
+  // is exactly one of it.
+  const [propertyId, setPropertyId] = useState(null);
   const [copied, setCopied] = useState(false);
 
   function toggleService(key) {
@@ -132,6 +145,7 @@ export default function QuoteModal({
         customerPhone,
         channel,
         address,
+        propertyId,
         serviceKeys: services,
         amount: value,
         note: note.trim() || null,
@@ -187,7 +201,28 @@ export default function QuoteModal({
         {!result ? (
           <>
             <h2 className="quotem__title">Quote for {customerName}</h2>
-            {address && <p className="quotem__address">{address}</p>}
+
+            {/* A PRICE IS ALWAYS A PRICE FOR A PLACE, so the place goes at
+                the top, under the name — not buried below the amount.
+                $395 for nine windows at a model home and $395 for a
+                four-bed house are different offers, and the sender needs
+                to see which one they are making before they type a number.
+
+                Without a customer id (a lead) there are no properties to
+                choose between, so this stays the single line it has always
+                been. */}
+            {customerId ? (
+              <div className="quotem__where">
+                <PropertyPicker
+                  customerId={customerId}
+                  value={propertyId}
+                  onChange={setPropertyId}
+                  fallback={address || ""}
+                />
+              </div>
+            ) : (
+              address && <p className="quotem__address">{address}</p>
+            )}
 
             <label className="quotem__label" htmlFor="quote-amount">
               Price

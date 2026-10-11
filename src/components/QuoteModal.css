@@ -297,3 +297,11 @@
   padding: 10px;
   cursor: pointer;
 }
+
+/* The building this price is for. Sits directly under the customer's name,
+   where the plain address line used to be — a price is always a price for a
+   place, and $395 for nine windows at a model home is a different offer
+   from $395 for the house they live in. */
+.quotem__where {
+  margin-bottom: 14px;
+}

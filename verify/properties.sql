@@ -44,6 +44,11 @@ end $$;
 -- Fixtures
 -- ---------------------------------------------------------------------------
 
+-- Quotes first: they reference customers, so a run left over from
+-- verify/quote-property.sql blocks the delete below and this file fails
+-- with a foreign key error that says nothing about addresses. Test files
+-- must not depend on the order somebody runs them in.
+delete from public.quotes;
 delete from public.jobs;
 delete from public.customer_properties;
 delete from public.customers;

@@ -55,6 +55,10 @@ export async function sendQuote({
   // the old behaviour of preferring an email address where there is one.
   channel = null,
   address = null,
+  // Which building, when the customer has more than one. The server
+  // re-reads the address from this rather than trusting the string above —
+  // see netlify/functions/send-quote.mjs.
+  propertyId = null,
   serviceKeys = [],
   amount,
   note = null,
@@ -78,6 +82,7 @@ export async function sendQuote({
       customerPhone,
       channel,
       address,
+      propertyId,
       serviceKeys,
       amount,
       note,
