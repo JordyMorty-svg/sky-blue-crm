@@ -261,6 +261,42 @@ console.log("\n-- the request it sends --\n");
       "hundred calls five times");
 }
 
+console.log("\n-- the route --\n");
+
+{
+  const src = readFileSync("netlify/functions/backfill-calls.mjs", "utf8");
+
+  chk("THE POINT: the function declares its URL",
+    /export const config = \{[\s\S]*?path:\s*"\/api\/backfill-calls"/.test(src),
+    "netlify.toml has no redirect rules — a v2 function with no config " +
+      "block deploys and has no URL. This file shipped without one: " +
+      "/api/backfill-calls returned the SPA's index.html and the page said " +
+      "'Couldn't reach Quo.' verify/module-bindings.mjs now checks every " +
+      "function in the directory, because the next one to forget will fail " +
+      "exactly as quietly");
+}
+
+console.log("\n-- a missing endpoint says so --\n");
+
+{
+  const src = readFileSync("src/services/contactService.js", "utf8");
+
+  chk("THE POINT: HTML back from the endpoint is not reported as a Quo problem",
+    /content-type/.test(src) && /isn't deployed yet/.test(src),
+    "'Couldn't reach Quo.' is a sentence about the Quo account. It cost an " +
+      "afternoon of looking in the wrong place for a missing three-line " +
+      "export");
+
+  chk("...and the same fix is in the text import beside it",
+    /isn't deployed yet/.test(readFileSync("src/services/textService.js", "utf8")),
+    "the two buttons sit on the same page and had the identical flaw");
+
+  chk("a 401 is still its own message",
+    /Sign in again to import from Quo/.test(src),
+    "signed out and not deployed are different problems with different " +
+      "next steps");
+}
+
 console.log("\n-- when Quo says no --\n");
 
 {

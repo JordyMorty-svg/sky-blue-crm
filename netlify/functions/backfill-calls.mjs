@@ -219,3 +219,22 @@ export default async (req) => {
     );
   }
 };
+
+/*
+ * THE ROUTE, AND THIS FILE SHIPPED WITHOUT IT.
+ *
+ * netlify.toml declares no redirect rules — "Netlify Functions v2. Each
+ * function declares its own route via `export const config = { path:
+ * '/api/...' }`". A function with no config block is still deployed and
+ * still bundled; it just has no URL. /api/backfill-calls returned the SPA's
+ * index.html, the browser failed to parse it as JSON, and the page said
+ * "Couldn't reach Quo." — which sent Jordan looking at his Quo account for
+ * a problem that was a missing three-line export.
+ *
+ * verify/module-bindings.mjs now checks every function in this directory
+ * for one, because this is a whole-repo invariant and the next file to
+ * forget it will fail exactly as quietly.
+ */
+export const config = {
+  path: "/api/backfill-calls",
+};

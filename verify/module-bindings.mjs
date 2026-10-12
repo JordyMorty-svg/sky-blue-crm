@@ -196,5 +196,85 @@ for (const file of files) {
   }
 }
 
+// --- every function says how it is reached ----------------------------------
+//
+// A SECOND KIND OF BINDING, and it fails the same way: silently, at runtime,
+// in a file that builds and lints clean.
+//
+// netlify.toml declares no redirect rules — "Netlify Functions v2. Each
+// function declares its own route via `export const config = { path:
+// '/api/...' }`". Leave the block out and the function is still deployed and
+// still bundled. It just has no URL under /api. The request falls through to
+// the SPA fallback in public/_redirects, the browser gets index.html where
+// it expected JSON, and whatever the page says next is about the wrong thing
+// entirely.
+//
+// backfill-calls.mjs shipped like this. The page said "Couldn't reach Quo.",
+// which sent Jordan looking at his Quo account for a missing three-line
+// export.
+//
+// THREE LEGITIMATE ANSWERS, not one:
+//
+//   path      — called by the app at /api/<name>
+//   schedule  — never called by URL at all
+//   the default URL, /.netlify/functions/<name>, named in the file's own
+//               header. email-events.mjs is reached there because that is
+//               the URL pasted into Resend's dashboard, and adding an
+//               /api/ route would not change where Resend posts.
+//
+// What is not legitimate is a function that answers none of them, because
+// then nobody can tell from the file whether it is wired up or dead.
+
+// COMMENTS OUT BEFORE LOOKING FOR THE CONFIG, and this check found that out
+// the hard way on its first run: the paragraph above, pasted into
+// backfill-calls.mjs as an explanation, contains the literal text
+// `export const config = { path: '/api/...' }` — so the regex matched the
+// COMMENT, read a path of "", and failed the file that had just been fixed.
+// Eighth time comment-stripping has mattered in this repo.
+//
+// The default-URL check deliberately reads the RAW source, because there
+// the documentation IS the declaration.
+const uncomment = (src) =>
+  src
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
+
+for (const file of walk("netlify/functions")) {
+  const raw = readFileSync(file, "utf8");
+  const src = uncomment(raw);
+
+  // A handler is the thing that needs a route. A file here that only
+  // exports helpers is not one — backfill-calls.mjs imports two from its
+  // neighbours.
+  if (!/export default/.test(src)) continue;
+
+  const name = file.split("/").pop().replace(/\.mjs$/, "");
+  const cfg = /export const config = \{([\s\S]*?)\}/.exec(src);
+  const scheduled = Boolean(cfg && /\bschedule\s*:/.test(cfg[1]));
+  const routed = Boolean(cfg && /\bpath\s*:/.test(cfg[1]));
+  const defaulted = raw.includes(`/.netlify/functions/${name}`);
+
+  chk(
+    `${file} — says how it is reached`,
+    scheduled || routed || defaulted,
+    cfg
+      ? "it has a config block with neither `path` nor `schedule`, and its " +
+        "header does not name the default URL either"
+      : "no `export const config`, and no /.netlify/functions/" + name +
+        " in the header. The function deploys with no /api route; the " +
+        "caller gets the SPA's index.html and fails parsing HTML as JSON"
+  );
+
+  // A typo in the path is the same 404 with more confidence behind it.
+  if (routed) {
+    const path = /\bpath\s*:\s*["'`]([^"'`]+)/.exec(cfg[1])?.[1] || "";
+    chk(
+      `${file} — its route starts /api/`,
+      path.startsWith("/api/"),
+      `path is "${path}" — every caller in src/services uses /api/<name>`
+    );
+  }
+}
+
 console.log(bad === 0 ? `\nBindings hold (${files.length} modules)` : `\n${bad} failure(s)`);
 process.exitCode = bad === 0 ? 0 : 1;

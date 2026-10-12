@@ -209,6 +209,28 @@ export async function importFromQuo(phone) {
     return { ok: false, error: "Sign in again to import from Quo." };
   }
 
+  // A 404 IS NOT QUO SAYING NO, and telling them apart is the whole point
+  // of this branch.
+  //
+  // A Netlify function with no `export const config = { path }` deploys
+  // fine and has no URL, so the request falls through to the SPA fallback
+  // and comes back as index.html. The old code tried to parse that as JSON,
+  // failed, and reported "Couldn't reach Quo." — which is a sentence about
+  // the Quo account, and sent somebody looking there for a missing export.
+  //
+  // The response's own content type is the tell: this endpoint always
+  // answers JSON, so HTML means nothing answered.
+  const type = res.headers.get("content-type") || "";
+  if (!type.includes("json")) {
+    return {
+      ok: false,
+      error:
+        res.status === 404 || type.includes("html")
+          ? "That endpoint isn't deployed yet — push and let Netlify build."
+          : `The server answered ${res.status}.`,
+    };
+  }
+
   const data = await res.json().catch(() => null);
   if (!data) {
     throw new Error("Couldn't reach the server.");

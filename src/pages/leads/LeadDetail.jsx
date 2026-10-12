@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useOutletContext, useParams, useNavigate } from "react-router-dom";
 import AddressPicker from "../../components/AddressPicker";
 import {
@@ -142,6 +142,31 @@ export default function LeadDetail() {
     setForm((f) => ({ ...(f ?? lead), [field]: value }));
   }
 
+  /*
+   * DID SOMEBODY ACTUALLY CHOOSE A STATUS HERE.
+   *
+   * The bug this exists for, from Kristina's timeline on 12 October:
+   *
+   *     Called · New → Contacted      3:23 PM
+   *     Contacted → New        Jordan 3:23 PM
+   *
+   * The page was open from before the call. The webhook moved her to
+   * Contacted. Pressing Save wrote `new` back over it — not because anybody
+   * chose New, but because `draft` falls back to the lead AS IT WAS WHEN
+   * THE PAGE LOADED, and the payload below names `status` unconditionally.
+   *
+   * Status is the only column on this form that anything else writes:
+   * record_quo_call, refresh_call_detail, the pipeline board, the quote
+   * flow. Every other field here is this form's alone, so a stale snapshot
+   * of it can only overwrite the same value. Status is where somebody
+   * else's work gets lost.
+   *
+   * A ref, not state: nothing on screen depends on it, and it must survive
+   * a re-render without causing one. Reset after a successful save, because
+   * the form reloads from the record and the next save starts over.
+   */
+  const statusChosen = useRef(false);
+
   /**
    * Write the form to the lead. No navigation, no state juggling.
    *
@@ -160,7 +185,7 @@ export default function LeadDetail() {
   const apptTimeValue = apptTime ?? storedAppt.time;
 
   async function persist() {
-    await updateLead(id, {
+    const payload = {
         name: draft.name,
         phone: draft.phone || null,
         email: draft.email || null,
@@ -174,7 +199,6 @@ export default function LeadDetail() {
         windows: Number(draft.windows) || 1,
         interior: draft.interior,
         estimate: Number(draft.estimate) || 0,
-        status: draft.status,
         temperature: draft.temperature || null,
         // The save payload is an explicit column list, not a spread of
         // `form` — so a new editable field is invisible until it's named
@@ -189,7 +213,15 @@ export default function LeadDetail() {
         appointment_at: combineToISO(apptDateValue, apptTimeValue),
         notes: draft.notes || null,
         crm_notes: draft.crm_notes || null,
-    });
+    };
+
+    // ONLY WHEN SOMEBODY CHOSE IT. Omitted entirely otherwise, so a status
+    // changed by a webhook while this page was open survives the save. See
+    // statusChosen above, and db/lead-event-dedupe.sql for the other half
+    // of what those three rows in the same minute were.
+    if (statusChosen.current) payload.status = draft.status;
+
+    await updateLead(id, payload);
 
     // The layout holds the record and the tab strip reads from it, so it
     // has to re-read after a save — and the draft clears, because the
@@ -200,6 +232,7 @@ export default function LeadDetail() {
     setForm(null);
     setApptDate(null);
     setApptTime(null);
+    statusChosen.current = false;
   }
 
   async function handleSave() {
@@ -270,7 +303,10 @@ export default function LeadDetail() {
 
         <Field label="Status">
           <select className="detail__input" value={draft.status}
-            onChange={(e) => set("status", e.target.value)}>
+            onChange={(e) => {
+              statusChosen.current = true;
+              set("status", e.target.value);
+            }}>
             {/* Always show the lead's current status, even if it isn't
                 normally settable here — a scheduled lead viewed directly,
                 or a lead already Lost being read by someone who couldn't
