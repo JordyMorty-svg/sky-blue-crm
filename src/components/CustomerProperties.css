@@ -157,6 +157,13 @@
   width: 100%;
 }
 
+/* HERE is where the input should flex: a horizontal row, so the basis is a
+   width and growing is what you want. */
+.custprops__rename .custprops__input {
+  flex: 1 1 160px;
+  width: auto;
+}
+
 .custprops__add {
   display: flex;
   flex-direction: column;
@@ -179,8 +186,20 @@
   color: #94a3b8;
 }
 
+/* NO `flex` ON THE BASE CLASS, and this is the whole bug it caused.
+   
+   It was `flex: 1 1 160px`, meant for the rename row where the input sits
+   beside Save and Cancel in a horizontal flex line. But .custprops__add is
+   `flex-direction: column`, and in a column container flex-basis sizes the
+   HEIGHT — so the "Name it" box got a 160px basis and `flex-grow: 1` on
+   top, and rendered as a text area four lines tall.
+   
+   The address box above it looked normal only by accident: it lives inside
+   AddressPicker's own wrapper div, so the input was never a flex item of
+   this container at all. One huge box and one normal one, from one
+   declaration. */
 .custprops__input {
-  flex: 1 1 160px;
+  width: 100%;
   padding: 10px 12px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
