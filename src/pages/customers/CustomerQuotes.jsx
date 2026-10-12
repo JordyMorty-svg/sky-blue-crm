@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useOutletContext, useParams } from "react-router-dom";
 import QuotesPanel from "../../components/QuotesPanel";
-import RecordTabs from "../../components/RecordTabs";
-import {
-  fetchCustomer,
-  suggestedQuoteFor,
-} from "../../services/customerService";
+import { suggestedQuoteFor } from "../../services/customerService";
 import { fetchNextVisit } from "../../services/jobService";
 // The page chrome — .custdetail__back, .custdetail__namerow,
 // .custdetail__name, .custbadge — is shared with the customer page on
@@ -13,7 +9,6 @@ import { fetchNextVisit } from "../../services/jobService";
 // stylesheets drawing the same header is how the back button ends up in a
 // different place on each of them.
 import "./Customers.css";
-import CustomerHeader from "../../components/CustomerHeader";
 
 /**
  * Quotes for one customer, on their own page.
@@ -29,38 +24,25 @@ import CustomerHeader from "../../components/CustomerHeader";
  */
 export default function CustomerQuotes() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { state } = useLocation();
 
-  const [customer, setCustomer] = useState(null);
-  const [jobs, setJobs] = useState([]);
+  // THE CUSTOMER AND THEIR JOBS COME FROM THE LAYOUT. Both were fetched
+  // again here on arrival, which is one of the three round trips that made
+  // switching tabs blink.
+  const { customer, jobs, reload } = useOutletContext();
+
   const [nextVisit, setNextVisit] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   // Opened from the Actions menu, then owned by the panel like any other
   // open. Seeded once from navigation state rather than read on every
   // render, so closing the modal does not reopen it.
   const [open, setOpen] = useState(Boolean(state?.send));
 
   const load = useCallback(async () => {
-    try {
-      // One call, same as the customer page: it returns the customer AND
-      // their jobs. The jobs are not decoration here — a quote closed as
-      // "the work was done on another job" names which one from this list,
-      // and the suggested price is derived from them.
-      const { customer: row, jobs: rows } = await fetchCustomer(id);
-      setCustomer(row);
-      setJobs(rows || []);
-      setError("");
-    } catch (e) {
-      console.error(e);
-      setError("Couldn't load this customer.");
-      setLoading(false);
-      return;
-    }
-
-    // Only moves the suggested price from "what they last paid" to "what the
-    // plan projects". A failure here costs that refinement, not the page.
+    // Only the projected next visit, which moves the suggested price from
+    // "what they last paid" to "what the plan projects". A failure costs
+    // that refinement, not the page — and the customer and their jobs are
+    // the layout's job now.
     try {
       setNextVisit(await fetchNextVisit(id));
     } catch (e) {
@@ -78,24 +60,12 @@ export default function CustomerQuotes() {
   }, [load]);
 
   if (loading) return <div className="customers__empty">Loading…</div>;
-  if (!customer) return <div className="customers__empty">{error || "Not found."}</div>;
+  // No "not found" branch: CustomerLayout does not render this tab at all
+  // unless it has the customer.
 
 
   return (
-    <div className="custdetail">
-      {/* The same header as every other tab of this record — see
-          CustomerHeader.jsx. The "← Back to customer" link that used to sit
-          here is gone: Customer info is a tab now, and a Back button going
-          where a tab already goes is a second way to do one thing. */}
-      <CustomerHeader
-        customer={customer}
-        onEdit={() => navigate(`/customers/${id}`, { state: { edit: true } })}
-      />
-
-      <RecordTabs base={`/customers/${id}`} active="quotes" infoLabel="Customer info" />
-
-      {error && <p className="custdetail__error">{error}</p>}
-
+    <>
       <QuotesPanel
         customerId={id}
         customerName={customer.name}
@@ -110,8 +80,8 @@ export default function CustomerQuotes() {
         suggestedAmount={suggestedQuoteFor(customer, jobs, nextVisit)}
         open={open}
         onOpenChange={setOpen}
-        onChanged={load}
+        onChanged={() => { void load(); void reload(); }}
       />
-    </div>
+    </>
   );
 }

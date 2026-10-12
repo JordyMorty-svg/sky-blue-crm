@@ -23,6 +23,14 @@ import "./CustomerProperties.css";
  * showed whichever was on the customer record and gave no hint the other
  * existed.
  *
+ * NAMING IS OPTIONAL, so an unnamed one still needs a word. "Unnamed" was
+ * what it said, which is a label describing the software's state rather
+ * than the customer's house — and it sat over the address of the only
+ * building most customers have. The default is now "Main address" for the
+ * default property and "Other address" for the rest: still true when
+ * nobody has named anything, and never claiming a second building is the
+ * main one.
+ *
  * ARCHIVE, NOT DELETE, and the refusals come from propertyService:
  * the last address cannot be archived, and neither can the default while
  * another exists. Both would leave a customer whose next job quietly books
@@ -166,7 +174,7 @@ export default function CustomerProperties({ customerId }) {
               ) : (
                 <>
                   <span className="custprops__label">
-                    {p.label || "Unnamed"}
+                    {p.label || (p.is_primary ? "Main address" : "Other address")}
                     {p.is_primary && (
                       <span className="custprops__default">Default</span>
                     )}

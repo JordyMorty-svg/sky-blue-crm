@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useOutletContext, useParams } from "react-router-dom";
 import TextThread from "../../components/TextThread";
 import CallBar from "../../components/CallBar";
-import RecordTabs from "../../components/RecordTabs";
-import { fetchCustomer } from "../../services/customerService";
 import {
   ALL_STATUSES,
 } from "../../services/leadService";
@@ -20,7 +18,6 @@ import "./Customers.css";
 // side of the lead/customer boundary, and the one thing they must not do is
 // look like different features.
 import "../leads/LeadComms.css";
-import CustomerHeader from "../../components/CustomerHeader";
 import CustomerPrefs from "../../components/CustomerPrefs";
 
 /**
@@ -39,12 +36,14 @@ import CustomerPrefs from "../../components/CustomerPrefs";
  */
 export default function CustomerComms() {
   const { id } = useParams();
-  const navigate = useNavigate();
+  // THE CUSTOMER COMES FROM THE LAYOUT, not from a fetch of our own.
+  // CustomerLayout holds the record and stays mounted across tabs; this
+  // page used to re-fetch it on arrival, which is why the header blinked
+  // every time somebody pressed a tab.
+  const { customer, reload } = useOutletContext();
 
-  const [customer, setCustomer] = useState(null);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [historyError, setHistoryError] = useState("");
   // Texts are in the thread directly above this timeline, so they start
   // folded away — see partitionTexts() in contactService.js. Not persisted:
@@ -53,20 +52,10 @@ export default function CustomerComms() {
   const [showTexts, setShowTexts] = useState(false);
 
   const load = useCallback(async () => {
-    try {
-      const { customer: row } = await fetchCustomer(id);
-      setCustomer(row);
-      setError("");
-    } catch (e) {
-      console.error(e);
-      setError("Couldn't load this customer.");
-      setLoading(false);
-      return;
-    }
-
-    // The timeline is the nice-to-have. A customer with no history, or a
-    // database that has not run db/contact-history.sql, must still get the
-    // number and the text box — which is what somebody came here for.
+    // The customer itself is the layout's job. This is the timeline, which
+    // is the nice-to-have: a customer with no history, or a database that
+    // has not run db/contact-history.sql, must still get the number and
+    // the text box, which is what somebody came here for.
     try {
       setRows(await fetchContactTimeline({ customerId: id }));
       setHistoryError("");
@@ -88,7 +77,8 @@ export default function CustomerComms() {
   }, [load]);
 
   if (loading) return <div className="customers__empty">Loading…</div>;
-  if (!customer) return <div className="customers__empty">{error || "Not found."}</div>;
+  // No "not found" branch: CustomerLayout does not render this tab at all
+  // unless it has the customer.
 
 
   // Split once per render, used twice below.
@@ -96,20 +86,7 @@ export default function CustomerComms() {
   const shownRows = showTexts ? rows : rest;
 
   return (
-    <div className="custdetail">
-      {/* The same header as every other tab of this record — see
-          CustomerHeader.jsx. The "← Back to customer" link that used to sit
-          here is gone: Customer info is a tab now, and a Back button going
-          where a tab already goes is a second way to do one thing. */}
-      <CustomerHeader
-        customer={customer}
-        onEdit={() => navigate(`/customers/${id}`, { state: { edit: true } })}
-      />
-
-      <RecordTabs base={`/customers/${id}`} active="communication" infoLabel="Customer info" />
-
-      {error && <p className="custdetail__error">{error}</p>}
-
+    <>
       {/* The number, both ways to ring it, and when anybody last tried.
           A shared component because this page and its twin on the other
           side of the lead/customer line drew the identical card twice —
@@ -140,7 +117,13 @@ export default function CustomerComms() {
           which is a lot of attention for two things you change about twice
           a year. This is the page you are already on when "should we be
           emailing them?" occurs to you. */}
-      <CustomerPrefs customer={customer} onChanged={load} />
+      <CustomerPrefs
+        customer={customer}
+        /* reload, not load: these switches live on the customer record,
+           which the layout owns. Reloading only this page's timeline would
+           leave the tickbox showing its old state until a full refresh. */
+        onChanged={reload}
+      />
 
       <section className="comms__history">
         <div className="comms__historyhead">
@@ -197,7 +180,7 @@ export default function CustomerComms() {
           </ol>
         )}
       </section>
-    </div>
+    </>
   );
 }
 

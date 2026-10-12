@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useOutletContext, useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   fetchCustomer,
   updateCustomer,
@@ -18,9 +18,7 @@ import {
   priceForVisit,
 } from "../../services/leadService";
 import JobPlanTag from "../../components/JobPlanTag";
-import RecordTabs from "../../components/RecordTabs";
 import "./Customers.css";
-import CustomerHeader from "../../components/CustomerHeader";
 import CustomerProperties from "../../components/CustomerProperties";
 
 function formatWhen(iso) {
@@ -68,8 +66,11 @@ export default function CustomerDetail() {
   // link on all three tabs. `state` is still read here for state.edit — see
   // the useState below.
 
-  const [customer, setCustomer] = useState(null);
-  const [jobs, setJobs] = useState([]);
+  // THE RECORD COMES FROM THE LAYOUT. CustomerLayout fetches it once and
+  // stays mounted across the three tabs; this page used to fetch it again
+  // on arrival, which is why the header blinked on every tab press.
+  const { customer, jobs, reload, setChrome, openEditRef, cancelEditRef } =
+    useOutletContext();
   const [leadNotes, setLeadNotes] = useState([]);
   // OPENS STRAIGHT INTO THE EDIT MODAL when Actions → Edit was pressed on
   // the Quotes or Communication tab. Those tabs have no modal of their own,
@@ -94,19 +95,14 @@ export default function CustomerDetail() {
   // The panel is on its own page now and owns its own open state; the menu
   // item navigates there with { send: true } instead.
 
+  // WHAT THIS PAGE STILL FETCHES FOR ITSELF. The customer and their jobs
+  // belong to CustomerLayout; the original lead's notes and the projected
+  // next visit are only ever read here, so fetching them in the layout
+  // would make the Quotes and Communication tabs pay for them.
   async function load() {
     try {
-      const { customer, jobs, leadNotes } = await fetchCustomer(id);
-      setCustomer(customer);
-      setForm(customer);
-      setJobs(jobs ?? []);
-      // Defaulted, not trusted. fetchCustomer builds this array itself and
-      // always returns one — but `leadNotes.length` further down is read
-      // unguarded, so the day anything hands back a null or an undefined
-      // (a reshaped query, a cached response, a stub in a test) the whole
-      // customer page renders as a blank white screen with one line in the
-      // console. One `??` against a page that disappears is a good trade.
-      setLeadNotes(leadNotes ?? []);
+      const { leadNotes: notes } = await fetchCustomer(id);
+      setLeadNotes(notes ?? []);
       setNextVisit(await fetchNextVisit(id));
       setError("");
     } catch (e) {
@@ -150,8 +146,11 @@ export default function CustomerDetail() {
         property_type: form.property_type || "residential",
         service_plan: form.service_plan || "one_time",
       });
-      setCustomer(form);
       setEditing(false);
+      // The layout owns the record, so it is the one that has to re-read
+      // it — setting a local copy would leave the header showing the old
+      // name until something else forced a fetch.
+      await reload();
 
       // Putting someone on a plan here is the "they liked it, sign them up"
       // path, and it usually happens after their first visit is already
@@ -230,6 +229,34 @@ export default function CustomerDetail() {
   }
 
 
+
+  /* WHAT THE LAYOUT NEEDS TO KNOW ABOUT THIS TAB.
+   *
+   * Refs for the callbacks, written on every render with no dependency
+   * array: always current, and writing to a ref never re-renders the
+   * layout. A callback in the layout's state would re-render the whole
+   * record on every keystroke in this form.
+   *
+   * State for the two things that change what the layout DRAWS — whether
+   * the tabs show, and what the back link says. Primitives, keyed on the
+   * boolean, so it fires when the mode flips and not otherwise. An object
+   * of functions here is how a layout like this turns into a render loop.
+   */
+  useEffect(() => {
+    openEditRef.current = () => setEditing(true);
+    cancelEditRef.current = handleCancel;
+    return () => {
+      openEditRef.current = null;
+      cancelEditRef.current = null;
+    };
+  });
+
+  useEffect(() => {
+    setChrome({
+      hideTabs: editing,
+      backLabel: editing ? `← Back to ${customer?.name ?? "customer"}` : null,
+    });
+  }, [editing, customer?.name, setChrome]);
 
   if (loading) return <div className="customers__state">Loading…</div>;
   if (!customer) return <div className="customers__state">{error || "Not found."}</div>;
@@ -311,7 +338,7 @@ export default function CustomerDetail() {
   ).length;
 
   return (
-    <div className="custdetail">
+    <>
       {error && <p className="customers__error">{error}</p>}
 
       {editing ? (
@@ -394,19 +421,6 @@ export default function CustomerDetail() {
         </div>
       ) : (
         <>
-          <CustomerHeader
-            customer={customer}
-            onEdit={() => setEditing(true)}
-            /* While the edit form is open, back means "put it away and give
-               me the customer again". Leaving for the customer list from
-               here is the one thing nobody wants: you came to change a
-               phone number and you are thrown back to the top of a list. */
-            back={
-              editing
-                ? { label: `← Back to ${customer.name}`, onClick: handleCancel }
-                : null
-            }
-          />
 
           {customer.notes && (
             <div className="custdetail__notes">
@@ -419,29 +433,19 @@ export default function CustomerDetail() {
 
       {/* NOT WHILE THE EDIT FORM IS OPEN.
 
-          The form replaces the profile above, but the tabs, the stat tiles,
-          the addresses and the whole job history used to carry on below it
-          — so editing a phone number put a form at the top of a page that
-          still had five screens of the thing you were editing underneath
-          it, and the Save button a long way from the bottom.
+          The stat tiles, the addresses and the whole job history used to
+          carry on below the form — so editing a phone number put a form at
+          the top of a page that still had five screens of the thing you
+          were editing underneath it, and the Save button a long way from
+          the bottom.
 
-          An edit form is a mode. While you are in it, the record it belongs
-          to is the form. */}
+          The TABS are hidden by CustomerLayout rather than here, because
+          they belong to the layout now; this page tells it to via
+          setChrome. An edit form is a mode, and while you are in it the
+          record it belongs to is the form. */}
       {!editing && (
         <>
-        {/* The three tabs of this record — see RecordTabs.jsx.
-
-            DIRECTLY UNDER THE HEADER, above everything else on this tab.
-            They used to sit between the stat tiles and the job history, which
-            put the page's navigation two scrolls down and made the stats read
-            as a header rather than as content. The rule now is simple: who
-            this person is, then where you can go, then what is on this tab.
-
-            NO beforeLeave, unlike the lead page. That one is a form with
-            unsaved edits in it; this page edits through a modal that saves
-            itself, so there is nothing to lose by navigating away. */}
-        <RecordTabs base={`/customers/${id}`} active="info" infoLabel="Customer info" />
-
+  
         {leadNotes.length > 0 && (
           <div className="custdetail__leadnotes">
             <span className="custdetail__notes-label">From the original lead</span>
@@ -727,6 +731,6 @@ export default function CustomerDetail() {
         </>
       )}
 
-    </div>
+    </>
   );
 }

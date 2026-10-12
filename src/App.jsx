@@ -25,6 +25,7 @@ import TaxExport from "./pages/income/TaxExport";
 import Customers from "./pages/customers/Customers";
 import Communication from "./pages/customers/Communication";
 import Undelivered from "./pages/customers/Undelivered";
+import CustomerLayout from "./pages/customers/CustomerLayout";
 import CustomerDetail from "./pages/customers/CustomerDetail";
 import CustomerQuotes from "./pages/customers/CustomerQuotes";
 import CustomerComms from "./pages/customers/CustomerComms";
@@ -282,19 +283,29 @@ export default function App() {
       <Route path="/customers/undelivered" element={<Page section="customers"><Undelivered /></Page>} />
       <Route path="/customers/add-past" element={<Page section="customers"><AddPastJobs /></Page>} />
       <Route path="/customers/:id/schedule" element={<Page section="customers"><ScheduleForCustomer /></Page>} />
-      {/* Same split as the job pages: the map's customer pins open this
-          directly, so it can't be locked behind the Customers tab. */}
-      <Route path="/customers/:id" element={<Page section="customer-detail"><CustomerDetail /></Page>} />
-      {/* The two sub-pages off a customer, matching the lead ones.
+      {/* ONE CUSTOMER, THREE TABS, ONE MOUNT.
 
-          NOTE the near-collision with /customers/communication above, which
-          is the bulk follow-up screen for everybody rather than one
+          These were three sibling routes, so switching tabs unmounted the
+          whole record and built it again — the header blinked, the badges
+          re-flowed, and each page fetched the same customer for itself.
+          Nested under CustomerLayout they share a parent that stays
+          mounted: React Router swaps only what is inside its <Outlet />,
+          so pressing a tab changes the part below the strip and nothing
+          above it moves.
+
+          Same split as the job pages: the map's customer pins open this
+          directly, so it can't be locked behind the Customers tab.
+
+          NOTE the near-collision with /customers/communication above,
+          which is the bulk follow-up screen for everybody rather than one
           customer's thread. React Router ranks a static segment above a
-          dynamic one, so /customers/communication still reaches that page
-          and /customers/<id>/communication reaches this one — but the two
+          dynamic one, so that URL still reaches that page — but the two
           names are one careless rename apart from being the same URL. */}
-      <Route path="/customers/:id/quotes" element={<Page section="customers"><CustomerQuotes /></Page>} />
-      <Route path="/customers/:id/communication" element={<Page section="customers"><CustomerComms /></Page>} />
+      <Route path="/customers/:id" element={<Page section="customer-detail"><CustomerLayout /></Page>}>
+        <Route index element={<CustomerDetail />} />
+        <Route path="quotes" element={<CustomerQuotes />} />
+        <Route path="communication" element={<CustomerComms />} />
+      </Route>
       <Route path="/map" element={<Page section="map"><MapView /></Page>} />
 
       {/* Everyone can see leads today, so this is safe for every role. If a
