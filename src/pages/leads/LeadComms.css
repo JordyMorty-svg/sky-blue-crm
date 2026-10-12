@@ -230,3 +230,22 @@
     gap: 8px;
   }
 }
+
+/* --- email & review settings ------------------------------------------ */
+
+/* Deliberately identical to .thread, .quotes and .comms__history. Four
+   sections stack on the communication page and the only thing that made
+   the fourth look like an afterthought was that it had no rule above it
+   and no heading of its own. */
+.custprefs__section {
+  margin: 28px 0 34px;
+  padding-top: 22px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.custprefs__sectiontitle {
+  font-size: var(--text-xl);
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 14px;
+}

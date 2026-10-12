@@ -3,7 +3,6 @@ import {
   describeMessage,
   fetchThread,
   importFromQuo,
-  prettyPhone,
   segmentsFor,
   sendText,
 } from "../services/textService";
@@ -200,8 +199,11 @@ export default function TextThread({
   return (
     <section className="thread">
       <div className="thread__head">
+        {/* NO NUMBER HERE ANY MORE. The reach card directly above this
+            shows it at twice the size, and the record header shows it
+            again — three copies of one phone number on one screen, which
+            is most of why this page read as cluttered. */}
         <h3 className="thread__title">Texts</h3>
-        <span className="thread__number">{prettyPhone(phone)}</span>
         <button
           type="button"
           className="thread__toggle"

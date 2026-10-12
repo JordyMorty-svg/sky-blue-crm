@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import RecordMenu from "./RecordMenu";
-import { planFor, quoCallHref, telHref, formatPhone } from "../services/leadService";
+import { planFor, formatPhone } from "../services/leadService";
+import { callThroughQuo } from "../services/quoDial";
 import "../pages/customers/Customers.css";
 
 /*
@@ -138,27 +139,36 @@ export default function CustomerHeader({ customer, onEdit, back = null }) {
       </div>
     )}
 
+    {/* ONE LINE, NOT A STACK. The phone was a big blue link and the email
+        a smaller grey span underneath it, so two facts of the same kind sat
+        at two sizes with an uneven gap between them. They read as a pair
+        now, separated by a dot, wrapping only when there is no room. */}
     <div className="custdetail__info">
       {customer.phone && (
-        /* Through Quo, and pressing it logs NOTHING.
+        /* A BUTTON, NOT AN <a href="openphone://">. The deep link opens
+           the Quo app, which is a phone app — on a laptop it was a dead
+           click with no feedback at all. callThroughQuo picks the route
+           this device actually has: the app on a phone, clipboard plus the
+           web dialler anywhere else. See src/services/quoDial.js.
 
-           The call is written down when Quo says it happened, on the
-           call.completed webhook — see db/call-tracking.sql. This
-           link used to log a call on click, which meant a mis-tap
-           from a laptop that has no dialler still wrote "Called" onto
-           this customer's history. */
-        <a
+           Pressing it logs NOTHING. The call is written down when Quo says
+           it happened, on the call.completed webhook. */
+        <button
+          type="button"
           className="custdetail__phone"
-          href={quoCallHref(customer.phone) || telHref(customer.phone)}
+          onClick={() => void callThroughQuo(customer.phone)}
         >
           {formatPhone(customer.phone)}
+        </button>
+      )}
+      {customer.phone && customer.email && (
+        <span className="custdetail__dot" aria-hidden="true">·</span>
+      )}
+      {customer.email && (
+        <a className="custdetail__email" href={`mailto:${customer.email}`}>
+          {customer.email}
         </a>
       )}
-      {customer.email && <span>{customer.email}</span>}
-      {/* THE ADDRESS IS NOT HERE ANY MORE. A customer can have several
-          buildings, and a single line showing whichever one is on the
-          customer record gave no hint the others existed. Addresses are
-          managed on the Customer info tab — see CustomerProperties.jsx. */}
     </div>
     </>
   );

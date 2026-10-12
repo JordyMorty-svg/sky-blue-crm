@@ -265,8 +265,16 @@
    
    align-self: flex-start so the link is only as wide as the number — stretched
    to the full column it would swallow taps meant for the address beneath. */
+/* A BUTTON NOW, so it needs the button reset — without it the browser's
+   grey chrome puts a box round the number and knocks it off the baseline
+   its neighbour sits on. */
 .custdetail__phone {
-  align-self: flex-start;
+  appearance: none;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
   color: #2563eb;
   font-weight: 700;
   text-decoration: none;
@@ -279,13 +287,39 @@
   }
 }
 
+/* PHONE AND EMAIL AS ONE LINE.
+
+   They were a column: a big blue phone link, then a smaller grey email
+   under it with a 3px gap. Two facts of the same kind at two sizes with
+   no rhythm between them, which is the "spacing looks slightly weird" —
+   it was not the spacing, it was that they were never a pair.
+
+   Baseline-aligned so the dot sits on the text rather than mid-air, and
+   wrapping only when a long email genuinely runs out of room. */
 .custdetail__info {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
   color: #475569;
   font-size: var(--text-base);
   margin-bottom: 20px;
+}
+
+.custdetail__dot {
+  color: #cbd5e1;
+}
+
+.custdetail__email {
+  color: #475569;
+  text-decoration: none;
+  padding: 7px 0;
+}
+
+@media (hover: hover) {
+  .custdetail__email:hover {
+    text-decoration: underline;
+  }
 }
 
 .custedit__textarea {

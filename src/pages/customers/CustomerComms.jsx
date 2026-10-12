@@ -116,19 +116,6 @@ export default function CustomerComms() {
         startOpen
       />
 
-      {/* THE TWO SETTINGS, moved off the customer profile. They sat under
-          the address there and were the third thing your eye landed on,
-          which is a lot of attention for two things you change about twice
-          a year. This is the page you are already on when "should we be
-          emailing them?" occurs to you. */}
-      <CustomerPrefs
-        customer={customer}
-        /* reload, not load: these switches live on the customer record,
-           which the layout owns. Reloading only this page's timeline would
-           leave the tickbox showing its old state until a full refresh. */
-        onChanged={reload}
-      />
-
       <section className="comms__history">
         <div className="comms__historyhead">
           <h3 className="comms__historytitle">History</h3>
@@ -186,6 +173,16 @@ export default function CustomerComms() {
           </ol>
         )}
       </section>
+      {/* THE TWO SETTINGS, LAST.
+
+          They were wedged between the text composer and the history, which
+          put a pair of tickboxes in the middle of the thing people come to
+          this page to read. They are settings — glanced at occasionally,
+          changed about twice a year — so they sit under everything else,
+          in the same bordered section as the rest rather than floating
+          between two of them. */}
+      <CustomerPrefs customer={customer} onChanged={reload} />
+
     </>
   );
 }

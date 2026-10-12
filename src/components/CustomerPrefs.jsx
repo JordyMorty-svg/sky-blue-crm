@@ -60,7 +60,13 @@ export default function CustomerPrefs({ customer, onChanged }) {
   }
 
   return (
-    <>
+    <section className="custprefs__section">
+      {/* The same section shape as the thread, the quotes panel and the
+          history — a rule, a heading, then the content. These stack on one
+          page and have to read as the same kind of thing; a bare pair of
+          tickboxes between two titled sections is what made this page look
+          like it had been assembled rather than designed. */}
+      <h3 className="custprefs__sectiontitle">Email &amp; reviews</h3>
     <div className="custprefs">
       {/* Named for what is actually in the group. On a customer with
           no email address the opt-out switch below is hidden, which
@@ -147,6 +153,6 @@ export default function CustomerPrefs({ customer, onChanged }) {
       </div>
     </div>
       {error && <p className="custdetail__error">{error}</p>}
-    </>
+    </section>
   );
 }

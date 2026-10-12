@@ -121,7 +121,17 @@ export default function LeadLayout() {
 
       {error && <p className="detail__error">{error}</p>}
 
-      <Outlet context={{ lead, reload: load, beforeLeaveRef }} />
+      {/* THE FADE IS KEYED ON THE PATH, which is what makes it work.
+          React reuses the DOM when only the Outlet's child changes, so an
+          animation without a key would play once and never again. The key
+          remounts the wrapper on each tab, restarting it.
+
+          120ms and 4px. Long enough to read as the panel arriving rather
+          than snapping, short enough that nobody waiting to read a text
+          thread ever notices it happened. */}
+      <div className="recordpanel" key={pathname}>
+        <Outlet context={{ lead, reload: load, beforeLeaveRef }} />
+      </div>
     </div>
   );
 }
