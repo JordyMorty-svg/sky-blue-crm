@@ -9,6 +9,7 @@ import {
 } from "../../services/leadService";
 import {
   describeEvent,
+  partitionTexts,
   fetchContactTimeline,
   formatStamp,
 } from "../../services/contactService";
@@ -43,6 +44,11 @@ export default function CustomerComms() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [historyError, setHistoryError] = useState("");
+  // Texts are in the thread directly above this timeline, so they start
+  // folded away — see partitionTexts() in contactService.js. Not persisted:
+  // the default is the useful one, and a preference remembered from three
+  // weeks ago is a page that looks different for no visible reason.
+  const [showTexts, setShowTexts] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -83,6 +89,10 @@ export default function CustomerComms() {
   if (!customer) return <div className="customers__empty">{error || "Not found."}</div>;
 
   const propertyType = customer.property_type || "residential";
+
+  // Split once per render, used twice below.
+  const { rest, textCount } = partitionTexts(rows);
+  const shownRows = showTexts ? rows : rest;
 
   return (
     <div className="custdetail">
@@ -129,15 +139,39 @@ export default function CustomerComms() {
       />
 
       <section className="comms__history">
-        <h3 className="comms__historytitle">History</h3>
+        <div className="comms__historyhead">
+          <h3 className="comms__historytitle">History</h3>
+          {/* Only offered when there is something to offer. A toggle that
+              reveals nothing is a control that teaches people the page
+              is broken. */}
+          {textCount > 0 && (
+            <button
+              type="button"
+              className="comms__texttoggle"
+              onClick={() => setShowTexts((v) => !v)}
+              aria-expanded={showTexts}
+            >
+              {showTexts ? "Hide" : "Show"} {textCount} text
+              {textCount === 1 ? "" : "s"}
+            </button>
+          )}
+        </div>
 
         {historyError && <p className="custdetail__error">{historyError}</p>}
 
-        {rows.length === 0 && !historyError ? (
-          <p className="comms__empty">Nothing recorded yet.</p>
+        {shownRows.length === 0 && !historyError ? (
+          <p className="comms__empty">
+            {/* THE CASE THAT WOULD LOOK LIKE A BUG. A lead you have only
+                ever texted has a full history and an empty timeline, and
+                "Nothing recorded yet" directly above a thread full of
+                messages reads as data loss. */}
+            {textCount > 0
+              ? "Only texts so far — they're in the thread above."
+              : "Nothing recorded yet."}
+          </p>
         ) : (
           <ol className="comms__timeline">
-            {rows.map((row, i) => {
+            {shownRows.map((row, i) => {
               const { title, meta, tone } = describeEvent(row, statusLabel, customer.name);
               return (
                 <li

@@ -226,6 +226,11 @@ function jobDate(iso) {
   });
 }
 
+// Pure, and therefore in a module of their own — see contactFilters.js.
+// Re-exported here so every screen keeps importing its timeline helpers
+// from one place.
+export { isTextEvent, partitionTexts } from "./contactFilters";
+
 export function money(n) {
   return `$${Number(n || 0).toLocaleString()}`;
 }

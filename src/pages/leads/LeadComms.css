@@ -74,11 +74,41 @@
 
 /* Deliberately the same as .thread__title and .quotes__title. These sections
    stack and have to read as the same kind of thing. */
+/* The title and the texts toggle share a row. The 14px bottom margin moved
+   off the title and onto this wrapper, so the two sit on one baseline
+   instead of the button hanging below the heading. */
+.comms__historyhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
 .comms__historytitle {
   font-size: var(--text-xl);
   font-weight: 800;
   color: #0f172a;
-  margin: 0 0 14px;
+  margin: 0;
+}
+
+/* Quiet on purpose. It reveals rows that are already visible in the thread
+   a few inches above — useful occasionally, never the thing you came to
+   the page to press. */
+.comms__texttoggle {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.comms__texttoggle:hover {
+  text-decoration: underline;
 }
 
 .comms__empty {
