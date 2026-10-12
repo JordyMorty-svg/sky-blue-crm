@@ -419,7 +419,17 @@
    wrapping when a column is narrow. */
 /* The phone on a board card is a live tel: link, so it needs to look like
    one — the rest of that footer line is deliberately muted. */
+/* A BUTTON NOW, not a link — it calls through Quo by whichever route the
+   device has rather than firing a deep link that a laptop cannot follow.
+   The reset keeps it looking like the inline text it sits in; without it
+   the browser draws a grey box mid-sentence. */
 .card__phone {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
   color: #2563eb;
   font-weight: 600;
   text-decoration: none;

@@ -4,11 +4,10 @@ import {
   TEMPERATURES,
   LEADS_SETTABLE_STATUSES,
   serviceFor,
-  quoCallHref,
-  telHref,
 } from "../services/leadService";
 import { useAuth } from "../context/useAuth";
 import { can } from "./capabilities";
+import { callThroughQuo } from "../services/quoDial";
 
 function formatDate(iso) {
   const d = new Date(iso);
@@ -37,9 +36,12 @@ export default function LeadCard({ lead, onMove }) {
 
   const temp = TEMPERATURES.find((t) => t.key === lead.temperature);
   // Through Quo, so the customer sees the business number and Quo can tell
-  // us afterwards whether the call connected. telHref is the fallback for a
-  // number Quo cannot dial. See db/call-tracking.sql.
-  const phone = quoCallHref(lead.phone) || telHref(lead.phone);
+  // us afterwards whether the call connected — see db/call-tracking.sql.
+  //
+  // NOT A BARE openphone:// LINK ANY MORE. That deep link opens the Quo
+  // app, which is a phone app; on a laptop it was a dead click with no
+  // feedback, so from a desk these numbers did nothing at all.
+  // callThroughQuo picks the route the device has.
 
   // A number the customer was actually given. 0 is what the CRM writes when
   // a lead is saved with the field empty, so it means "not quoted" too.
@@ -161,7 +163,7 @@ export default function LeadCard({ lead, onMove }) {
       <div className="card__foot">
         <span className="card__when">
           {formatDate(lead.created_at)}
-          {phone && (
+          {lead.phone && (
             <>
               {" · "}
               {/* Dials, and RECORDS NOTHING. The attempt is written when
@@ -174,13 +176,18 @@ export default function LeadCard({ lead, onMove }) {
                   stopPropagation stays: the card body opens the lead, and
                   without it ringing someone would also navigate away from
                   the board underneath them. */}
-              <a
+              <button
+                type="button"
                 className="card__phone"
-                href={phone}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  // The whole card is a link to the lead, so a press on
+                  // the number must not also open the lead behind it.
+                  e.stopPropagation();
+                  void callThroughQuo(lead.phone);
+                }}
               >
                 {lead.phone}
-              </a>
+              </button>
             </>
           )}
         </span>

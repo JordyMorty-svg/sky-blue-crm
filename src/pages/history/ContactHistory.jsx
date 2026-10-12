@@ -6,7 +6,8 @@ import {
   describeEvent,
   formatStamp,
 } from "../../services/contactService";
-import { ALL_STATUSES, quoCallHref, telHref } from "../../services/leadService";
+import { ALL_STATUSES } from "../../services/leadService";
+import { callThroughQuo } from "../../services/quoDial";
 import "./ContactHistory.css";
 
 /**
@@ -130,7 +131,9 @@ export default function ContactHistory() {
   // international number, a note somebody typed in the phone field. The
   // fallback will not be logged either, which is worse than the Quo route
   // and much better than no button at all.
-  const phone = quoCallHref(person?.phone) || telHref(person?.phone);
+  // Through Quo by whichever route this device has — see quoDial.js. The
+  // bare deep link this used to be did nothing at all from a desk.
+  const canCall = Boolean(person?.phone);
 
   if (loading) return <div className="chist__state">Loading history…</div>;
 
@@ -153,10 +156,14 @@ export default function ContactHistory() {
       {error && <p className="chist__error">{error}</p>}
 
       <div className="chist__actions">
-        {phone && (
-          <a className="chist__call" href={phone}>
+        {canCall && (
+          <button
+            type="button"
+            className="chist__call"
+            onClick={() => void callThroughQuo(person?.phone)}
+          >
             Call {person.phone}
-          </a>
+          </button>
         )}
         <button
           className="chist__log"

@@ -40,7 +40,7 @@ import { SCHEDULE_VIEWS } from "../../components/navViews";
 // Standing at the door and needing to ring the customer is the commonest
 // reason anyone reads this line, and it is a real call that belongs on
 // their history. Through Quo, so it gets there. See db/call-tracking.sql.
-import { quoCallHref } from "../../services/leadService";
+import { callThroughQuo } from "../../services/quoDial";
 import "./Schedule.css";
 
 const locales = { "en-US": enUS };
@@ -594,18 +594,20 @@ export default function Schedule() {
                           this line. */}
                       {(job.lead?.phone || job.customer?.phone) && (
                         <>
-                          <a
+                          <button
+                            type="button"
                             className="schedjob__phone"
-                            href={
-                              quoCallHref(job.lead?.phone || job.customer?.phone) ||
-                              `tel:${String(
+                            onClick={(e) => {
+                              // The row opens the job; a press on the
+                              // number must not do both.
+                              e.stopPropagation();
+                              void callThroughQuo(
                                 job.lead?.phone || job.customer?.phone
-                              ).replace(/[^\d+]/g, "")}`
-                            }
-                            onClick={(e) => e.stopPropagation()}
+                              );
+                            }}
                           >
                             {job.lead?.phone || job.customer?.phone}
-                          </a>
+                          </button>
                           {" · "}
                         </>
                       )}

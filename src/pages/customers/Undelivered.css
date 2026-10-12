@@ -100,7 +100,16 @@
   min-width: 0;
 }
 
+/* A button now — calls through Quo by whichever route the device has.
+   Reset so it still reads as the heading text it was. */
 .blockedrow__phone {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
   font-weight: 700;
   font-size: var(--text-base);
   color: #0f172a;
@@ -399,5 +408,25 @@
 @media (max-width: 620px) {
   .undel__checkbtn {
     width: 100%;
+  }
+}
+
+/* The number on a failed-delivery row. Was an <a> inheriting the browser's
+   link styling; now a button, so it needs both the reset and the colour
+   that styling used to give it for free. */
+.undelrow__phone {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .undelrow__phone:hover {
+    text-decoration: underline;
   }
 }
