@@ -229,7 +229,7 @@ function jobDate(iso) {
 // Pure, and therefore in a module of their own — see contactFilters.js.
 // Re-exported here so every screen keeps importing its timeline helpers
 // from one place.
-export { isTextEvent, isContactEvent, partitionTimeline } from "./contactFilters";
+export { isTextEvent, isContactEvent, partitionTimeline, outreachFrom } from "./contactFilters";
 
 export function money(n) {
   return `$${Number(n || 0).toLocaleString()}`;
@@ -282,4 +282,43 @@ export function whenReached(iso, now = new Date()) {
     day: "numeric",
     year: "numeric",
   })}`;
+}
+
+/**
+ * Pull this number's call history out of Quo and onto their timeline.
+ *
+ * THE CALL TWIN OF importFromQuo() in textService.js, down to the shape of
+ * what it resolves with, because the two buttons sit on the same page and
+ * behave the same way.
+ *
+ * Resolves rather than throwing when Quo says no: "the Quo key is wrong" and
+ * "that number has no call history" are answers, and a thrown error would
+ * put "something went wrong" on screen for a case the system can describe.
+ *
+ * Safe to call twice. Every call deduplicates on its Quo id in
+ * record_quo_call(), so a second press imports only what is genuinely new.
+ */
+export async function importCallsFromQuo(phone) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const res = await fetch("/api/backfill-calls", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${session?.access_token || ""}`,
+    },
+    body: JSON.stringify({ phone }),
+  });
+
+  if (res.status === 401) {
+    return { ok: false, error: "Sign in again to import from Quo." };
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!data) {
+    throw new Error("Couldn't reach the server.");
+  }
+  return data;
 }

@@ -257,12 +257,19 @@ declare kept boolean;
 begin
   perform pg_temp.reset();
 
-  -- No lead, no customer: record_quo_call writes nothing, so there is no
-  -- row for the summary to decorate. It must still be kept, and must not
-  -- invent one.
+  -- A STRANGER, AND THIS CHANGED. db/orphan-calls.sql.
+  --
+  -- This block used to assert that a call to a number nobody owns writes no
+  -- row, so a summary for it had nothing to decorate. The row is now written
+  -- against the phone alone, which means the summary DOES attach — and that
+  -- is the better outcome: when that number is entered as a lead next week,
+  -- the call and what was said on it arrive together.
   perform public.record_quo_call_with_notes('c8', '+15035559999', 'outgoing', 'answered', 60, now());
-  perform pg_temp.chk('a stranger''s call is still not logged',
-    not exists (select 1 from public.contact_log where provider_call_id = 'c8'));
+  perform pg_temp.chk('a stranger''s call is logged against the phone',
+    exists (select 1 from public.contact_log
+             where provider_call_id = 'c8'
+               and lead_id is null and customer_id is null
+               and phone_norm is not null));
 
   -- TWO STATEMENTS, NOT ONE `and`.
   --
@@ -274,16 +281,27 @@ begin
   -- that depends on evaluation order is a test that fails for a reason
   -- having nothing to do with the code.
   kept := public.record_call_summary('c8', array['Wrong number.'], null);
-  perform pg_temp.chk('THE POINT: its summary attaches to nothing',
-    kept = false,
-    'there is no call row on anybody''s timeline to show it on');
-  perform pg_temp.chk('...but is kept all the same',
-    exists (select 1 from public.call_notes where provider_call_id = 'c8'),
-    'the call row may still arrive; webhook order is not guaranteed');
+  perform pg_temp.chk('THE POINT: its summary attaches to the orphan row',
+    kept = true,
+    'the row exists now, so the summary has somewhere to go — and travels '
+    'with the call to whoever that number turns out to be');
+  perform pg_temp.chk('...and is kept in call_notes either way',
+    exists (select 1 from public.call_notes where provider_call_id = 'c8'));
 
+  -- THE ORIGINAL POINT OF THIS BLOCK, which still stands: a summary whose
+  -- call row has not arrived yet must be kept rather than discarded. Webhook
+  -- order is not guaranteed, and the summary sometimes lands first. A call
+  -- id nothing has ever written is the only way to reach that case now that
+  -- strangers get rows.
+  kept := public.record_call_summary('c9-never-seen', array['Early.'], null);
+  perform pg_temp.chk('a summary that arrives before its call attaches to nothing',
+    kept = false);
+  perform pg_temp.chk('...but is kept all the same',
+    exists (select 1 from public.call_notes where provider_call_id = 'c9-never-seen'),
+    'the call row may still arrive; webhook order is not guaranteed');
   perform pg_temp.chk('...and no contact_log row was conjured for it',
-    (select count(*) from public.contact_log) = 0,
-    'contact_log is a history of the people in this database');
+    not exists (select 1 from public.contact_log where provider_call_id = 'c9-never-seen'),
+    'contact_log rows come from calls, never from a summary');
 end $$;
 
 -- ---------------------------------------------------------------------------

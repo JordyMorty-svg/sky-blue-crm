@@ -279,3 +279,13 @@
   color: #0f172a;
   margin: 0 0 14px;
 }
+
+/* What the import had to say. Under the heading rather than beside the
+   button that caused it: "Added 3 calls" is a sentence, and a sentence in a
+   row of three short controls either squashes them onto a second line or
+   gets truncated. */
+.comms__pullnote {
+  margin: -6px 0 12px;
+  font-size: var(--text-sm);
+  color: #475569;
+}

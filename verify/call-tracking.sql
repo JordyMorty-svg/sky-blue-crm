@@ -345,12 +345,36 @@ begin
     r.lead_id is not null and r.customer_id = 'e0000000-0000-0000-0000-000000000001',
     'customer_id = ' || coalesce(r.customer_id::text, 'null'));
 
-  -- A stranger. contact_log is a history of the people in this database.
+  -- A STRANGER, AND THIS CHANGED. db/orphan-calls.sql.
+  --
+  -- This file used to assert the opposite: that a call to a number nobody
+  -- owns is dropped. That was right about suppliers and wrong about the
+  -- customer you ring before you enter them, and at the moment the webhook
+  -- fires there is nothing that tells the two apart. The row is now written
+  -- against the phone alone and becomes visible the day somebody with that
+  -- number exists; see verify/orphan-calls.sql, which owns the rest of it.
+  --
+  -- What this file still owns is the part that did NOT change: an orphan
+  -- row carries no ids and touches no counters.
   select count(*) into n from public.contact_log;
-  perform pg_temp.chk('a number nobody owns is not written down',
-    public.record_quo_call('w3', '+15035559999', 'outgoing', 'answered', 60, now()) is null);
-  perform pg_temp.chk('...and left no row behind',
-    (select count(*) from public.contact_log) = n);
+  perform pg_temp.chk('a number nobody owns is written against the phone',
+    public.record_quo_call('w3', '+15035559999', 'outgoing', 'answered', 60, now()) is not null);
+  select * into r from public.contact_log where provider_call_id = 'w3';
+  -- THE STORED VALUE IS DIGITS, NOT A KEY, and that is on purpose: every
+  -- other row in this table holds sb_phone_digits of whatever was written
+  -- at the time, and an orphan row that held something else would be the
+  -- odd one out in a column several migrations write to. The leading 1 from
+  -- E.164 stays on; contact_timeline bridges the two spellings by comparing
+  -- sb_phone_key on both sides. See db/orphan-calls.sql section 2.
+  perform pg_temp.chk('...with no ids on it',
+    r.lead_id is null and r.customer_id is null
+    and r.phone_norm = '15035559999'
+    and public.sb_phone_key(r.phone_norm) = '5035559999',
+    'lead=' || coalesce(r.lead_id::text, 'null') ||
+    ' cust=' || coalesce(r.customer_id::text, 'null') ||
+    ' phone=' || coalesce(r.phone_norm, 'null'));
+  perform pg_temp.chk('...and exactly one row, not two',
+    (select count(*) from public.contact_log) = n + 1);
 end $$;
 
 -- ---------------------------------------------------------------------------

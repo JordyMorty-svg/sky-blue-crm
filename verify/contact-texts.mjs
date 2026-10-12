@@ -28,6 +28,7 @@ import { readFileSync } from "node:fs";
 import {
   isContactEvent,
   isTextEvent,
+  outreachFrom,
   partitionTimeline,
 } from "../src/services/contactFilters.js";
 
@@ -166,6 +167,66 @@ console.log("\n-- splitting a timeline --\n");
     "called on every render, including the first one before the fetch lands");
 }
 
+console.log("\n-- what the call bar counts --\n");
+
+{
+  chk("nothing on the timeline means nothing to say",
+    outreachFrom([]) === null && outreachFrom() === null,
+    "null rather than {attempts: 0}, so the page can fall back to the " +
+    "record's own columns while the timeline is still loading instead of " +
+    "flashing 'Nobody has reached out yet' at a customer rung four times");
+
+  chk("THE POINT: a call logged while she was a LEAD counts on her customer page",
+    outreachFrom([{ source: "contact", kind: "call", at: "2026-10-08T15:00:00Z" }])
+      ?.attempts === 1,
+    "this is the bug in the screenshot: customers.contact_attempts is 0 " +
+    "because the call bumped the lead row, and the call bar read the column");
+
+  const mixed = [
+    { source: "contact", kind: "call", at: "2026-10-01T10:00:00Z" },
+    { source: "contact", kind: "call_in", at: "2026-10-02T10:00:00Z" },
+    { source: "contact", kind: "call_attempt", at: "2026-10-03T10:00:00Z" },
+    { source: "contact", kind: "text", at: "2026-10-04T10:00:00Z" },
+    { source: "contact", kind: "text_in", at: "2026-10-05T10:00:00Z" },
+    { source: "contact", kind: "email", at: "2026-10-06T10:00:00Z" },
+    { source: "contact", kind: "note", at: "2026-10-07T10:00:00Z" },
+    { source: "lead", at: "2026-10-08T10:00:00Z" },
+    { source: "job", kind: "scheduled", at: "2026-10-09T10:00:00Z" },
+  ];
+  const out = outreachFrom(mixed);
+
+  chk("THE POINT: only the things WE did count as reaching out",
+    out.attempts === 4,
+    "call, call_attempt, text and email. Not call_in or text_in — counting " +
+    "their replies as our outreach is how 'we have chased them 6 times' " +
+    "becomes a reason not to chase somebody who has never been chased");
+
+  chk("...and a note is not contact",
+    outreachFrom([{ source: "contact", kind: "note", at: "2026-10-07T10:00:00Z" }]) === null,
+    "writing something down about somebody is not talking to them");
+
+  chk("...nor is an opt-out",
+    outreachFrom([{ source: "contact", kind: "opt_out", at: "2026-10-07T10:00:00Z" }]) === null,
+    "that is them leaving, not us arriving");
+
+  chk("THE POINT: last reached out is the newest OUTBOUND one",
+    out.lastContactedAt === "2026-10-06T10:00:00Z",
+    "not 2026-10-07 (a note), not 2026-10-09 (a job milestone), and not " +
+    "2026-10-05 (their reply) — the bar says when WE last tried");
+
+  chk("a reversed list gives the same answer",
+    outreachFrom([...mixed].reverse()).lastContactedAt === "2026-10-06T10:00:00Z",
+    "max, not last-in-the-array — the timeline is ascending today and this " +
+    "must not depend on that");
+
+  chk("lifecycle rows never count, however many there are",
+    outreachFrom([
+      { source: "lead", at: "2026-10-08T10:00:00Z" },
+      { source: "job", kind: "scheduled", at: "2026-10-09T10:00:00Z" },
+    ]) === null,
+    "booking a job is not reaching out to them");
+}
+
 console.log("\n-- the two pages that filter --\n");
 
 for (const page of [
@@ -223,6 +284,21 @@ for (const page of [
     /Only texts so far/.test(src) && /No calls or emails yet/.test(src),
     "'Nothing recorded yet' above a full thread, or beside a 'Full history " +
       "(8)' link, reads as data loss");
+
+  chk(`${name} feeds the call bar from the timeline, not the record`,
+    /outreach\?\.lastContactedAt/.test(src) && /outreach\?\.attempts/.test(src),
+    "reading last_contacted_at straight off the record is the bug: it is " +
+    "zero on a customer whose calls all happened while she was a lead");
+
+  chk(`${name} still falls back to the record's columns`,
+    /outreach\?\.lastContactedAt \?\? \w+\.last_contacted_at/.test(src) &&
+      /outreach\?\.attempts \?\? \w+\.contact_attempts/.test(src),
+    "the fallback has to be there at all, or the bar says 'Nobody has " +
+    "reached out yet' for the moment before the timeline lands. And ?? on " +
+    "BOTH, not ||. On attempts the two behave identically today, but only " +
+    "because outreachFrom returns null rather than {attempts: 0} — || " +
+    "silently depends on an invariant in another file, and the day that " +
+    "changes it falls back to the record's zero instead of showing the zero");
 
   chk(`${name} does not say "History" as this section's heading`,
     !/comms__historytitle">History</.test(src),

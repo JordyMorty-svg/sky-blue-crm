@@ -95,6 +95,60 @@ export function isTextEvent(row) {
  * silently drops rows is one nobody trusts; "3 texts" and a link to the
  * rest is a screen that is tidying on your behalf and saying so.
  */
+/* --- 3. what the call bar says ------------------------------------------- */
+
+// Reaching out is something WE did. Four of these are ours and three are
+// theirs, and the split is by kind because contact_timeline() does not
+// return the direction column — see the note in db/orphan-calls.sql about
+// what the timeline's fixed return type costs to change.
+//
+// `note` is not here: writing something down about somebody is not contacting
+// them. Neither is `opt_out`, which is them leaving.
+const OUTREACH_KINDS = new Set(["call", "call_attempt", "text", "email", "auto_email"]);
+
+/**
+ * When we last reached out to this person, and how many times, counted from
+ * the timeline rather than read off their row.
+ *
+ * WHY NOT THE COLUMNS. leads and customers both carry last_contacted_at and
+ * contact_attempts, and record_contact_as() bumps whichever row existed WHEN
+ * THE CALL HAPPENED. Two cases break that, and both are ordinary:
+ *
+ *   Valerie was called while she was a lead and booked an hour later. The
+ *   lead row has the call; the customer row created afterwards starts at
+ *   zero. Her customer page said "Nobody has reached out yet" directly above
+ *   a call from the same afternoon.
+ *
+ *   A call that arrived before she was in the CRM at all has no row to bump
+ *   — db/orphan-calls.sql writes it against the phone. The column cannot
+ *   ever learn about it.
+ *
+ * The timeline already stitches a person's leads and customers together by
+ * id and by phone, which is exactly the thing the columns cannot do. So the
+ * bar counts what is on screen. It is also self-healing: no backfill, and
+ * every historic record is right the first time it is opened.
+ *
+ * Returns null when the timeline has nothing to say, so a caller can fall
+ * back to the row's own columns while the fetch is still in flight rather
+ * than flashing "nobody has reached out" at somebody who has been rung four
+ * times.
+ */
+export function outreachFrom(rows = []) {
+  let attempts = 0;
+  let lastAt = null;
+
+  for (const row of rows) {
+    if (!isContactEvent(row) || !OUTREACH_KINDS.has(row?.kind)) continue;
+    attempts++;
+    // MAX, not "the last one in the array". The timeline is sorted ascending
+    // and relying on that here would make this quietly wrong the day
+    // somebody reverses the list for display.
+    if (!lastAt || String(row.at) > String(lastAt)) lastAt = row.at;
+  }
+
+  return attempts === 0 ? null : { lastContactedAt: lastAt, attempts };
+}
+
 export function partitionTimeline(rows = []) {
   const spoken = [];
   const conversation = [];
