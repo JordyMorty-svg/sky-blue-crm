@@ -60,6 +60,11 @@ create table leads (
   estimate          numeric,
   last_contacted_at timestamptz,
   contact_attempts  int not null default 0,
+  -- Added when db/lead-alerts.sql started putting what they asked for into
+  -- the text it sends the brothers. No migration in db/ creates this column
+  -- — it predates them, from the original Supabase schema — which is
+  -- exactly why the fixture has to be told about it by hand.
+  service           text,
   -- Added when db/lead-ack.sql started asking where a lead came from.
   -- The real table has had it since db/lead-sources.sql; this fixture only
   -- ever grew the columns the SMS code touched.

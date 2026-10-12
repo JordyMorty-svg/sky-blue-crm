@@ -39,6 +39,7 @@
 import { rpc } from "../lib/db.mjs";
 import { sendSms } from "../lib/sms.mjs";
 import { runLeadNudges } from "../lib/leadNudges.mjs";
+import { runLeadAlerts } from "../lib/leadAlerts.mjs";
 import { sendEmail } from "../lib/email.mjs";
 
 // The message. Deliberately short, deliberately not clever.
@@ -178,6 +179,29 @@ export default async () => {
 
     if (nudges.texted || nudges.skipped || nudges.problems.length) {
       console.log("[lead-nudges]", JSON.stringify({ ...nudges, ms: Date.now() - started }));
+    }
+
+    /* THE THIRD JOB ON THIS SWEEP: telling Jordan and Hayden.
+     *
+     * Here rather than in its own scheduled function for the reason stated
+     * at the top of this file — the query is indexed, returns nothing on
+     * roughly 1,439 of 1,440 daily runs, and a second schedule would double
+     * the invocations for a second query that also usually finds nothing.
+     *
+     * LAST, which is policy rather than convenience. The customer hearing
+     * "we've got your message" is the promise this business made on the
+     * form; the brothers hearing about it is how the business keeps the
+     * promise. If one minute's run only gets through part of its work, the
+     * customer's is the half that should already have happened.
+     *
+     * runLeadAlerts() never throws — see its header. A failure to tell
+     * Jordan must not take down the acknowledgment sweep that ran before
+     * it.
+     */
+    const alerts = await runLeadAlerts({ limit: 10 });
+
+    if (alerts.texted || alerts.skipped || alerts.problems.length) {
+      console.log("[lead-alerts]", JSON.stringify({ ...alerts, ms: Date.now() - started }));
     }
 
     return new Response(null, { status: 204 });
