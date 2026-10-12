@@ -46,6 +46,20 @@ body,
   height: 100%;
 }
 
+/* THE SIDEWAYS FLUTTER WHEN SWITCHING TABS.
+   
+   Lead info is a long form; Quotes and Communication are short. Moving
+   from a short tab to the long one makes the page taller than the window,
+   the scrollbar appears, the viewport loses ~15px of width, and every
+   centred thing on the page jumps left. Going back, it jumps right. It
+   reads as the layout stuttering and it is really the scrollbar arriving.
+   
+   Reserving the gutter permanently costs 15px of width on a desktop and
+   nothing at all on a phone, where overlay scrollbars take no space. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color: #0f172a;

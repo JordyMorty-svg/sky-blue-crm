@@ -4,8 +4,14 @@
    two places (choose one while booking, manage them on the profile) and
    looking different would make them read as unrelated features. */
 
+/* THE SAME SECTION SHAPE AS "JOB HISTORY" directly below it. This was a
+   tiny grey uppercase label and that was a heading of a third kind on a
+   page that already had two — the page read as three different designs
+   stacked rather than one. Rule, heading, content, like everything else. */
 .custprops {
-  margin: 0 0 18px;
+  margin: 28px 0 22px;
+  padding-top: 22px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .custprops__head {
@@ -19,11 +25,9 @@
 /* Quiet. This is a label on a block of facts, not a section heading
    competing with "Job history" below it. */
 .custprops__title {
-  font-size: var(--text-sm);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #94a3b8;
+  font-size: var(--text-xl);
+  font-weight: 800;
+  color: #0f172a;
 }
 
 .custprops__addlink {

@@ -352,12 +352,15 @@
   white-space: pre-wrap;
 }
 
+/* A NOTE, NOT A BANNER.
+
+   One word typed into a lead form — "screens" — was getting a full-width
+   blue panel at the top of the page, which made it the loudest thing on a
+   customer record. It is context you glance at, so it reads as context
+   now: a small label and the text, no box. */
 .custdetail__leadnotes {
-  background: #eff6ff;
-  border: 1px solid #dbeafe;
-  border-radius: 12px;
-  padding: 14px 16px;
-  margin-bottom: 20px;
+  padding: 0;
+  margin-bottom: 22px;
 }
 
 .custdetail__leadnotes .custdetail__notes-text:not(:last-child) {
@@ -366,25 +369,48 @@
   border-bottom: 1px solid #dbeafe;
 }
 
+/* TWO NUMBERS, NOT TWO CARDS.
+
+   These were full-width bordered tiles with 16px padding and a 3xl
+   figure — the visual weight of a dashboard, spent on "0" and "$0". On a
+   new customer the page opened with two big boxes announcing that nothing
+   had happened yet, which is the loudest way to say the least.
+
+   A strip: the figure, its label beside it, a divider between the pair.
+   Same information, a fifth of the furniture — measured at 129px tall
+   before and 36px after, on a 640px column — and it stops competing with
+   the job history, which is the thing people actually open a customer to
+   read. */
 .custdetail__stats {
   display: flex;
-  gap: 12px;
-  margin-bottom: 28px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 22px;
+  margin-bottom: 26px;
 }
 
 .custdetail__stat {
-  flex: 1;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 16px;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: baseline;
+  gap: 7px;
+}
+
+/* The divider between the pair. A border rather than a dot character, so
+   it disappears cleanly when they wrap onto two lines on a phone. */
+.custdetail__stat + .custdetail__stat {
+  padding-left: 22px;
+  border-left: 1px solid #e2e8f0;
+}
+
+@media (max-width: 420px) {
+  .custdetail__stat + .custdetail__stat {
+    padding-left: 0;
+    border-left: none;
+  }
 }
 
 .custdetail__stat-num {
-  font-size: var(--text-3xl);
+  font-size: var(--text-2xl);
   font-weight: 800;
   color: #0f172a;
 }
@@ -414,6 +440,15 @@
   margin: 28px 0 14px;
   padding-top: 22px;
   border-top: 1px solid #e2e8f0;
+}
+
+/* Addresses sits directly above Job history and now carries its own rule,
+   so the two would draw a line each with 22px of nothing between them.
+   The first one wins. */
+.custprops + .custdetail__subhead {
+  margin-top: 6px;
+  padding-top: 0;
+  border-top: none;
 }
 
 .custjob {
