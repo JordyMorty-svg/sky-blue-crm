@@ -1,5 +1,16 @@
+/* THE THREE INCOME VIEWS SHARE A WIDTH.
+
+   Income was 720px and Commission and Tax Export were 860px, all three
+   centred, all three behind the same switcher. So pressing a tab kept the
+   pill still and resized everything under it by 70px a side — which reads
+   as the page reloading, because a page reloading is the only other thing
+   that does that.
+
+   860, because two of the three already were and both of those carry a
+   wide table; squeezing a chart into 720 is a worse trade than letting a
+   list of figures breathe. */
 .income {
-  max-width: 720px;
+  max-width: 860px;
   margin: 0 auto;
 }
 

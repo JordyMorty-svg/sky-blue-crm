@@ -1,3 +1,4 @@
+/* 860 — the shared income-section width. See the note in Income.css. */
 .tax {
   max-width: 860px;
   margin: 0 auto;
