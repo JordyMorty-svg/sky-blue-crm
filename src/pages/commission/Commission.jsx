@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/useAuth";
 import { sourceFor } from "../../services/leadService";
-import ViewSwitcher from "../../components/ViewSwitcher";
-import { INCOME_VIEWS } from "../../components/navViews";
 import {
   fetchCommissions,
   fetchCommissionReps,
@@ -384,7 +382,6 @@ export default function Commission() {
       {/* Only for an owner. A rep reaches this page as a tab of its own and
           has no Income view to switch to, so the switcher would be a
           two-option control with one option they cannot use. */}
-      {isAdmin && <ViewSwitcher views={INCOME_VIEWS} section="income" />}
 
       {isAdmin ? (
         // The switcher directly above already says Commission, so the

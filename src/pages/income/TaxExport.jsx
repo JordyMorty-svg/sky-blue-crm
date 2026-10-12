@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import ViewSwitcher from "../../components/ViewSwitcher";
-import { INCOME_VIEWS } from "../../components/navViews";
 import { money } from "../../services/commissionService";
 import {
   INCOME_COLUMNS,
@@ -98,7 +96,6 @@ export default function TaxExport() {
 
   return (
     <div className="tax">
-      <ViewSwitcher views={INCOME_VIEWS} section="income" />
       <h1 className="visually-hidden">Tax export</h1>
 
       {error && <p className="tax__error">{error}</p>}

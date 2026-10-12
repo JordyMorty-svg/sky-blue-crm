@@ -9,12 +9,10 @@ import {
   missingFieldFor,
 } from "../../services/leadService";
 import LeadColumn from "../../components/LeadColumn";
-import ViewSwitcher from "../../components/ViewSwitcher";
 import ScopeToggle from "../../components/ScopeToggle";
 import { initialScope } from "../../components/scopeMemory";
 import { useAuth } from "../../context/useAuth";
 import { can } from "../../components/capabilities";
-import { LEAD_VIEWS } from "../../components/navViews";
 import DragPromptModal from "../../components/DragPromptModal";
 import "./Leads.css";
 
@@ -176,7 +174,6 @@ export default function Leads() {
 
   return (
     <div className="leads">
-      <ViewSwitcher views={LEAD_VIEWS} section="leads" />
 
       {/* The switcher is the visible heading — a repeated "Pipeline" title
           directly under it was pure duplication. The h1 stays for screen

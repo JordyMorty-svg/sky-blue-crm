@@ -6,8 +6,6 @@ import {
   bulkUpdateLeadStatus,
   bulkDeleteLeads,
 } from "../../services/leadService";
-import ViewSwitcher from "../../components/ViewSwitcher";
-import { LEAD_VIEWS } from "../../components/navViews";
 import "./AllLeads.css";
 
 const STATUS_LABEL = Object.fromEntries(
@@ -23,9 +21,11 @@ function formatDate(value) {
   });
 }
 
-// `views` decides which switcher shows, because this page is mounted under
-// both /leads/all and /customers/leads.
-export default function AllLeads({ views = LEAD_VIEWS }) {
+// The `views` prop is gone: the switcher is drawn by the layout route this
+// page is mounted under, so which strip shows is decided by the routing
+// rather than by a prop this page had to be handed correctly. See
+// src/components/ViewLayout.jsx.
+export default function AllLeads() {
   const navigate = useNavigate();
 
   const [leads, setLeads] = useState([]);
@@ -254,7 +254,6 @@ export default function AllLeads({ views = LEAD_VIEWS }) {
 
   return (
     <div className="allleads">
-      <ViewSwitcher views={views} />
 
       <div className="allleads__head">
         <div>

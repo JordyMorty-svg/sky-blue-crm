@@ -1,6 +1,4 @@
 import { useState } from "react";
-import ViewSwitcher from "../../components/ViewSwitcher";
-import { CUSTOMER_VIEWS } from "../../components/navViews";
 import FollowUpRunner from "../../components/FollowUpRunner";
 import SendToCustomer from "../../components/SendToCustomer";
 import "./Communication.css";
@@ -28,7 +26,6 @@ export default function Communication() {
 
   return (
     <div className="comms">
-      <ViewSwitcher views={CUSTOMER_VIEWS} section="customers" />
 
       <header className="comms__head">
         <h1 className="comms__title">Communication</h1>

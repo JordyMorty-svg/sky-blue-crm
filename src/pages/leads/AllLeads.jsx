@@ -8,10 +8,8 @@ import {
 } from "../../services/leadService";
 import { useAuth } from "../../context/useAuth";
 import { can } from "../../components/capabilities";
-import ViewSwitcher from "../../components/ViewSwitcher";
 import ScopeToggle from "../../components/ScopeToggle";
 import { initialScope } from "../../components/scopeMemory";
-import { LEAD_VIEWS } from "../../components/navViews";
 import "./AllLeads.css";
 
 const STATUS_LABEL = Object.fromEntries(
@@ -267,7 +265,6 @@ export default function AllLeads() {
 
   return (
     <div className="allleads">
-      <ViewSwitcher views={LEAD_VIEWS} section="leads" />
 
       {/* Same as the pipeline view: the switcher is the heading, the h1
           is kept for assistive tech only. */}

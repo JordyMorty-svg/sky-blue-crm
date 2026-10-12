@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { fetchCompletedJobs } from "../../services/customerService";
-import ViewSwitcher from "../../components/ViewSwitcher";
-import { INCOME_VIEWS } from "../../components/navViews";
 import "./Income.css";
 
 const PERIODS = [
@@ -140,7 +138,6 @@ export default function Income() {
 
   return (
     <div className="income">
-      <ViewSwitcher views={INCOME_VIEWS} section="income" />
 
       {/* The switcher is the visible heading — an "Income" title directly
           under a tab reading Income is pure duplication, the same one the

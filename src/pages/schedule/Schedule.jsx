@@ -19,7 +19,6 @@ import { fetchMyJobs } from "../../services/jobService";
 import { fetchCalendarJobs } from "../../services/calendarService";
 import { can } from "../../components/capabilities";
 import JobPlanTag from "../../components/JobPlanTag";
-import ViewSwitcher from "../../components/ViewSwitcher";
 import {
   remember,
   recall,
@@ -36,7 +35,6 @@ import {
   setMapsPref,
   clearMapsPref,
 } from "../../components/navigation";
-import { SCHEDULE_VIEWS } from "../../components/navViews";
 // Standing at the door and needing to ring the customer is the commonest
 // reason anyone reads this line, and it is a real call that belongs on
 // their history. Through Quo, so it gets there. See db/call-tracking.sql.
@@ -502,7 +500,6 @@ export default function Schedule() {
       {/* The switcher is the visible heading; the h1 is kept for screen
           readers and the document outline. Same pattern as the leads pages. */}
       <h1 className="visually-hidden">My schedule</h1>
-      <ViewSwitcher views={SCHEDULE_VIEWS} section="schedule" />
 
       {error && <p className="schedule__error">{error}</p>}
 

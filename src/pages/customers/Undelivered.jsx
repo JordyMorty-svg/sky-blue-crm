@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import ViewSwitcher from "../../components/ViewSwitcher";
-import { CUSTOMER_VIEWS } from "../../components/navViews";
 import {
   channelWord,
   checkQuo,
@@ -171,7 +169,6 @@ export default function Undelivered() {
   return (
     <div className="undel">
       <h1 className="visually-hidden">Messages that didn&rsquo;t arrive</h1>
-      <ViewSwitcher views={CUSTOMER_VIEWS} section="customers" />
 
       {/* Quo does not announce a failure — it has no webhook for one — so
           this list is only ever as current as the last time somebody asked.

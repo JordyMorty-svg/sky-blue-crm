@@ -20,6 +20,7 @@ import ContactHistory from "./pages/history/ContactHistory";
 import Schedule from "./pages/schedule/Schedule";
 import CompleteJob from "./pages/schedule/CompleteJob";
 import PosReturn from "./pages/schedule/PosReturn";
+import ViewLayout from "./components/ViewLayout";
 import Income from "./pages/income/Income";
 import Commission from "./pages/commission/Commission";
 import TaxExport from "./pages/income/TaxExport";
@@ -34,7 +35,14 @@ import AddPastJobs from "./pages/customers/AddPastJobs";
 import MapView from "./pages/map/MapView";
 import PublicQuote from "./pages/quote/PublicQuote";
 import NavTabs from "./components/NavTabs";
-import { REMEMBERED_SECTIONS } from "./components/navViews";
+import {
+  CUSTOMER_VIEWS,
+  INCOME_VIEWS,
+  JOB_VIEWS,
+  LEAD_VIEWS,
+  REMEMBERED_SECTIONS,
+  SCHEDULE_VIEWS,
+} from "./components/navViews";
 import { lastViewFor } from "./components/viewMemory";
 import { canSee, landingFor, navSectionsFor } from "./components/capabilities";
 import "./App.css";
@@ -217,10 +225,19 @@ export default function App() {
       {/* Every Page carries the section it belongs to, and that string is
           the same one the nav filters on — so a tab and its routes can't
           drift apart into a hidden-but-reachable page. */}
-      <Route path="/leads" element={<Page section="leads"><Leads /></Page>} />
-      {/* Static segment outranks /leads/:id in React Router's matcher, so
-          "all" is never mistaken for a lead id. */}
-      <Route path="/leads/all" element={<Page section="leads"><AllLeads /></Page>} />
+      {/* THE SWITCHER STAYS MOUNTED — see ViewLayout.jsx. These were
+          siblings, so pressing a view rebuilt the strip you had just
+          aimed at. */}
+      <Route
+        element={
+          <Page section="leads">
+            <ViewLayout views={LEAD_VIEWS} section="leads" />
+          </Page>
+        }
+      >
+        <Route path="/leads" element={<Leads />} />
+        <Route path="/leads/all" element={<AllLeads />} />
+      </Route>
       <Route path="/leads/new/:stage" element={<Page section="leads"><NewLead /></Page>} />
       {/* ONE LEAD, THREE TABS, ONE MOUNT — the same nesting as the
           customer routes above, and for the same reason. As three siblings
@@ -241,8 +258,19 @@ export default function App() {
           ranks by specificity rather than by order, so a two-segment path
           outranks the one-segment one however they are written. Listed in
           this order for reading, not for matching. */}
-      <Route path="/jobs" element={<Page section="jobs"><Jobs /></Page>} />
-      <Route path="/jobs/scheduled" element={<Page section="jobs"><Jobs /></Page>} />
+      {/* THE SWITCHER STAYS MOUNTED — see ViewLayout.jsx. These were
+          siblings, so pressing a view rebuilt the strip you had just
+          aimed at. */}
+      <Route
+        element={
+          <Page section="jobs">
+            <ViewLayout views={JOB_VIEWS} section="jobs" />
+          </Page>
+        }
+      >
+        <Route path="/jobs" element={<Jobs />} />
+        <Route path="/jobs/scheduled" element={<Jobs />} />
+      </Route>
       <Route path="/jobs/schedule/:leadId" element={<Page section="jobs"><ScheduleJob /></Page>} />
       <Route path="/jobs/visit/:jobId" element={<Page section="jobs"><ConfirmVisit /></Page>} />
       {/* Finished work is read-only, so it gets its own page rather than
@@ -260,8 +288,19 @@ export default function App() {
           Browsing every job is the tab; opening one is not. */}
       <Route path="/jobs/record/:id" element={<Page section="job-detail"><JobRecord /></Page>} />
       <Route path="/jobs/:id" element={<Page section="job-detail"><JobDetail /></Page>} />
-      <Route path="/schedule" element={<Page section="schedule"><Schedule /></Page>} />
-      <Route path="/schedule/calendar" element={<Page section="schedule"><Schedule /></Page>} />
+      {/* THE SWITCHER STAYS MOUNTED — see ViewLayout.jsx. These were
+          siblings, so pressing a view rebuilt the strip you had just
+          aimed at. */}
+      <Route
+        element={
+          <Page section="schedule">
+            <ViewLayout views={SCHEDULE_VIEWS} section="schedule" />
+          </Page>
+        }
+      >
+        <Route path="/schedule" element={<Schedule />} />
+        <Route path="/schedule/calendar" element={<Schedule />} />
+      </Route>
       <Route path="/schedule/complete/:jobId" element={<Page section="schedule"><CompleteJob /></Page>} />
       {/* Where the Square app returns after a tap. Square opens this as a
           plain URL, so it has to be a real route — public/_redirects sends
@@ -270,26 +309,41 @@ export default function App() {
           a job from the day's schedule, and gating it anywhere the person
           who just tapped a card can't reach would strand a real payment. */}
       <Route path="/pos-return" element={<Page section="schedule"><PosReturn /></Page>} />
-      <Route path="/income" element={<Page section="income"><Income /></Page>} />
-      {/* One page, two audiences: a rep sees their own earnings, an
-          owner sees every rep. The component branches on isAdmin, and
-          the database enforces it — RLS on `commissions` returns a rep
-          only their own rows however the request is made. */}
+      {/* The bare /commission, which is a rep's own tab and an owner's
+          bookmark. OUTSIDE the income layout deliberately: a rep has no
+          Income view to switch to, so the strip would be a three-option
+          control with two options they cannot use. CommissionEntry sends
+          an owner on to /income/commission, which is inside it. */}
       <Route path="/commission" element={<Page section="commission"><CommissionEntry /></Page>} />
-      {/* Section "income", not "commission": as a view of Income it is
-          gated by whatever gates Income, which keeps the switcher's two
-          halves reachable by exactly the same people. */}
-      <Route path="/income/commission" element={<Page section="income"><Commission /></Page>} />
-      {/* Section "income" for the same reason as its sibling above: it is a
-          view of the books, gated by whatever gates the books. It reads
-          every job's price and every rep's pay, so it must never be
-          reachable by a rep — and it isn't, because Income isn't. */}
-      <Route path="/income/tax" element={<Page section="income"><TaxExport /></Page>} />
-      <Route path="/customers" element={<Page section="customers"><Customers /></Page>} />
-      {/* Static segment, so React Router ranks it above /customers/:id —
-          same reason /customers/add-past already works. */}
-      <Route path="/customers/communication" element={<Page section="customers"><Communication /></Page>} />
-      <Route path="/customers/undelivered" element={<Page section="customers"><Undelivered /></Page>} />
+
+      {/* THE SWITCHER STAYS MOUNTED — see ViewLayout.jsx. These were
+          siblings, so pressing a view rebuilt the strip you had just
+          aimed at. */}
+      <Route
+        element={
+          <Page section="income">
+            <ViewLayout views={INCOME_VIEWS} section="income" />
+          </Page>
+        }
+      >
+        <Route path="/income" element={<Income />} />
+        <Route path="/income/commission" element={<Commission />} />
+        <Route path="/income/tax" element={<TaxExport />} />
+      </Route>
+      {/* THE SWITCHER STAYS MOUNTED — see ViewLayout.jsx. These were
+          siblings, so pressing a view rebuilt the strip you had just
+          aimed at. */}
+      <Route
+        element={
+          <Page section="customers">
+            <ViewLayout views={CUSTOMER_VIEWS} section="customers" />
+          </Page>
+        }
+      >
+        <Route path="/customers" element={<Customers />} />
+        <Route path="/customers/communication" element={<Communication />} />
+        <Route path="/customers/undelivered" element={<Undelivered />} />
+      </Route>
       <Route path="/customers/add-past" element={<Page section="customers"><AddPastJobs /></Page>} />
       <Route path="/customers/:id/schedule" element={<Page section="customers"><ScheduleForCustomer /></Page>} />
       {/* ONE CUSTOMER, THREE TABS, ONE MOUNT.

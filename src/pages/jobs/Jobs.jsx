@@ -11,9 +11,7 @@ import {
 } from "../../services/jobService";
 import { serviceFor } from "../../services/leadService";
 import TechPicker from "../../components/TechPicker";
-import ViewSwitcher from "../../components/ViewSwitcher";
 import JobPlanTag from "../../components/JobPlanTag";
-import { JOB_VIEWS } from "../../components/navViews";
 import "./Jobs.css";
 import { jobAddressText } from "../../services/jobAddress";
 
@@ -138,15 +136,6 @@ export default function Jobs() {
           readers. Counts ride along so the volume of the view you're not
           looking at is still visible. */}
       <h1 className="visually-hidden">Jobs</h1>
-      <ViewSwitcher
-        views={JOB_VIEWS}
-        section="jobs"
-        counts={{
-          "/jobs": booked.length + dueVisits.length,
-          "/jobs/scheduled": jobs.length,
-        }}
-      />
-
       {error && <p className="jobs__error">{error}</p>}
 
       {view === "toSchedule" ? (
