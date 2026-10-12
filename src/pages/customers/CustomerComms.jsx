@@ -76,7 +76,11 @@ export default function CustomerComms() {
     })();
   }, [load]);
 
-  if (loading) return <div className="customers__empty">Loading…</div>;
+  // NO PAGE-LEVEL LOADING GATE ANY MORE. The lead/customer comes from the
+  // layout and is already in hand, so the number and the text box can draw
+  // immediately; only the timeline below is still arriving. Blanking the
+  // whole tab while a nice-to-have loads is the flash this refactor set
+  // out to remove, moved one level down.
   // No "not found" branch: CustomerLayout does not render this tab at all
   // unless it has the customer.
 
@@ -152,9 +156,11 @@ export default function CustomerComms() {
                 ever texted has a full history and an empty timeline, and
                 "Nothing recorded yet" directly above a thread full of
                 messages reads as data loss. */}
-            {textCount > 0
-              ? "Only texts so far — they're in the thread above."
-              : "Nothing recorded yet."}
+            {loading
+              ? "Loading…"
+              : textCount > 0
+                ? "Only texts so far — they're in the thread above."
+                : "Nothing recorded yet."}
           </p>
         ) : (
           <ol className="comms__timeline">

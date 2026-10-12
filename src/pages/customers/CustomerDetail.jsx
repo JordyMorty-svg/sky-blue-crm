@@ -281,6 +281,8 @@ export default function CustomerDetail() {
   }, [editing, customer?.name, setChrome]);
 
   if (loading) return <div className="customers__state">Loading…</div>;
+  // CustomerLayout does not render this tab unless it has the customer, so
+  // this is belt and braces rather than a path anybody reaches.
   if (!customer) return <div className="customers__state">{error || "Not found."}</div>;
 
   // Force is armed only when the box is ticked AND the word is typed.

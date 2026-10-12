@@ -29,7 +29,6 @@ export default function CustomerQuotes() {
   const { customer, jobs, reload } = useOutletContext();
 
   const [nextVisit, setNextVisit] = useState(null);
-  const [loading, setLoading] = useState(true);
   // Opened from the Actions menu, then owned by the panel like any other
   // open. Seeded once from navigation state rather than read on every
   // render, so closing the modal does not reopen it.
@@ -45,8 +44,6 @@ export default function CustomerQuotes() {
     } catch (e) {
       console.error("Couldn't load the next visit:", e);
       setNextVisit(null);
-    } finally {
-      setLoading(false);
     }
   }, [id]);
 
@@ -56,7 +53,9 @@ export default function CustomerQuotes() {
     })();
   }, [load]);
 
-  if (loading) return <div className="customers__empty">Loading…</div>;
+  // No page-level gate: the record is the layout's. What is still loading
+  // here only refines the suggested price, which is read when somebody
+  // opens the modal — by which time it has arrived.
   // No "not found" branch: CustomerLayout does not render this tab at all
   // unless it has the customer.
 

@@ -230,8 +230,16 @@ export default function LeadDetail() {
     }
   }
 
-  if (loading) return <div className="detail__state">Loading…</div>;
-  if (!form) return <div className="detail__state">{error || "Not found."}</div>;
+  // NO PAGE-LEVEL LOADING GATE. The lead is the layout's and is already
+  // here; `loading` now covers only the status history further down, and
+  // holding the whole form back for it is the flash this refactor was
+  // meant to remove.
+  // NOT `if (!form)`, which is what this said and why every lead rendered
+  // "Not found." the moment the record moved up to LeadLayout: `form` is
+  // the DRAFT now, and it is null until somebody types something. The
+  // layout does not render this tab at all unless it has the lead, so the
+  // only thing left worth guarding is a lead id that resolved to nothing.
+  if (!lead) return <div className="detail__state">{error || "Not found."}</div>;
 
   // Who may close a lead out.
   //
@@ -482,7 +490,9 @@ export default function LeadDetail() {
       {events.length > 0 && (
         <div className="detail__history">
           <div className="detail__historyhead">
-            <h2 className="detail__historytitle">Status history</h2>
+            <h2 className="detail__historytitle">
+              Status history{loading ? " · loading…" : ""}
+            </h2>
             <button
               type="button"
               className="detail__historytoggle"
