@@ -79,6 +79,18 @@ export default function CustomerDetail() {
   // with `state.send`. Without it, Edit from a sub-tab would dump you on
   // this page with nothing open and no sign anything had happened.
   const [editing, setEditing] = useState(Boolean(state?.edit));
+  /* THE EDIT FORM'S DRAFT, derived rather than seeded.
+   *
+   * This was `useState(null)` filled in by the page's own load(). When the
+   * record moved up to CustomerLayout that load() stopped fetching the
+   * customer — and stopped seeding this — so opening the edit form read
+   * `form.name` off null and the whole page rendered blank. A form whose
+   * starting values live in two places (a fetch that fills it, and a null
+   * that means "not filled yet") has a third state nobody tested.
+   *
+   * Null now means "no edits yet", and `draft` below falls back to the
+   * customer. Cancelling and saving both just clear it.
+   */
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -124,29 +136,37 @@ export default function CustomerDetail() {
   }, [id]);
 
   function set(field, value) {
-    setForm((cur) => ({ ...cur, [field]: value }));
+    setForm((cur) => ({ ...(cur ?? customer), [field]: value }));
   }
+
+  /* DECLARED ABOVE THE HANDLERS THAT CLOSE OVER IT, not beside the JSX.
+     Same reasoning as extraBooking in ScheduleForCustomer: a const
+     declared after the early returns is in the temporal dead zone on any
+     render that bails out, and the only thing keeping that harmless is
+     that those renders never call the handler. */
+  const draft = form ?? customer ?? {};
 
   async function handleSave() {
     setError("");
-    if (!form.name?.trim()) {
+    if (!draft.name?.trim()) {
       setError("Name can't be empty.");
       return;
     }
     setSaving(true);
     try {
       await updateCustomer(id, {
-        name: form.name.trim(),
-        phone: form.phone?.trim() || null,
-        email: form.email?.trim() || null,
-        address: form.address?.trim() || null,
-        latitude: form.latitude ?? null,
-        longitude: form.longitude ?? null,
-        notes: form.notes?.trim() || null,
-        property_type: form.property_type || "residential",
-        service_plan: form.service_plan || "one_time",
+        name: draft.name.trim(),
+        phone: draft.phone?.trim() || null,
+        email: draft.email?.trim() || null,
+        address: draft.address?.trim() || null,
+        latitude: draft.latitude ?? null,
+        longitude: draft.longitude ?? null,
+        notes: draft.notes?.trim() || null,
+        property_type: draft.property_type || "residential",
+        service_plan: draft.service_plan || "one_time",
       });
       setEditing(false);
+      setForm(null);
       // The layout owns the record, so it is the one that has to re-read
       // it — setting a local copy would leave the header showing the old
       // name until something else forced a fetch.
@@ -157,8 +177,8 @@ export default function CustomerDetail() {
       // finished. Nothing else would ever generate visit 2 in that case, so
       // do it now rather than leaving them with a plan and no due date.
       const planChanged =
-        (form.service_plan || "one_time") !== (customer.service_plan || "one_time");
-      if (planChanged && (form.service_plan || "one_time") !== "one_time") {
+        (draft.service_plan || "one_time") !== (customer.service_plan || "one_time");
+      if (planChanged && (draft.service_plan || "one_time") !== "one_time") {
         try {
           await ensureNextVisit(id);
         } catch (visitErr) {
@@ -175,7 +195,9 @@ export default function CustomerDetail() {
   }
 
   function handleCancel() {
-    setForm(customer);
+    // Null, not a copy of the customer: the draft derives from the record,
+    // so clearing it IS discarding the edits.
+    setForm(null);
     setEditing(false);
     setError("");
   }
@@ -235,7 +257,7 @@ export default function CustomerDetail() {
    * Refs for the callbacks, written on every render with no dependency
    * array: always current, and writing to a ref never re-renders the
    * layout. A callback in the layout's state would re-render the whole
-   * record on every keystroke in this form.
+   * record on every keystroke in this draft.
    *
    * State for the two things that change what the layout DRAWS — whether
    * the tabs show, and what the back link says. Primitives, keyed on the
@@ -346,20 +368,20 @@ export default function CustomerDetail() {
           <label className="custedit__label">Name</label>
           <input
             className="custedit__input"
-            value={form.name || ""}
+            value={draft.name || ""}
             onChange={(e) => set("name", e.target.value)}
           />
           <label className="custedit__label">Phone</label>
           <input
             className="custedit__input"
-            value={form.phone || ""}
+            value={draft.phone || ""}
             onChange={(e) => set("phone", e.target.value)}
           />
           <label className="custedit__label">Email</label>
           <input
             className="custedit__input"
             type="email"
-            value={form.email || ""}
+            value={draft.email || ""}
             onChange={(e) => set("email", e.target.value)}
           />
           {/* THE ADDRESS FIELD IS GONE FROM THIS FORM, deliberately.
@@ -379,7 +401,7 @@ export default function CustomerDetail() {
           <label className="custedit__label">Property type</label>
           <select
             className="custedit__input"
-            value={form.property_type || "residential"}
+            value={draft.property_type || "residential"}
             onChange={(e) => set("property_type", e.target.value)}
           >
             {PROPERTY_TYPES.map((t) => (
@@ -392,7 +414,7 @@ export default function CustomerDetail() {
           <label className="custedit__label">Service plan</label>
           <select
             className="custedit__input"
-            value={form.service_plan || "one_time"}
+            value={draft.service_plan || "one_time"}
             onChange={(e) => set("service_plan", e.target.value)}
           >
             {SERVICE_PLANS.map((p) => (
@@ -407,7 +429,7 @@ export default function CustomerDetail() {
             className="custedit__input custedit__textarea"
             rows="4"
             placeholder="Prefers morning appointments, gate code, has a dog…"
-            value={form.notes || ""}
+            value={draft.notes || ""}
             onChange={(e) => set("notes", e.target.value)}
           />
           <div className="custedit__actions">
@@ -442,7 +464,7 @@ export default function CustomerDetail() {
           The TABS are hidden by CustomerLayout rather than here, because
           they belong to the layout now; this page tells it to via
           setChrome. An edit form is a mode, and while you are in it the
-          record it belongs to is the form. */}
+          record it belongs to is the draft. */}
       {!editing && (
         <>
   

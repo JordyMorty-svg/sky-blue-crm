@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useOutletContext, useParams, useNavigate } from "react-router-dom";
 import AddressPicker from "../../components/AddressPicker";
 import {
   ALL_STATUSES,
   deleteLead,
   fetchAssignableOwners,
-  fetchLead,
   fetchLeadEvents,
   LEAD_SOURCES,
   LEADS_SETTABLE_STATUSES,
@@ -13,7 +12,6 @@ import {
   saveProblem,
   SERVICE_TYPES,
   serviceFor,
-  sourceFor,
   TEMPERATURES,
   updateLead,
 } from "../../services/leadService";
@@ -21,17 +19,29 @@ import { useAuth } from "../../context/useAuth";
 import { can } from "../../components/capabilities";
 import PlanPicker from "../../components/PlanPicker";
 import AppointmentPicker from "../../components/AppointmentPicker";
-import RecordTabs from "../../components/RecordTabs";
 import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import "./LeadDetail.css";
 
 export default function LeadDetail() {
   const { id } = useParams();
+  // THE LEAD COMES FROM THE LAYOUT — see LeadLayout.jsx. This page is the
+  // form over it, so `form` below is the draft: null until something is
+  // typed, falling back to the record.
+  const { lead, reload, beforeLeaveRef } = useOutletContext();
   const navigate = useNavigate();
 
+  /* THE DRAFT, derived rather than seeded — same shape as CustomerDetail.
+     Null means "nothing typed yet"; `draft` below falls back to the
+     record. Seeding it from a fetch is what left the customer page blank
+     when that fetch moved up to the layout. */
   const [form, setForm] = useState(null);
+  /* THE APPOINTMENT, as two draft strings over one stored timestamp.
+     Null means "untouched", and the pair below falls back to whatever the
+     record says — the same trick as `form`, and for the same reason: an
+     effect that seeds state from a prop is a second source of truth and a
+     render loop waiting to be written. */
   const [apptDate, setApptDate] = useState(null);
-  const [apptTime, setApptTime] = useState("");
+  const [apptTime, setApptTime] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -53,25 +63,17 @@ export default function LeadDetail() {
   // call twice.
   const visibleEvents = events.filter((ev) => (ev.kind || "status") !== "call");
 
+  // WHAT THIS PAGE STILL FETCHES. The lead belongs to LeadLayout; the
+  // status history is only ever read here, so fetching it up there would
+  // make the Quotes and Communication tabs pay for it.
   async function load() {
     try {
-      const lead = await fetchLead(id);
-      setForm(lead);
-      // History is nice-to-have — a failure here shouldn't stop the page
-      // rendering the lead itself.
-      try {
-        setEvents(await fetchLeadEvents(id));
-      } catch (histErr) {
-        console.error("Couldn't load status history:", histErr);
-        setEvents([]);
-      }
-      const { date, time } = splitFromISO(lead.appointment_at);
-      setApptDate(date);
-      setApptTime(time);
-      setError("");
-    } catch (e) {
-      console.error(e);
-      setError("Couldn't load this lead.");
+      setEvents(await fetchLeadEvents(id));
+    } catch (histErr) {
+      // Nice-to-have. A failure here must not stop the page rendering the
+      // lead itself.
+      console.error("Couldn't load status history:", histErr);
+      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -86,6 +88,18 @@ export default function LeadDetail() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // The tab strip lives in LeadLayout now, but this page is a form and
+  // leaving it does not save it. The layout calls through this ref before
+  // it navigates — see the note at the top of LeadLayout.jsx. Written on
+  // every render so it never goes stale, and cleared on unmount so the
+  // other two tabs navigate straight away.
+  useEffect(() => {
+    beforeLeaveRef.current = persist;
+    return () => {
+      beforeLeaveRef.current = null;
+    };
+  });
 
   // Only an owner can reattribute a lead, so only an owner needs the list of
   // people to attribute it to.
@@ -125,7 +139,7 @@ export default function LeadDetail() {
   }
 
   function set(field, value) {
-    setForm((f) => ({ ...f, [field]: value }));
+    setForm((f) => ({ ...(f ?? lead), [field]: value }));
   }
 
   /**
@@ -140,37 +154,52 @@ export default function LeadDetail() {
    *
    * Throws on failure. The callers decide what that means.
    */
+  const draft = form ?? lead ?? {};
+  const storedAppt = splitFromISO(lead?.appointment_at);
+  const apptDateValue = apptDate ?? storedAppt.date;
+  const apptTimeValue = apptTime ?? storedAppt.time;
+
   async function persist() {
     await updateLead(id, {
-        name: form.name,
-        phone: form.phone || null,
-        email: form.email || null,
-        address: form.address || null,
+        name: draft.name,
+        phone: draft.phone || null,
+        email: draft.email || null,
+        address: draft.address || null,
         // Named explicitly, like everything else here — see the comment
         // below. Without these two the picker would appear to work and the
         // pin would revert on reload.
-        latitude: form.latitude ?? null,
-        longitude: form.longitude ?? null,
-        stories: form.stories,
-        windows: Number(form.windows) || 1,
-        interior: form.interior,
-        estimate: Number(form.estimate) || 0,
-        status: form.status,
-        temperature: form.temperature || null,
+        latitude: draft.latitude ?? null,
+        longitude: draft.longitude ?? null,
+        stories: draft.stories,
+        windows: Number(draft.windows) || 1,
+        interior: draft.interior,
+        estimate: Number(draft.estimate) || 0,
+        status: draft.status,
+        temperature: draft.temperature || null,
         // The save payload is an explicit column list, not a spread of
         // `form` — so a new editable field is invisible until it's named
         // here. The picker would have looked like it worked and quietly
         // reverted on reload.
-        source: form.source || "door",
+        source: draft.source || "door",
         // No `|| DEFAULT_SERVICE` here on purpose — see the picker below.
         // Null means nobody recorded it, which is a fact worth keeping.
-        service: form.service || null,
-        property_type: form.property_type || "residential",
-        service_plan: form.service_plan || "one_time",
-        appointment_at: combineToISO(apptDate, apptTime),
-        notes: form.notes || null,
-        crm_notes: form.crm_notes || null,
+        service: draft.service || null,
+        property_type: draft.property_type || "residential",
+        service_plan: draft.service_plan || "one_time",
+        appointment_at: combineToISO(apptDateValue, apptTimeValue),
+        notes: draft.notes || null,
+        crm_notes: draft.crm_notes || null,
     });
+
+    // The layout holds the record and the tab strip reads from it, so it
+    // has to re-read after a save — and the draft clears, because the
+    // record it falls back to is now the thing that was just saved.
+    // Without this, saving and then pressing a tab would show the old name
+    // in the header beside the new one in the form.
+    await reload();
+    setForm(null);
+    setApptDate(null);
+    setApptTime(null);
   }
 
   async function handleSave() {
@@ -215,69 +244,24 @@ export default function LeadDetail() {
   //
   // A lead with no creator (the website's own inserts) is nobody's, so only
   // an owner retires it.
-  const isMine = !!form.created_by && form.created_by === user?.id;
+  const isMine = !!draft.created_by && draft.created_by === user?.id;
   const mayRetire = can(role, "retire_leads") || isMine;
   const settableStatuses = LEADS_SETTABLE_STATUSES.filter(
     (s) => mayRetire || (s.key !== "lost" && s.key !== "archived")
   );
 
   return (
-    <div className="detail">
-      <div className="detail__top">
-        <button className="detail__back" onClick={() => navigate("/leads")}>
-          ← Back to pipeline
-        </button>
-        <span className="detail__source">
-          {sourceFor(form.source).label}
-          {form.creator?.full_name ? ` · ${form.creator.full_name}` : ""}
-        </span>
-      </div>
-
-      <h1 className="detail__title">{form.name || "Lead"}</h1>
-
-      {/* What they want, under the name rather than buried in the form —
-          it's the first thing you need before ringing them back, and on a
-          gutter lead it's the only thing distinguishing this from every
-          other lead on the board. */}
-      <div className="detail__tags">
-        {form.service && (
-          <span className="detail__service">{serviceFor(form.service).label}</span>
-        )}
-        <span
-          className={`detail__property detail__property--${
-            form.property_type || "residential"
-          }`}
-        >
-          {(form.property_type || "residential") === "commercial"
-            ? "Commercial"
-            : "Residential"}
-        </span>
-      </div>
-
-      {/* The two doors off this page.
-
-          Quotes and the whole text conversation used to be panels further
-          down this same scroll. They are jobs you sit down to do, not things
-          you want between you and the address field — see RecordTabs.jsx.
-
-          beforeLeave={persist} is NOT decoration. This page is a form and
-          leaving it does not save it, so pressing one of these buttons with
-          an edited phone number in the box used to throw that edit away —
-          the same bug QuotesPanel's beforeSend was written for, in a new
-          place. It saves first, and if the save fails it stays put and
-          says so. */}
-      <RecordTabs base={`/leads/${id}`} active="info" infoLabel="Lead info" beforeLeave={persist} />
-
+    <>
       {error && <p className="detail__error">{error}</p>}
 
       <div className="detail__grid">
         <Field label="Name">
-          <input className="detail__input" value={form.name || ""}
+          <input className="detail__input" value={draft.name || ""}
             onChange={(e) => set("name", e.target.value)} />
         </Field>
 
         <Field label="Status">
-          <select className="detail__input" value={form.status}
+          <select className="detail__input" value={draft.status}
             onChange={(e) => set("status", e.target.value)}>
             {/* Always show the lead's current status, even if it isn't
                 normally settable here — a scheduled lead viewed directly,
@@ -285,8 +269,8 @@ export default function LeadDetail() {
                 set it. Checked against the FILTERED list, not the full one,
                 or a tech opening a lost lead would see the select snap to
                 Contacted and silently reopen it on save. */}
-            {!settableStatuses.some((s) => s.key === form.status) && (
-              <option value={form.status}>{form.status}</option>
+            {!settableStatuses.some((s) => s.key === draft.status) && (
+              <option value={draft.status}>{draft.status}</option>
             )}
             {settableStatuses.map((s) => (
               <option key={s.key} value={s.key}>{s.label}</option>
@@ -311,22 +295,22 @@ export default function LeadDetail() {
               field somebody opens to fix a typo into the page's busiest
               corner. All three are on the Communication page now, where
               they sit beside the conversation they belong to. */}
-          <input className="detail__input" type="tel" value={form.phone || ""}
+          <input className="detail__input" type="tel" value={draft.phone || ""}
             onChange={(e) => set("phone", e.target.value)} />
         </Field>
 
         <Field label="Email">
-          <input className="detail__input" type="email" value={form.email || ""}
+          <input className="detail__input" type="email" value={draft.email || ""}
             onChange={(e) => set("email", e.target.value)} />
         </Field>
 
         <Field label="Address" full>
           <AddressPicker
-            value={form.address || ""}
+            value={draft.address || ""}
             inputClassName="detail__input"
             placeholder="Start typing an address…"
             onChange={({ address, latitude, longitude }) => {
-              setForm((f) => ({ ...f, address, latitude, longitude }));
+              setForm((f) => ({ ...(f ?? lead), address, latitude, longitude }));
             }}
             // Text alone does not clear the coordinates. This is an EDIT
             // form: the lead may already have a pin from the map or the
@@ -337,7 +321,7 @@ export default function LeadDetail() {
         </Field>
 
         <Field label="Stories">
-          <select className="detail__input" value={form.stories}
+          <select className="detail__input" value={draft.stories}
             onChange={(e) => set("stories", e.target.value)}>
             <option value="one">One story</option>
             <option value="two">Two story</option>
@@ -345,17 +329,17 @@ export default function LeadDetail() {
         </Field>
 
         <Field label="Windows">
-          <input className="detail__input" type="number" min="1" value={form.windows}
+          <input className="detail__input" type="number" min="1" value={draft.windows}
             onChange={(e) => set("windows", e.target.value)} />
         </Field>
 
         <Field label="Estimate ($)">
-          <input className="detail__input" type="number" min="0" value={form.estimate}
+          <input className="detail__input" type="number" min="0" value={draft.estimate}
             onChange={(e) => set("estimate", e.target.value)} />
         </Field>
 
         <Field label="Temperature">
-          <select className="detail__input" value={form.temperature || ""}
+          <select className="detail__input" value={draft.temperature || ""}
             onChange={(e) => set("temperature", e.target.value)}>
             <option value="">— not set —</option>
             {TEMPERATURES.map((t) => (
@@ -365,13 +349,13 @@ export default function LeadDetail() {
         </Field>
 
         <Field label="Where they came from">
-          <select className="detail__input" value={form.source || "door"}
+          <select className="detail__input" value={draft.source || "door"}
             onChange={(e) => set("source", e.target.value)}>
             {/* Keep an unrecognised value selectable rather than silently
                 switching the lead to Door knock the next time anyone opens
                 it. Same guard the status select uses. */}
-            {!LEAD_SOURCES.some((s) => s.key === (form.source || "door")) && (
-              <option value={form.source}>{form.source}</option>
+            {!LEAD_SOURCES.some((s) => s.key === (draft.source || "door")) && (
+              <option value={draft.source}>{draft.source}</option>
             )}
             {LEAD_SOURCES.map((s) => (
               <option key={s.key} value={s.key}>{s.label}</option>
@@ -390,7 +374,7 @@ export default function LeadDetail() {
         <Field label="Added by">
           <select
             className="detail__input"
-            value={form.created_by || ""}
+            value={draft.created_by || ""}
             disabled={reassigning}
             onChange={(e) => handleReassign(e.target.value)}
           >
@@ -398,10 +382,10 @@ export default function LeadDetail() {
             {/* An attribution to someone no longer active still has to
                 render, or the select would silently jump to the first name
                 on the list. */}
-            {form.created_by &&
-              !owners.some((o) => o.id === form.created_by) && (
-                <option value={form.created_by}>
-                  {form.creator?.full_name || "(former rep)"}
+            {draft.created_by &&
+              !owners.some((o) => o.id === draft.created_by) && (
+                <option value={draft.created_by}>
+                  {draft.creator?.full_name || "(former rep)"}
                 </option>
               )}
             {owners.map((o) => (
@@ -425,11 +409,11 @@ export default function LeadDetail() {
               the service the customer picked; a lead with nothing recorded
               predates the service column, and quietly relabelling it as
               window washing would invent an answer it never had. */}
-          <select className="detail__input" value={form.service || ""}
+          <select className="detail__input" value={draft.service || ""}
             onChange={(e) => set("service", e.target.value || null)}>
             <option value="">— not recorded —</option>
-            {form.service && !SERVICE_TYPES.some((s) => s.key === form.service) && (
-              <option value={form.service}>{serviceFor(form.service).label}</option>
+            {draft.service && !SERVICE_TYPES.some((s) => s.key === draft.service) && (
+              <option value={draft.service}>{serviceFor(draft.service).label}</option>
             )}
             {SERVICE_TYPES.map((s) => (
               <option key={s.key} value={s.key}>{s.label}</option>
@@ -439,7 +423,7 @@ export default function LeadDetail() {
 
         <Field label="Interior cleaning">
           <label className="detail__check">
-            <input type="checkbox" checked={form.interior}
+            <input type="checkbox" checked={draft.interior}
               onChange={(e) => set("interior", e.target.checked)} />
             <span>Included</span>
           </label>
@@ -447,18 +431,18 @@ export default function LeadDetail() {
 
         <div className="detail__field detail__field--full">
           <PlanPicker
-            propertyType={form.property_type || "residential"}
-            plan={form.service_plan || "one_time"}
+            propertyType={draft.property_type || "residential"}
+            plan={draft.service_plan || "one_time"}
             onPropertyTypeChange={(v) => set("property_type", v)}
             onPlanChange={(v) => set("service_plan", v)}
-            basePrice={form.estimate}
+            basePrice={draft.estimate}
           />
         </div>
 
         <div className="detail__field detail__field--full">
           <AppointmentPicker
-            date={apptDate}
-            time={apptTime}
+            date={apptDateValue}
+            time={apptTimeValue}
             onDateChange={setApptDate}
             onTimeChange={setApptTime}
           />
@@ -466,20 +450,20 @@ export default function LeadDetail() {
 
         <Field label="Customer notes" full>
           <textarea className="detail__input detail__textarea" rows="2"
-            value={form.notes || ""}
+            value={draft.notes || ""}
             onChange={(e) => set("notes", e.target.value)} />
         </Field>
 
         <Field label="Internal notes (team only)" full>
           <textarea className="detail__input detail__textarea" rows="3"
             placeholder="Called 8/4, left voicemail…"
-            value={form.crm_notes || ""}
+            value={draft.crm_notes || ""}
             onChange={(e) => set("crm_notes", e.target.value)} />
         </Field>
       </div>
 
       {/* QUOTES AND THE TEXT THREAD USED TO BE HERE, stacked under this
-          form. They are on their own pages now, reached by the two buttons
+          draft. They are on their own pages now, reached by the two buttons
           at the top — see RecordTabs.jsx.
 
           `persist` is still called before sending a quote, but from the
@@ -573,7 +557,7 @@ export default function LeadDetail() {
         </div>
         )}
       </div>
-    </div>
+    </>
   );
 }
 

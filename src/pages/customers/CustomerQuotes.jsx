@@ -3,11 +3,8 @@ import { useLocation, useOutletContext, useParams } from "react-router-dom";
 import QuotesPanel from "../../components/QuotesPanel";
 import { suggestedQuoteFor } from "../../services/customerService";
 import { fetchNextVisit } from "../../services/jobService";
-// The page chrome — .custdetail__back, .custdetail__namerow,
-// .custdetail__name, .custbadge — is shared with the customer page on
-// purpose. These are the same customer seen three ways, and three
-// stylesheets drawing the same header is how the back button ends up in a
-// different place on each of them.
+// The header is CustomerLayout's now, not this page's — but the panel
+// below still uses .custdetail spacing, so the stylesheet stays.
 import "./Customers.css";
 
 /**

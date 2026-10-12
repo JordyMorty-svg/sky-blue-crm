@@ -6,6 +6,7 @@ import ResetPassword from "./pages/login/ResetPassword";
 import Leads from "./pages/leads/Leads";
 import AllLeads from "./pages/leads/AllLeads";
 import NewLead from "./pages/leads/NewLead";
+import LeadLayout from "./pages/leads/LeadLayout";
 import LeadDetail from "./pages/leads/LeadDetail";
 import LeadQuotes from "./pages/leads/LeadQuotes";
 import LeadComms from "./pages/leads/LeadComms";
@@ -221,7 +222,17 @@ export default function App() {
           "all" is never mistaken for a lead id. */}
       <Route path="/leads/all" element={<Page section="leads"><AllLeads /></Page>} />
       <Route path="/leads/new/:stage" element={<Page section="leads"><NewLead /></Page>} />
-      <Route path="/leads/:id" element={<Page section="leads"><LeadDetail /></Page>} />
+      {/* ONE LEAD, THREE TABS, ONE MOUNT — the same nesting as the
+          customer routes above, and for the same reason. As three siblings
+          each tab re-fetched the lead and redrew the header, so the name
+          blinked and the source chip even disagreed between tabs: the lead
+          page joined the creator in and said "Google Ads (LSA) · Jordan"
+          while the other two said "Google Ads (LSA)". */}
+      <Route path="/leads/:id" element={<Page section="leads"><LeadLayout /></Page>}>
+        <Route index element={<LeadDetail />} />
+        <Route path="quotes" element={<LeadQuotes />} />
+        <Route path="communication" element={<LeadComms />} />
+      </Route>
       {/* The two sub-pages off a lead. Real routes rather than tabs that
           swap a panel, so Back works and a conversation can be linked to —
           see src/components/RecordTabs.jsx.
@@ -230,8 +241,6 @@ export default function App() {
           ranks by specificity rather than by order, so a two-segment path
           outranks the one-segment one however they are written. Listed in
           this order for reading, not for matching. */}
-      <Route path="/leads/:id/quotes" element={<Page section="leads"><LeadQuotes /></Page>} />
-      <Route path="/leads/:id/communication" element={<Page section="leads"><LeadComms /></Page>} />
       <Route path="/jobs" element={<Page section="jobs"><Jobs /></Page>} />
       <Route path="/jobs/scheduled" element={<Page section="jobs"><Jobs /></Page>} />
       <Route path="/jobs/schedule/:leadId" element={<Page section="jobs"><ScheduleJob /></Page>} />

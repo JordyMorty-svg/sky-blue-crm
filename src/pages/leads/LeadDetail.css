@@ -47,12 +47,32 @@
   border-radius: 999px;
 }
 
+/* NAME AND TAGS ON ONE LINE.
+
+   They used to stack: a big name, a row of two small pills under it, then
+   the tab strip under that — three rows of header before any content, on a
+   page meant to be read in a driveway. The tags are short, and the space
+   beside the name was simply empty.
+
+   align-items: baseline, so the pills sit on the name's baseline rather
+   than floating against the top of a line box twice their height.
+
+   flex-wrap, so a long commercial name on a narrow phone drops them to
+   their own line rather than squeezing the name into two characters per
+   row — which is the stacked layout again, but only when it is needed. */
+.detail__namerow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  margin-bottom: 20px;
+}
+
 .detail__title {
   font-size: var(--text-4xl);
   color: #0f172a;
-  /* Was 20px. The tag row below now carries that gap, so the title sits
-     tight against what the lead is actually asking for. */
-  margin-bottom: 10px;
+  /* The row carries the gap now. */
+  margin-bottom: 0;
 }
 
 /* --- what they want ---
@@ -63,7 +83,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 20px;
+  /* The namerow owns the spacing below. Kept at 0 rather than removed so
+     the class still works anywhere it is used outside that row. */
+  margin-bottom: 0;
 }
 
 .detail__service,
