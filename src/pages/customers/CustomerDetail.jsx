@@ -426,6 +426,19 @@ export default function CustomerDetail() {
         </>
       )}
 
+      {/* The three tabs of this record — see RecordTabs.jsx.
+
+          DIRECTLY UNDER THE HEADER, above everything else on this tab.
+          They used to sit between the stat tiles and the job history, which
+          put the page's navigation two scrolls down and made the stats read
+          as a header rather than as content. The rule now is simple: who
+          this person is, then where you can go, then what is on this tab.
+
+          NO beforeLeave, unlike the lead page. That one is a form with
+          unsaved edits in it; this page edits through a modal that saves
+          itself, so there is nothing to lose by navigating away. */}
+      <RecordTabs base={`/customers/${id}`} active="info" infoLabel="Customer info" />
+
       {leadNotes.length > 0 && (
         <div className="custdetail__leadnotes">
           <span className="custdetail__notes-label">From the original lead</span>
@@ -514,21 +527,15 @@ export default function CustomerDetail() {
         </div>
       )}
 
-      {/* The two doors off this customer.
 
-          Quotes and the whole text conversation used to be panels here,
-          stacked between the stat tiles and the job history — which is the
-          thing most people open a customer to look at, and it sat below
-          both of them. See RecordTabs.jsx.
-
-          NO beforeLeave, unlike the lead page. That one is a form with
-          unsaved edits in it; this page edits through a modal that saves
-          itself, so there is nothing to lose by navigating away. */}
-      <RecordTabs base={`/customers/${id}`} active="info" infoLabel="Customer info" />
 
       {/* Where this customer's buildings are managed. On the info tab only:
           the quote modal and the booking screen pick between them, and this
-          is where they get named, re-defaulted and retired. */}
+          is where they get named, re-defaulted and retired.
+
+          Directly above the job history, so the page reads where → what we
+          did there, rather than putting a block of admin between the tabs
+          and the numbers most people open a customer to see. */}
       <CustomerProperties customerId={id} />
 
       <h2 className="custdetail__subhead">Job history</h2>

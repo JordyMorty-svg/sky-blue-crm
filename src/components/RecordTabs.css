@@ -1,37 +1,60 @@
 /* The three tabs of a record. Shared by the lead and customer pages and all
    four sub-pages, so it borrows nothing from any of their stylesheets. */
 
+/* A SEGMENTED CONTROL, not three buttons in a row.
+
+   The previous version was three outlined pills of equal width. Three
+   separate bordered things read as three separate actions — press one and
+   something happens — which is exactly wrong for a control whose job is to
+   say "you are here, and here are the other two places you could be".
+
+   A single grey track with one white pill sliding inside it is one object
+   with three positions. It is also the pattern every phone OS uses for
+   this, so nobody has to learn it. */
 .rectabs {
-  display: flex;
-  gap: 10px;
+  display: inline-flex;
+  gap: 2px;
+  /* The track. */
+  padding: 4px;
+  border-radius: 999px;
+  background: #f1f5f9;
   margin: 0 0 22px;
+  /* Hugs its labels rather than stretching, so a two-tab record and a
+     three-tab one both look deliberate instead of one looking stretched.
+     max-width + scroll is the safety valve for a long label on a narrow
+     phone: better a track you can nudge sideways than one that overflows
+     the page and takes the horizontal scrollbar with it. */
+  max-width: 100%;
+  overflow-x: auto;
+  /* No scrollbar gutter eating into the pill on desktops that show one. */
+  scrollbar-width: none;
 }
 
-/* Equal thirds rather than hugging their labels.
+.rectabs::-webkit-scrollbar {
+  display: none;
+}
 
-   "Customer info", "Quotes" and "Communication" are thirteen, six and
-   thirteen characters; sized to their text they would be wildly uneven, and
-   the small one reads as the lesser option. They are three equal choices,
-   so they look like three equal choices. */
 .rectabs__tab {
-  flex: 1 1 0;
-  min-height: 44px;
-  padding: 11px 16px;
+  /* Sized to its label, not to a third of the row. Inside a track the
+     widths being uneven reads as the words being different lengths, which
+     is what they are — it was only the separate bordered pills that made
+     an uneven row look like a mistake. */
+  flex: 0 0 auto;
+  white-space: nowrap;
+  min-height: 36px;
+  padding: 8px 18px;
+  border: none;
   border-radius: 999px;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  color: #1e293b;
+  background: transparent;
+  color: #64748b;
+  font-family: inherit;
   font-size: var(--text-sm);
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
-  /* Long labels on a narrow phone wrap rather than overflow the pill. */
-  white-space: normal;
 }
 
 .rectabs__tab:hover {
-  border-color: #93c5fd;
-  background: #eff6ff;
-  color: #1e40af;
+  color: #0f172a;
 }
 
 .rectabs__tab:focus-visible {
@@ -39,20 +62,20 @@
   outline-offset: 2px;
 }
 
-/* You are here. Filled rather than outlined, because on a page that IS the
-   quotes page a subtly-tinted "Quotes" button reads as the button you should
-   press to get there. */
+/* You are here. A raised white pill rather than a filled blue one: blue is
+   this CRM's "press this" colour, and the tab you are already on is the one
+   thing on the strip that does nothing. White lifted off the grey says
+   "current" without inviting a tap. */
 .rectabs__tab--current {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
   cursor: default;
 }
 
 .rectabs__tab--current:hover {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
+  color: #0f172a;
 }
 
 /* A save that failed on the way out. Shown under the buttons rather than at
@@ -68,23 +91,18 @@
   padding: 9px 12px;
 }
 
-/* THREE LABELS WHERE THERE WERE TWO, on a 375px phone.
+/* NARROW PHONES, and these numbers are measured rather than guessed —
+   rendered in the CRM's own font at a 343px content width (a 375px phone
+   less its gutters):
 
-   At the desktop padding, "Communication" needs about 122px and a third of
-   the available width is about 105 — so it wrapped to two lines and that
-   pill grew taller than its neighbours, which made the strip read as one
-   important tab and two offcuts.
+     desktop padding   334px   fits, with 9px to spare
+     this padding      304px   fits, with 39px
 
-   Tightening the gap and the padding buys the ~17px it was short by. Below
-   this width the labels still wrap rather than overflow, and min-height
-   keeps all three the same size when they do. */
+   Nine pixels is not slack, it is luck: one longer label, one slightly
+   wider font fallback, and the track starts scrolling. A little less air
+   buys real margin without changing the shape. */
 @media (max-width: 420px) {
-  .rectabs {
-    gap: 6px;
-  }
-
   .rectabs__tab {
-    padding: 11px 8px;
-    line-height: 1.2;
+    padding: 8px 13px;
   }
 }
