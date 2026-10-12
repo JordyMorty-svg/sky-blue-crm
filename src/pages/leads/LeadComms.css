@@ -92,6 +92,36 @@
   margin: 0;
 }
 
+/* TWO CONTROLS SHARE THE RIGHT-HAND END now — the text toggle and the link
+   to the full history. Wrapping rather than shrinking: on a 375px phone
+   "Hide 14 texts" and "Full history (9) →" do not fit beside a heading, and
+   flex's answer to that without this is to squeeze both until they wrap
+   mid-word. Right-aligned so a single control sits exactly where the toggle
+   always sat and nothing moved for anybody who only has one. */
+.comms__historyactions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 4px 14px;
+}
+
+/* The same weight as the toggle beside it. These are two quiet controls of
+   equal standing — neither is the reason you opened the page — and making
+   one of them louder would turn the pair into a primary action and an
+   afterthought. */
+.comms__fulllink {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.comms__fulllink:hover {
+  text-decoration: underline;
+}
+
 /* Quiet on purpose. It reveals rows that are already visible in the thread
    a few inches above — useful occasionally, never the thing you came to
    the page to press. */

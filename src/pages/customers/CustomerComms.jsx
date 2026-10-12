@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useOutletContext, useParams } from "react-router-dom";
+import { Link, useOutletContext, useParams } from "react-router-dom";
 import TextThread from "../../components/TextThread";
 import CallBar from "../../components/CallBar";
 import {
@@ -7,7 +7,7 @@ import {
 } from "../../services/leadService";
 import {
   describeEvent,
-  partitionTexts,
+  partitionTimeline,
   fetchContactTimeline,
   formatStamp,
 } from "../../services/contactService";
@@ -46,9 +46,9 @@ export default function CustomerComms() {
   const [loading, setLoading] = useState(true);
   const [historyError, setHistoryError] = useState("");
   // Texts are in the thread directly above this timeline, so they start
-  // folded away — see partitionTexts() in contactService.js. Not persisted:
-  // the default is the useful one, and a preference remembered from three
-  // weeks ago is a page that looks different for no visible reason.
+  // folded away — see partitionTimeline() in contactFilters.js. Not
+  // persisted: the default is the useful one, and a preference remembered
+  // from three weeks ago is a page that looks different for no reason.
   const [showTexts, setShowTexts] = useState(false);
 
   const load = useCallback(async () => {
@@ -85,9 +85,15 @@ export default function CustomerComms() {
   // unless it has the customer.
 
 
-  // Split once per render, used twice below.
-  const { rest, textCount } = partitionTexts(rows);
-  const shownRows = showTexts ? rows : rest;
+  // Split once per render, used three times below.
+  //
+  // WHAT THIS PAGE SHOWS IS WHAT WAS SAID. Status moves and job milestones
+  // are stripped out entirely: this timeline and the full history page were
+  // printing an identical list, and the lifecycle rows outnumbered the
+  // conversation six to one on an ordinary customer. They are not lost —
+  // "Full history" below goes straight to the page whose job they are.
+  const { spoken, conversation, textCount, elsewhere } = partitionTimeline(rows);
+  const shownRows = showTexts ? conversation : spoken;
 
   return (
     <>
@@ -118,21 +124,47 @@ export default function CustomerComms() {
 
       <section className="comms__history">
         <div className="comms__historyhead">
-          <h3 className="comms__historytitle">History</h3>
-          {/* Only offered when there is something to offer. A toggle that
-              reveals nothing is a control that teaches people the page
-              is broken. */}
-          {textCount > 0 && (
-            <button
-              type="button"
-              className="comms__texttoggle"
-              onClick={() => setShowTexts((v) => !v)}
-              aria-expanded={showTexts}
-            >
-              {showTexts ? "Hide" : "Show"} {textCount} text
-              {textCount === 1 ? "" : "s"}
-            </button>
-          )}
+          {/* NOT "History" ANY MORE. That is the name of a whole page in
+              the Actions menu, and two things with the same name showing
+              different lists is how somebody ends up believing one of them
+              is broken. This one is narrower and says so. */}
+          <h3 className="comms__historytitle">Calls &amp; emails</h3>
+          <div className="comms__historyactions">
+            {/* Only offered when there is something to offer. A control
+                that reveals nothing teaches people the page is broken. */}
+            {textCount > 0 && (
+              <button
+                type="button"
+                className="comms__texttoggle"
+                onClick={() => setShowTexts((v) => !v)}
+                aria-expanded={showTexts}
+              >
+                {showTexts ? "Hide" : "Show"} {textCount} text
+                {textCount === 1 ? "" : "s"}
+              </button>
+            )}
+            {/* WHERE THE REST WENT, said out loud. The lifecycle rows this
+                page now drops are the bulk of a long-standing customer's
+                timeline, and a list that quietly shrinks is one nobody
+                trusts. The count is what makes this read as a pointer
+                rather than an apology.
+
+                `from` so Back comes to this tab and not the profile — see
+                ContactHistory.jsx, which prefers state.from over its own
+                guess. */}
+            {elsewhere > 0 && (
+              <Link
+                className="comms__fulllink"
+                to={`/history/customer/${id}`}
+                state={{
+                  from: `/customers/${id}/communication`,
+                  person: { name: customer.name, phone: customer.phone },
+                }}
+              >
+                Full history ({elsewhere}) →
+              </Link>
+            )}
+          </div>
         </div>
 
         {historyError && <p className="custdetail__error">{historyError}</p>}
@@ -147,7 +179,14 @@ export default function CustomerComms() {
               ? "Loading…"
               : textCount > 0
                 ? "Only texts so far — they're in the thread above."
-                : "Nothing recorded yet."}
+                : elsewhere > 0
+                  ? // NOT "Nothing recorded yet" — there is plenty
+                    // recorded, none of it a conversation. A customer
+                    // added by hand and booked the same afternoon has
+                    // eight timeline rows and no call, and the old
+                    // wording called that an empty record.
+                    "No calls or emails yet."
+                  : "Nothing recorded yet."}
           </p>
         ) : (
           <ol className="comms__timeline">
