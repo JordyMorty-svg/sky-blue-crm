@@ -121,7 +121,7 @@ export default function LeadComms() {
         </span>
       </div>
 
-      <RecordTabs base={`/leads/${id}`} active="communication" />
+      <RecordTabs base={`/leads/${id}`} active="communication" infoLabel="Lead info" />
 
       {error && <p className="detail__error">{error}</p>}
 

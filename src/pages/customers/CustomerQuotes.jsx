@@ -13,6 +13,7 @@ import { fetchNextVisit } from "../../services/jobService";
 // stylesheets drawing the same header is how the back button ends up in a
 // different place on each of them.
 import "./Customers.css";
+import CustomerHeader from "../../components/CustomerHeader";
 
 /**
  * Quotes for one customer, on their own page.
@@ -79,24 +80,19 @@ export default function CustomerQuotes() {
   if (loading) return <div className="customers__empty">Loading…</div>;
   if (!customer) return <div className="customers__empty">{error || "Not found."}</div>;
 
-  const propertyType = customer.property_type || "residential";
 
   return (
     <div className="custdetail">
-      <button className="custdetail__back" onClick={() => navigate(`/customers/${id}`)}>
-        ← Back to customer
-      </button>
+      {/* The same header as every other tab of this record — see
+          CustomerHeader.jsx. The "← Back to customer" link that used to sit
+          here is gone: Customer info is a tab now, and a Back button going
+          where a tab already goes is a second way to do one thing. */}
+      <CustomerHeader
+        customer={customer}
+        onEdit={() => navigate(`/customers/${id}`, { state: { edit: true } })}
+      />
 
-      <div className="custdetail__namerow">
-        <h1 className="custdetail__name">
-          {customer.name}{" "}
-          <span className={`custbadge custbadge--${propertyType} custdetail__typebadge`}>
-            {propertyType === "commercial" ? "Commercial" : "Residential"}
-          </span>
-        </h1>
-      </div>
-
-      <RecordTabs base={`/customers/${id}`} active="quotes" />
+      <RecordTabs base={`/customers/${id}`} active="quotes" infoLabel="Customer info" />
 
       {error && <p className="custdetail__error">{error}</p>}
 

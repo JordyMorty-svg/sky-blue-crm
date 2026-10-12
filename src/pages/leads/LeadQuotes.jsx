@@ -81,7 +81,7 @@ export default function LeadQuotes() {
         </span>
       </div>
 
-      <RecordTabs base={`/leads/${id}`} active="quotes" />
+      <RecordTabs base={`/leads/${id}`} active="quotes" infoLabel="Lead info" />
 
       {error && <p className="detail__error">{error}</p>}
 

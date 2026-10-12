@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "./RecordTabs.css";
 
 /**
- * The two doors off a record: Quotes and Communication.
+ * The three tabs of a record: its own page, Quotes and Communication.
  *
  * ONE COMPONENT FOR LEADS AND CUSTOMERS, which is why it takes `base`
  * rather than reading an id out of the route. It was LeadTabs for about an
@@ -44,7 +44,14 @@ import "./RecordTabs.css";
  * sub-pages, and the customer page, whose edit form is a modal that saves
  * itself — pass nothing, and the buttons just navigate.
  */
-export default function RecordTabs({ base, active = null, beforeLeave = null }) {
+export default function RecordTabs({
+  base,
+  active = null,
+  beforeLeave = null,
+  // THE RECORD'S OWN PAGE, as a tab. "Customer info" / "Lead info" —
+  // different words for the same idea, so the caller supplies them.
+  infoLabel = "Details",
+}) {
   const navigate = useNavigate();
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState("");
@@ -81,7 +88,19 @@ export default function RecordTabs({ base, active = null, beforeLeave = null }) 
   // passing one does not produce "/customers/abc//quotes", which React
   // Router matches as a different path and renders as nothing.
   const root = String(base || "").replace(/\/+$/, "");
+  // THREE TABS, AND THE RECORD ITSELF IS ONE OF THEM.
+  //
+  // It used to be two buttons that took you AWAY from the record, with a
+  // "← Back to customer" link on the far pages to get home. So the strip
+  // showed two of the three places you could be, never said which one you
+  // were on, and getting back was a different control in a different
+  // corner.
+  //
+  // With the record as the first tab the strip is the whole map: three
+  // options, the current one filled in, and Back is redundant — which is
+  // why the pages that had it no longer do.
   const tabs = [
+    { key: "info", label: infoLabel, to: root },
     { key: "quotes", label: "Quotes", to: `${root}/quotes` },
     { key: "communication", label: "Communication", to: `${root}/communication` },
   ];

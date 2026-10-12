@@ -266,7 +266,7 @@ export default function LeadDetail() {
           the same bug QuotesPanel's beforeSend was written for, in a new
           place. It saves first, and if the save fails it stays put and
           says so. */}
-      <RecordTabs base={`/leads/${id}`} beforeLeave={persist} />
+      <RecordTabs base={`/leads/${id}`} active="info" infoLabel="Lead info" beforeLeave={persist} />
 
       {error && <p className="detail__error">{error}</p>}
 

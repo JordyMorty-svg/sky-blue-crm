@@ -20,6 +20,8 @@ import "./Customers.css";
 // side of the lead/customer boundary, and the one thing they must not do is
 // look like different features.
 import "../leads/LeadComms.css";
+import CustomerHeader from "../../components/CustomerHeader";
+import CustomerPrefs from "../../components/CustomerPrefs";
 
 /**
  * Everything to do with talking to one customer, in one place.
@@ -88,7 +90,6 @@ export default function CustomerComms() {
   if (loading) return <div className="customers__empty">Loading…</div>;
   if (!customer) return <div className="customers__empty">{error || "Not found."}</div>;
 
-  const propertyType = customer.property_type || "residential";
 
   // Split once per render, used twice below.
   const { rest, textCount } = partitionTexts(rows);
@@ -96,20 +97,16 @@ export default function CustomerComms() {
 
   return (
     <div className="custdetail">
-      <button className="custdetail__back" onClick={() => navigate(`/customers/${id}`)}>
-        ← Back to customer
-      </button>
+      {/* The same header as every other tab of this record — see
+          CustomerHeader.jsx. The "← Back to customer" link that used to sit
+          here is gone: Customer info is a tab now, and a Back button going
+          where a tab already goes is a second way to do one thing. */}
+      <CustomerHeader
+        customer={customer}
+        onEdit={() => navigate(`/customers/${id}`, { state: { edit: true } })}
+      />
 
-      <div className="custdetail__namerow">
-        <h1 className="custdetail__name">
-          {customer.name}{" "}
-          <span className={`custbadge custbadge--${propertyType} custdetail__typebadge`}>
-            {propertyType === "commercial" ? "Commercial" : "Residential"}
-          </span>
-        </h1>
-      </div>
-
-      <RecordTabs base={`/customers/${id}`} active="communication" />
+      <RecordTabs base={`/customers/${id}`} active="communication" infoLabel="Customer info" />
 
       {error && <p className="custdetail__error">{error}</p>}
 
@@ -137,6 +134,13 @@ export default function CustomerComms() {
         // page, and arriving at it closed would be absurd.
         startOpen
       />
+
+      {/* THE TWO SETTINGS, moved off the customer profile. They sat under
+          the address there and were the third thing your eye landed on,
+          which is a lot of attention for two things you change about twice
+          a year. This is the page you are already on when "should we be
+          emailing them?" occurs to you. */}
+      <CustomerPrefs customer={customer} onChanged={load} />
 
       <section className="comms__history">
         <div className="comms__historyhead">

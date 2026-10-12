@@ -1,4 +1,4 @@
-/* The two doors off a record. Shared by the lead and customer pages and all
+/* The three tabs of a record. Shared by the lead and customer pages and all
    four sub-pages, so it borrows nothing from any of their stylesheets. */
 
 .rectabs {
@@ -7,12 +7,12 @@
   margin: 0 0 22px;
 }
 
-/* Equal halves rather than hugging their labels.
+/* Equal thirds rather than hugging their labels.
 
-   "Quotes" and "Communication" are five characters and thirteen; sized to
-   their text they would be wildly uneven, and the smaller one reads as the
-   lesser option. They are two equal choices, so they look like two equal
-   choices. */
+   "Customer info", "Quotes" and "Communication" are thirteen, six and
+   thirteen characters; sized to their text they would be wildly uneven, and
+   the small one reads as the lesser option. They are three equal choices,
+   so they look like three equal choices. */
 .rectabs__tab {
   flex: 1 1 0;
   min-height: 44px;
@@ -66,4 +66,25 @@
   border: 1px solid #fecaca;
   border-radius: 8px;
   padding: 9px 12px;
+}
+
+/* THREE LABELS WHERE THERE WERE TWO, on a 375px phone.
+
+   At the desktop padding, "Communication" needs about 122px and a third of
+   the available width is about 105 — so it wrapped to two lines and that
+   pill grew taller than its neighbours, which made the strip read as one
+   important tab and two offcuts.
+
+   Tightening the gap and the padding buys the ~17px it was short by. Below
+   this width the labels still wrap rather than overflow, and min-height
+   keeps all three the same size when they do. */
+@media (max-width: 420px) {
+  .rectabs {
+    gap: 6px;
+  }
+
+  .rectabs__tab {
+    padding: 11px 8px;
+    line-height: 1.2;
+  }
 }

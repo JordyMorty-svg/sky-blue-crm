@@ -1,0 +1,237 @@
+/* The buildings a customer wants cleaned.
+
+   Borrows its shapes from PropertyPicker.css — the two are the same idea in
+   two places (choose one while booking, manage them on the profile) and
+   looking different would make them read as unrelated features. */
+
+.custprops {
+  margin: 0 0 18px;
+}
+
+.custprops__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+}
+
+/* Quiet. This is a label on a block of facts, not a section heading
+   competing with "Job history" below it. */
+.custprops__title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.custprops__addlink {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+.custprops__addlink:hover {
+  text-decoration: underline;
+}
+
+.custprops__empty {
+  margin: 0;
+  font-size: var(--text-lg);
+  color: #94a3b8;
+}
+
+.custprops__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Stacks on a phone. The actions sit beside the address on a desktop and
+   under it on a narrow screen, rather than squeezing three buttons and a
+   street name onto one 343px line. */
+.custprops__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 14px;
+  padding: 11px 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.custprops__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Takes the slack, so the actions hug the right edge rather than
+     floating in the middle of a wide row. */
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.custprops__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-lg);
+  font-weight: 650;
+  color: #0f172a;
+}
+
+.custprops__default {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #1e40af;
+  background: #dbeafe;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.custprops__address {
+  font-size: var(--text-lg);
+  color: #475569;
+  /* A long rural address wraps rather than pushing the actions off the
+     row. overflow-wrap rather than break-all, so it breaks between words. */
+  overflow-wrap: anywhere;
+}
+
+.custprops__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.custprops__action {
+  background: none;
+  border: none;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+  /* 44px tall counting the padding above — this gets pressed one-handed on
+     a driveway. */
+  min-height: 32px;
+}
+
+.custprops__action:hover {
+  background: #eff6ff;
+}
+
+.custprops__action:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
+
+/* Archive is the destructive one, so it is the grey one. Not red: it is
+   reversible and ordinary, and a red button on every row would make the
+   list feel dangerous to look at. */
+.custprops__action--quiet {
+  color: #64748b;
+}
+
+.custprops__action--quiet:hover {
+  background: #f1f5f9;
+}
+
+.custprops__rename {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+}
+
+.custprops__add {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.custprops__fieldlabel {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #334155;
+}
+
+.custprops__hint {
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.custprops__input {
+  flex: 1 1 160px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: var(--text-lg);
+  color: #0f172a;
+  font-family: inherit;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.custprops__input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.custprops__addactions {
+  display: flex;
+  gap: 8px;
+  margin-top: 3px;
+}
+
+.custprops__save,
+.custprops__cancel {
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.custprops__save {
+  border: none;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.custprops__save:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.custprops__cancel {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+}
+
+.custprops__error {
+  margin: 8px 0 0;
+  font-size: var(--text-sm);
+  color: #b91c1c;
+}

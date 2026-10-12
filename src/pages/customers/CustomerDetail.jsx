@@ -16,16 +16,13 @@ import {
   planFor,
   nextVisitDate,
   priceForVisit,
-  quoCallHref,
-  telHref,
-  formatPhone,
 } from "../../services/leadService";
-import { setEmailOptOut, setCustomerReviewed } from "../../services/followUpService";
 import AddressPicker from "../../components/AddressPicker";
 import JobPlanTag from "../../components/JobPlanTag";
 import RecordTabs from "../../components/RecordTabs";
-import RecordMenu from "../../components/RecordMenu";
 import "./Customers.css";
+import CustomerHeader from "../../components/CustomerHeader";
+import CustomerProperties from "../../components/CustomerProperties";
 
 function formatWhen(iso) {
   if (!iso) return "No date";
@@ -79,7 +76,13 @@ export default function CustomerDetail() {
   const [customer, setCustomer] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [leadNotes, setLeadNotes] = useState([]);
-  const [editing, setEditing] = useState(false);
+  // OPENS STRAIGHT INTO THE EDIT MODAL when Actions → Edit was pressed on
+  // the Quotes or Communication tab. Those tabs have no modal of their own,
+  // so they navigate here with `state.edit` rather than carrying a second
+  // copy of the form — the same trick Actions → Send a quote already uses
+  // with `state.send`. Without it, Edit from a sub-tab would dump you on
+  // this page with nothing open and no sign anything had happened.
+  const [editing, setEditing] = useState(Boolean(state?.edit));
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -95,8 +98,6 @@ export default function CustomerDetail() {
   // the actions menu — a sibling of the panel rather than a child of it.
   // The panel is on its own page now and owns its own open state; the menu
   // item navigates there with { send: true } instead.
-  const [optBusy, setOptBusy] = useState(false);
-  const [revBusy, setRevBusy] = useState(false);
 
   async function load() {
     try {
@@ -233,40 +234,7 @@ export default function CustomerDetail() {
     }
   }
 
-  // "Don't email this one." Saves straight away rather than waiting for the
-  // Edit form to be saved: someone ticking this has just been asked to stop
-  // emailing a customer, and that shouldn't depend on remembering to press
-  // Save afterwards.
-  async function handleOptOut(e) {
-    const next = e.target.checked;
-    setOptBusy(true);
-    try {
-      await setEmailOptOut(id, next);
-      await load();
-    } catch (err) {
-      console.error(err);
-      setError("Couldn't change the email setting.");
-    } finally {
-      setOptBusy(false);
-    }
-  }
 
-  // "They already left us a review." Same immediate save as the opt-out
-  // above, and for the same reason: this gets ticked while looking at a
-  // Google notification on your phone, not while filling in a form.
-  async function handleReviewed(e) {
-    const next = e.target.checked;
-    setRevBusy(true);
-    try {
-      await setCustomerReviewed(id, next);
-      await load();
-    } catch (err) {
-      console.error(err);
-      setError("Couldn't change the review setting.");
-    } finally {
-      setRevBusy(false);
-    }
-  }
 
   if (loading) return <div className="customers__state">Loading…</div>;
   if (!customer) return <div className="customers__state">{error || "Not found."}</div>;
@@ -275,8 +243,6 @@ export default function CustomerDetail() {
   const forceUnlocked = forceDelete && forceText.trim() === "DELETE";
   const jobCount = jobs.length;
 
-  const plan = planFor(customer.service_plan);
-  const isRecurring = (customer.service_plan || "one_time") !== "one_time";
   const propertyType = customer.property_type || "residential";
 
   // Until the current job is finished there's no real due date — the clock
@@ -313,6 +279,12 @@ export default function CustomerDetail() {
           fromCompleted: !lastScheduled,
         }
       : null;
+
+  // Still needed here for the visit-repair check below, even though the
+  // recurring BADGE moved into CustomerHeader with the rest of the top of
+  // the page. Two different questions that happen to share a condition.
+  const isRecurring =
+    Boolean(customer.service_plan) && customer.service_plan !== "one_time";
 
   // A plan customer whose last visit is already finished should have a real
   // due date on record, not an estimate. If they don't, the row that should
@@ -443,190 +415,7 @@ export default function CustomerDetail() {
         </div>
       ) : (
         <>
-          <div className="custdetail__namerow">
-            {/* The type badge lives INSIDE the heading, not beside it.
-                A sibling would be a flex item next to a name that carries
-                `flex: 1 1 200px` — the name would grow and shove the badge to
-                the far side of the row, which is the disconnected look this
-                move was meant to fix. In the text flow it stays glued to the
-                last word however the name wraps. */}
-            <h1 className="custdetail__name">
-              {customer.name}
-              {/* A real space, not just a margin. When a long commercial
-                  name fills the last line the badge drops to the next one,
-                  and a left margin would indent it there; a space collapses
-                  at the start of a line, so it lands flush under the name. */}
-              {" "}
-              <span
-                className={`custbadge custbadge--${propertyType} custdetail__typebadge`}
-              >
-                {propertyType === "commercial" ? "Commercial" : "Residential"}
-              </span>
-            </h1>
-            {/* One control where there were four.
-                
-                Three buttons plus the panel's own "Send a quote" made the top
-                of the page read as a toolbar rather than as a customer, and
-                on a phone they took a line of their own. A menu costs one tap
-                to reach any of them and gives the name back its row. */}
-            <RecordMenu
-              label="Actions"
-              items={[
-                {
-                  label: "Schedule a job",
-                  tone: "primary",
-                  onSelect: () => navigate(`/customers/${id}/schedule`),
-                },
-                {
-                  // Quotes have their own page now, so this navigates rather
-                  // than opening a modal in place — and carries `send: true`
-                  // so the modal opens on arrival. Without that, moving
-                  // quotes off this page would have turned a one-tap action
-                  // into three: open the menu, land on a page, find the
-                  // button.
-                  label: "Send a quote",
-                  onSelect: () =>
-                    navigate(`/customers/${id}/quotes`, { state: { send: true } }),
-                },
-                {
-                  label: "History",
-                  onSelect: () =>
-                    navigate(`/history/customer/${id}`, {
-                      state: {
-                        from: `/customers/${id}`,
-                        person: { name: customer.name, phone: customer.phone },
-                      },
-                    }),
-                },
-                { label: "Edit", onSelect: () => setEditing(true) },
-              ]}
-            />
-          </div>
-
-          {/* Rendered only when there IS one. An always-present wrapper
-              would keep its bottom margin on a one-time customer and leave a
-              gap where the property badge used to be. The recurring label
-              stays on its own line rather than joining the name: it is a
-              sentence ("Recurring client · Quarterly"), not a one-word tag,
-              and two badges after a long name crowd it at phone width. */}
-          {isRecurring && (
-            <div className="custdetail__badges">
-              <span className="custbadge custbadge--recurring">
-                Recurring client · {plan.label}
-              </span>
-            </div>
-          )}
-
-          <div className="custdetail__info">
-            {customer.phone && (
-              /* Through Quo, and pressing it logs NOTHING.
-
-                 The call is written down when Quo says it happened, on the
-                 call.completed webhook — see db/call-tracking.sql. This
-                 link used to log a call on click, which meant a mis-tap
-                 from a laptop that has no dialler still wrote "Called" onto
-                 this customer's history. */
-              <a
-                className="custdetail__phone"
-                href={quoCallHref(customer.phone) || telHref(customer.phone)}
-              >
-                {formatPhone(customer.phone)}
-              </a>
-            )}
-            {customer.email && <span>{customer.email}</span>}
-            {customer.address && <span>{customer.address}</span>}
-          </div>
-
-          {/* One group, because they answer the same question — should
-              this person hear from us — and reading them as a pair is what
-              makes the difference between them obvious. Side by side on a
-              desktop, stacked on a phone, from one auto-fit grid rather
-              than a breakpoint. */}
-          <div className="custprefs">
-            {/* Named for what is actually in the group. On a customer with
-                no email address the opt-out switch below is hidden, which
-                left the word "Email" sitting on its own above a tickbox
-                about Google reviews — a heading describing a control that
-                wasn't there. */}
-            <span className="custprefs__head">
-              {customer.email ? "Email" : "Reviews"}
-            </span>
-            <div className="custprefs__grid">
-              {/* Only where there's an address. On a customer with no email
-                  this would be a switch that governs nothing. */}
-              {customer.email && (
-                <label
-                  className={
-                    "custpref" + (customer.email_opt_out ? " custpref--on" : "")
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    checked={!!customer.email_opt_out}
-                    onChange={handleOptOut}
-                    disabled={optBusy}
-                  />
-                  <span className="custpref__body">
-                    <span className="custpref__label">
-                      Don&rsquo;t send follow-up emails
-                    </span>
-                    {/* The hint carries STATE, not instructions. A line
-                        telling you what a tickbox does is read once and then
-                        becomes clutter forever; a date is useful every time. */}
-                    {customer.email_opt_out ? (
-                      <span className="custpref__hint">
-                        Nothing automatic will send
-                      </span>
-                    ) : (
-                      customer.last_review_request_at && (
-                        <span className="custpref__hint">
-                          Last asked{" "}
-                          {new Date(
-                            customer.last_review_request_at
-                          ).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </span>
-                      )
-                    )}
-                  </span>
-                </label>
-              )}
-
-              {/* Not conditional on having an email: whether they reviewed is
-                  true regardless, and hiding it would mean a customer who
-                  reviewed and later lost their address quietly became
-                  askable again. */}
-              <label
-                className={
-                  "custpref" + (customer.reviewed_at ? " custpref--on" : "")
-                }
-              >
-                <input
-                  type="checkbox"
-                  checked={!!customer.reviewed_at}
-                  onChange={handleReviewed}
-                  disabled={revBusy}
-                />
-                <span className="custpref__body">
-                  <span className="custpref__label">
-                    Already left a Google review
-                  </span>
-                  {customer.reviewed_at && (
-                    <span className="custpref__hint">
-                      Recorded{" "}
-                      {new Date(customer.reviewed_at).toLocaleDateString(
-                        "en-US",
-                        { month: "short", day: "numeric", year: "numeric" }
-                      )}
-                    </span>
-                  )}
-                </span>
-              </label>
-            </div>
-          </div>
+          <CustomerHeader customer={customer} onEdit={() => setEditing(true)} />
 
           {customer.notes && (
             <div className="custdetail__notes">
@@ -735,7 +524,12 @@ export default function CustomerDetail() {
           NO beforeLeave, unlike the lead page. That one is a form with
           unsaved edits in it; this page edits through a modal that saves
           itself, so there is nothing to lose by navigating away. */}
-      <RecordTabs base={`/customers/${id}`} />
+      <RecordTabs base={`/customers/${id}`} active="info" infoLabel="Customer info" />
+
+      {/* Where this customer's buildings are managed. On the info tab only:
+          the quote modal and the booking screen pick between them, and this
+          is where they get named, re-defaulted and retired. */}
+      <CustomerProperties customerId={id} />
 
       <h2 className="custdetail__subhead">Job history</h2>
       {jobs.length === 0 ? (
