@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./RecordTabs.css";
 
 /**
@@ -53,6 +53,14 @@ export default function RecordTabs({
   infoLabel = "Details",
 }) {
   const navigate = useNavigate();
+  // WHERE YOU CAME FROM, CARRIED ACROSS THE TABS.
+  //
+  // A customer opened from a job arrives with state.from pointing at that
+  // job, and the back link uses it. Switching to Quotes without passing it
+  // on dropped it — so back from the Quotes tab went to the customer list
+  // and the job you were reading was gone. Tabs are movement inside one
+  // record; they should not change where that record came from.
+  const { state } = useLocation();
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -63,7 +71,7 @@ export default function RecordTabs({
     if (current || leaving) return;
 
     if (!beforeLeave) {
-      navigate(to);
+      navigate(to, { state });
       return;
     }
 
@@ -71,7 +79,7 @@ export default function RecordTabs({
     setError("");
     try {
       await beforeLeave();
-      navigate(to);
+      navigate(to, { state });
     } catch (e) {
       console.error("Couldn't save before leaving the lead:", e);
       setError(

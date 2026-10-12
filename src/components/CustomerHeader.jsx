@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import RecordMenu from "./RecordMenu";
 import { planFor, quoCallHref, telHref, formatPhone } from "../services/leadService";
 import "../pages/customers/Customers.css";
@@ -23,8 +23,31 @@ import "../pages/customers/Customers.css";
  * that navigates to the info tab with `state.edit` set and lets it open
  * there — the same trick "Send a quote" already uses with `state.send`.
  */
-export default function CustomerHeader({ customer, onEdit }) {
+export default function CustomerHeader({ customer, onEdit, back = null }) {
   const navigate = useNavigate();
+
+  /* WHERE "BACK" GOES, and the same answer on all three tabs.
+   *
+   * It used to live only on the customer's own page: the sub-tabs offered
+   * "← Back to customer" instead, which now does what the tab strip does.
+   * So three tabs of one record had two different ideas of what back meant,
+   * and one of them led nowhere useful.
+   *
+   * state.from is set by whatever sent you here — a job, the schedule — and
+   * RecordTabs carries it between tabs, so arriving at Communication from a
+   * job still offers the job. Falling back to the list is right for the
+   * ordinary case of opening a customer from the customer list.
+   *
+   * `back` overrides it. CustomerDetail passes one while its edit form is
+   * open, where back means "put the form away", not "leave the customer".
+   */
+  const { state } = useLocation();
+  const returnTo = state?.from || "/customers";
+  const returnLabel = returnTo.startsWith("/jobs")
+    ? "← Back to job"
+    : returnTo.startsWith("/schedule")
+      ? "← Back to schedule"
+      : "← Back to customers";
   const id = customer.id;
   const propertyType = customer.property_type || "residential";
   const plan = planFor(customer.service_plan);
@@ -32,6 +55,15 @@ export default function CustomerHeader({ customer, onEdit }) {
 
   return (
     <>
+      <button
+        className="custdetail__back"
+        onClick={() =>
+          back ? back.onClick() : navigate(returnTo, { state: state?.fromState })
+        }
+      >
+        {back ? back.label : returnLabel}
+      </button>
+
     <div className="custdetail__namerow">
       {/* The type badge lives INSIDE the heading, not beside it.
           A sibling would be a flex item next to a name that carries

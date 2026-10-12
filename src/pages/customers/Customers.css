@@ -958,3 +958,13 @@
 .custpref--on .custpref__hint {
   color: #60a5fa;
 }
+
+/* A line in the edit form explaining where a field went. Styled as prose,
+   not as a disabled input: the point is that there is nothing to fill in
+   here, and a greyed-out box would read as something broken. */
+.custedit__note {
+  margin: 0 0 14px;
+  font-size: var(--text-sm);
+  color: #64748b;
+  line-height: 1.45;
+}

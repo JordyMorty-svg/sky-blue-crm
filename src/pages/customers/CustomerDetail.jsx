@@ -17,7 +17,6 @@ import {
   nextVisitDate,
   priceForVisit,
 } from "../../services/leadService";
-import AddressPicker from "../../components/AddressPicker";
 import JobPlanTag from "../../components/JobPlanTag";
 import RecordTabs from "../../components/RecordTabs";
 import "./Customers.css";
@@ -65,13 +64,9 @@ export default function CustomerDetail() {
    * Calendar -> job -> customer -> back -> job -> back lands on the
    * calendar, not on the jobs board. */
   const { state } = useLocation();
-  const returnTo = state?.from || "/customers";
-  const returnState = state?.fromState;
-  const returnLabel = returnTo.startsWith("/jobs")
-    ? "← Back to job"
-    : returnTo.startsWith("/schedule")
-      ? "← Back to schedule"
-      : "← Back to customers";
+  // returnTo / returnLabel moved into CustomerHeader, which draws the back
+  // link on all three tabs. `state` is still read here for state.edit — see
+  // the useState below.
 
   const [customer, setCustomer] = useState(null);
   const [jobs, setJobs] = useState([]);
@@ -317,20 +312,6 @@ export default function CustomerDetail() {
 
   return (
     <div className="custdetail">
-      {/* The edit form is this same page with its fields opened up, not a
-          page of its own — so while it's open, back means "put it away and
-          give me the customer again". Leaving for the customer list from
-          here is the one thing nobody wants: you came to change a phone
-          number and you're thrown back to the top of the list. */}
-      <button
-        className="custdetail__back"
-        onClick={() =>
-          editing ? handleCancel() : navigate(returnTo, { state: returnState })
-        }
-      >
-        {editing ? `← Back to ${customer.name}` : returnLabel}
-      </button>
-
       {error && <p className="customers__error">{error}</p>}
 
       {editing ? (
@@ -354,22 +335,20 @@ export default function CustomerDetail() {
             value={form.email || ""}
             onChange={(e) => set("email", e.target.value)}
           />
-          <label className="custedit__label">Address</label>
-          <AddressPicker
-            value={form.address || ""}
-            onChange={({ address, latitude, longitude }) => {
-              setForm((cur) => ({ ...cur, address, latitude, longitude }));
-            }}
-            onTextChange={(text) => {
-              setForm((cur) => ({
-                ...cur,
-                address: text,
-                latitude: null,
-                longitude: null,
-              }));
-            }}
-            placeholder="123 Main St, Corvallis"
-          />
+          {/* THE ADDRESS FIELD IS GONE FROM THIS FORM, deliberately.
+              Addresses live in customer_properties now, and the default one
+              is mirrored onto customers.address by a trigger — see
+              db/property-default-sync.sql. Leaving an address box here
+              would let somebody type a new address straight onto the
+              customer row, where it would disagree with the default
+              property until the next time anyone touched that property, at
+              which point their typing would silently vanish.
+
+              One place to edit an address: the Addresses panel below. */}
+          <p className="custedit__note">
+            Addresses are managed under <strong>Addresses</strong> on the
+            Customer info tab.
+          </p>
           <label className="custedit__label">Property type</label>
           <select
             className="custedit__input"
@@ -415,7 +394,19 @@ export default function CustomerDetail() {
         </div>
       ) : (
         <>
-          <CustomerHeader customer={customer} onEdit={() => setEditing(true)} />
+          <CustomerHeader
+            customer={customer}
+            onEdit={() => setEditing(true)}
+            /* While the edit form is open, back means "put it away and give
+               me the customer again". Leaving for the customer list from
+               here is the one thing nobody wants: you came to change a
+               phone number and you are thrown back to the top of a list. */
+            back={
+              editing
+                ? { label: `← Back to ${customer.name}`, onClick: handleCancel }
+                : null
+            }
+          />
 
           {customer.notes && (
             <div className="custdetail__notes">

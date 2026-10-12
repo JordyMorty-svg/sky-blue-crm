@@ -58,8 +58,14 @@ export default function LeadQuotes() {
   return (
     <div className="detail">
       <div className="detail__top">
-        <button className="detail__back" onClick={() => navigate(`/leads/${id}`)}>
-          ← Back to lead
+        {/* THE SAME DESTINATION ON ALL THREE TABS. This used to say "Back
+            to lead" and return to the record's own page — which, now that
+            Lead info is a tab, is a second control doing what the tab strip
+            does. Worse, the three tabs disagreed: two offered the record
+            and one offered the pipeline, so "back" meant different things
+            depending on which tab you happened to be on. */}
+        <button className="detail__back" onClick={() => navigate("/leads")}>
+          ← Back to pipeline
         </button>
         <span className="detail__source">{sourceFor(lead.source).label}</span>
       </div>
