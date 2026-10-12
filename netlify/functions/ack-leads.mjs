@@ -200,7 +200,7 @@ export default async () => {
      */
     const alerts = await runLeadAlerts({ limit: 10 });
 
-    if (alerts.texted || alerts.skipped || alerts.problems.length) {
+    if (alerts.texted || alerts.emailed || alerts.skipped || alerts.problems.length) {
       console.log("[lead-alerts]", JSON.stringify({ ...alerts, ms: Date.now() - started }));
     }
 

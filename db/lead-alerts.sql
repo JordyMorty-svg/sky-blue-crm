@@ -100,15 +100,30 @@ comment on function public.sb_lead_alert_stale() is
 -- 3. Claim and return, in one statement
 -- ---------------------------------------------------------------------------
 
+-- DROPPED FIRST, because `create or replace` cannot change a function's
+-- RETURN TYPE — it fails with "cannot change return type of existing
+-- function" rather than quietly doing the wrong thing, which is the good
+-- outcome, but only if the drop is here. This signature grew when the alert
+-- gained an email: a text has to fit a lock screen and an email is the
+-- record, so the email carries the notes, the estimate and the property
+-- details the text leaves out.
+drop function if exists public.sb_claim_lead_alerts(int);
+
 create or replace function public.sb_claim_lead_alerts(p_limit int default 10)
 returns table (
-  out_lead_id uuid,
-  out_name    text,
-  out_phone   text,
-  out_email   text,
-  out_address text,
-  out_service text,
-  out_source  text
+  out_lead_id       uuid,
+  out_name          text,
+  out_phone         text,
+  out_email         text,
+  out_address       text,
+  out_service       text,
+  out_source        text,
+  -- For the email only. None of these belongs in a text message.
+  out_property_type text,
+  out_stories       text,
+  out_windows       int,
+  out_estimate      numeric,
+  out_notes         text
 )
 language sql
 volatile
@@ -159,7 +174,15 @@ as $$
     nullif(btrim(coalesce(l.email, '')), ''),
     nullif(btrim(coalesce(l.address, '')), ''),
     nullif(btrim(coalesce(l.service, '')), ''),
-    coalesce(nullif(btrim(coalesce(l.source, '')), ''), 'unknown')
+    coalesce(nullif(btrim(coalesce(l.source, '')), ''), 'unknown'),
+    nullif(btrim(coalesce(l.property_type, '')), ''),
+    nullif(btrim(coalesce(l.stories, '')), ''),
+    l.windows,
+    -- NULLIF ON ZERO, not just on null. The forms post 0 when somebody
+    -- leaves the estimate alone, and "Their estimate: $0" in an email reads
+    -- as a quote for nothing rather than as a field nobody filled in.
+    nullif(l.estimate, 0),
+    nullif(btrim(coalesce(l.notes, '')), '')
   from claimed c
   join public.leads l on l.id = c.lead_id
   order by l.created_at

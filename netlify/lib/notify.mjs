@@ -29,6 +29,38 @@ import { esc, money, serviceLabels } from "./html.mjs";
 
 const BRAND = "#2563eb";
 const GOOD = "#047857";
+// A new lead is neither done nor won. It is owed something, and in a list of
+// subject lines the colour is what says which of the three emails this is.
+const AMBER = "#b45309";
+
+/*
+ * Database words, in English.
+ *
+ * DUPLICATED FROM netlify/lib/leadAlerts.mjs AND THAT IS DELIBERATE — the
+ * two are read in different places and should be allowed to diverge. The
+ * text has to fit a lock screen, so it says "the website"; this is a subject
+ * line being filed in a mailbox, so it says "the website" too today but is
+ * free to grow longer without making a notification unreadable.
+ *
+ * What must NOT diverge is whether an unknown value survives: both print it
+ * raw rather than swallowing it, so a source added to the CRM before it is
+ * added here looks slightly rough instead of disappearing.
+ */
+const SOURCE_WORDS = {
+  website: "the website",
+  google_lsa: "Google Local Services",
+  google_ads: "Google Ads",
+  door: "a door knock",
+  referral: "a referral",
+  repeat: "a repeat customer",
+};
+
+const SERVICE_WORDS = {
+  windows: "Window cleaning",
+  gutters: "Gutter cleaning",
+  solar: "Solar panel cleaning",
+  pressure: "Pressure washing",
+};
 
 function to() {
   return (process.env.NOTIFY_TO || "").trim();
@@ -198,6 +230,90 @@ export function quoteSentNotification({
           // Bordered, not just tinted. Against the white card a #f1f5f9 fill
           // alone rendered as bold text rather than a button — measured, not
           // guessed: see verify/shot-notify.mjs.
+          ? `<div style="margin:22px 0 0;"><a href="${esc(record)}" style="display:inline-block;background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;text-decoration:none;padding:11px 22px;border-radius:999px;font-weight:700;font-size:0.85rem;">Open in the CRM</a></div>`
+          : ""
+      }`,
+  });
+
+  return { subject, html };
+}
+
+/**
+ * "Somebody just filled in the form."
+ *
+ * THE ONE THAT REPLACED A THIRD PARTY. Until 12 October 2026 this email came
+ * from Web3Forms, posted straight from the customer's browser. One of them
+ * did not arrive — that domain is on several ad-blocker lists — and the lead
+ * sat in the CRM for two hours with nobody told. See db/lead-alerts.sql.
+ *
+ * It is sent alongside a text now, and the two are deliberately different
+ * shapes rather than the same words twice:
+ *
+ *   the TEXT is the interruption — who, their number, one tap to call
+ *   the EMAIL is the record — everything they typed, filed in the inbox
+ *                             beside the quote confirmations
+ *
+ * Which is why this one carries the notes field, the estimate and the
+ * property details that would make a lock-screen notification unreadable.
+ *
+ * AMBER, not blue or green. These land in the same inbox as "quote sent"
+ * (blue) and "they said yes" (green), and at a glance in a list of subject
+ * lines the colour is the first thing that says which of the three this is.
+ * A new lead is the one that is neither done nor won: it is owed something.
+ */
+export function newLeadNotification({
+  name,
+  phone,
+  email,
+  address,
+  service,
+  source,
+  propertyType,
+  stories,
+  windows,
+  estimate,
+  notes,
+  leadId,
+}) {
+  const who = name || "Someone";
+  const record = recordUrl({ leadId });
+
+  // The source in the subject, because the inbox is where these get filtered
+  // into a folder and "website" vs "Google Local Services" is the thing
+  // somebody would want to filter on.
+  // The article comes off for the subject line. "New lead — Kristina (the
+  // website)" reads as a typo in a list of subject lines, while inside the
+  // eyebrow's sentence "from the website" is the one that reads right.
+  // Same map, two jobs.
+  const tag = (SOURCE_WORDS[source] || source || "unknown").replace(/^(the|a) /, "");
+  const subject = `New lead — ${who} (${tag})`;
+
+  const html = shell({
+    accent: AMBER,
+    eyebrow: `New lead from ${SOURCE_WORDS[source] || source || "an unknown source"}`,
+    heading: who,
+    body: `
+      <table style="width:100%;border-collapse:collapse;">
+        ${row("Phone", phone ? `<a href="tel:${esc(String(phone).replace(/[^\d+]/g, ""))}" style="color:${BRAND};text-decoration:none;font-weight:700;">${esc(phone)}</a>` : "")}
+        ${row("Email", email ? `<a href="mailto:${esc(email)}" style="color:${BRAND};text-decoration:none;">${esc(email)}</a>` : "")}
+        ${row("Address", esc(address))}
+        ${row("Service", esc(SERVICE_WORDS[service] || service))}
+        ${row("Property", esc(propertyType === "commercial" ? "Commercial" : propertyType ? "Residential" : ""))}
+        ${row("Stories", esc(stories === "two" ? "Two story" : stories === "one" ? "One story" : stories))}
+        ${row("Windows", windows ? esc(String(windows)) : "")}
+        ${row("Their estimate", estimate ? `<strong style="font-size:1.05rem;color:${BRAND};">${money(estimate)}</strong>` : "")}
+      </table>
+      ${
+        notes
+          // WHAT THEY TYPED, kept apart from the fields and not trimmed.
+          // "Gutters look rough too" and "big dog in the yard" are the two
+          // most useful sentences in the whole enquiry and neither fits in
+          // a table row.
+          ? `<p style="margin:16px 0 0;padding:11px 13px;background:#f8fafc;border-radius:10px;font-size:0.85rem;color:#475569;"><span style="color:#94a3b8;">What they said:</span><br/>${esc(notes)}</p>`
+          : ""
+      }
+      ${
+        record
           ? `<div style="margin:22px 0 0;"><a href="${esc(record)}" style="display:inline-block;background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;text-decoration:none;padding:11px 22px;border-radius:999px;font-weight:700;font-size:0.85rem;">Open in the CRM</a></div>`
           : ""
       }`,

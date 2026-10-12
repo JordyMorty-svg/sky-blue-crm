@@ -16,14 +16,30 @@
 //
 // Environment:
 //   ALERT_SMS_TO — comma-separated numbers, e.g. "+15415551234,+15415555678".
-//                  UNSET MEANS OFF, silently and on purpose: a half-deployed
-//                  CRM must not start throwing on every sweep.
+//                  UNSET MEANS NO TEXTS, silently and on purpose: a
+//                  half-deployed CRM must not start throwing on every sweep.
+//   NOTIFY_TO    — the company inbox, already set, already used by the quote
+//                  and acceptance notifications. Unset means no email.
 //
-// Everything else it needs — the Quo key, the sending number — is already
-// set, because this uses the same sendSms() the acknowledgments do.
+// TWO CHANNELS, DIFFERENT JOBS, and they are not the same words twice:
+//
+//   the TEXT is the interruption — who, their number, one tap to call
+//   the EMAIL is the record — everything they typed, filed in the inbox
+//                             beside the quote confirmations
+//
+// INDEPENDENT, in both directions. The text sends when the inbox is not
+// configured; the email sends when no numbers are. Either failing leaves the
+// other alone — one notification arriving is the thing that matters, and a
+// design where a bad phone number costs the email would be the same mistake
+// Web3Forms made in reverse.
+//
+// Everything else they need — the Quo key, the sending number, the Resend
+// key — is already set, because these use the same sendSms() and notify()
+// the acknowledgments and quote emails do.
 
 import { rpc } from "../lib/db.mjs";
 import { sendSms, toE164 } from "./sms.mjs";
+import { newLeadNotification, notify, notifyConfigured } from "./notify.mjs";
 
 /**
  * Who gets told.
@@ -107,24 +123,30 @@ export function alertText(lead) {
  * told we got their message. Problems come back in the return value, where
  * the caller logs them.
  *
- * Returns { texted, skipped, problems } — texted counts MESSAGES, not leads,
- * because two numbers is two messages and a run that tells one brother and
- * fails the other is not a clean run.
+ * Returns { texted, emailed, skipped, problems }. `texted` counts MESSAGES,
+ * not leads, because two numbers is two messages and a run that tells one
+ * brother and fails the other is not a clean run.
  */
 export async function runLeadAlerts({ limit = 10 } = {}) {
-  const out = { texted: 0, skipped: 0, problems: [] };
+  const out = { texted: 0, emailed: 0, skipped: 0, problems: [] };
 
   const to = alertNumbers();
-  if (to.length === 0) {
-    // NOT A PROBLEM, and deliberately not counted as one. ALERT_SMS_TO unset
-    // is how this is switched off, and a sweep that logged a complaint every
-    // minute about a feature nobody turned on would bury the ones that
-    // matter.
+  const mailing = notifyConfigured();
+
+  if (to.length === 0 && !mailing) {
+    // NOT A PROBLEM, and deliberately not counted as one. Unset is how this
+    // is switched off, and a sweep that logged a complaint every minute
+    // about a feature nobody turned on would bury the ones that matter.
     //
     // Nothing is claimed either — note the early return is BEFORE the rpc.
     // Claiming and then discovering there is nowhere to send would mark
-    // every lead as alerted while the setting was missing, and they would
-    // never be alerted again once it was fixed.
+    // every lead as alerted while the settings were missing, and they would
+    // never be alerted again once they were fixed.
+    //
+    // BOTH have to be missing. Numbers but no inbox, or an inbox but no
+    // numbers, is a working setup with one channel — checking only one of
+    // them is how turning on the email alone would silently claim and
+    // discard every lead.
     return out;
   }
 
@@ -138,6 +160,47 @@ export async function runLeadAlerts({ limit = 10 } = {}) {
 
   for (const lead of due) {
     const body = alertText(lead);
+
+    // THE EMAIL FIRST, and it is not arbitrary. Texting is the slower of the
+    // two — a Quo API call per number — so a run that is about to hit the
+    // function timeout has already done the cheap thing. The email is also
+    // the one that is reconstructible: a text nobody received is gone, while
+    // an inbox can be searched later for what the enquiry said.
+    if (mailing) {
+      try {
+        const { subject, html } = newLeadNotification({
+          name: lead.out_name,
+          phone: lead.out_phone,
+          email: lead.out_email,
+          address: lead.out_address,
+          service: lead.out_service,
+          source: lead.out_source,
+          propertyType: lead.out_property_type,
+          stories: lead.out_stories,
+          windows: lead.out_windows,
+          estimate: lead.out_estimate,
+          notes: lead.out_notes,
+          leadId: lead.out_lead_id,
+        });
+
+        // notify() resolves with { ok, reason } and never rejects — see its
+        // header. The try/catch is for building the body, not for sending.
+        const mailed = await notify({ subject, html });
+        if (mailed?.ok) out.emailed += 1;
+        else {
+          out.skipped += 1;
+          if (mailed?.reason) {
+            out.problems.push({ lead: lead.out_lead_id, to: "inbox", reason: mailed.reason });
+          }
+        }
+      } catch (err) {
+        out.problems.push({
+          lead: lead.out_lead_id,
+          to: "inbox",
+          reason: String(err?.message || err),
+        });
+      }
+    }
 
     for (const number of to) {
       try {

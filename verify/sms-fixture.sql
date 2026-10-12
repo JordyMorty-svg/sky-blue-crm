@@ -65,6 +65,12 @@ create table leads (
   -- — it predates them, from the original Supabase schema — which is
   -- exactly why the fixture has to be told about it by hand.
   service           text,
+  -- Same again, for db/lead-alerts.sql's email: these are what the enquiry
+  -- actually said, and none of them has a migration in db/ either.
+  property_type     text,
+  stories           text,
+  windows           int,
+  notes             text,
   -- Added when db/lead-ack.sql started asking where a lead came from.
   -- The real table has had it since db/lead-sources.sql; this fixture only
   -- ever grew the columns the SMS code touched.
