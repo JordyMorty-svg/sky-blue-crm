@@ -601,11 +601,11 @@
 
 /* --- next recurring visit, due but not scheduled --- */
 
-/* INSIDE THE JOB HISTORY NOW, directly under the scheduled card it is
-   calculated from. Indented and nudged up so it reads as a projection
-   hanging off that booking rather than a fourth equal item in the list —
-   the scheduled card has a 20px gap below it, and this sits in that gap
-   rather than opening a new one. */
+/* Directly under the stat strip, which is a thin line of numbers now
+   rather than two full-height tiles — so this follows them instead of
+   interrupting anything. Full width, no indent: it is the third fact in
+   a row of facts about where this customer stands, not a footnote to
+   something above it. */
 .custdetail__nextvisit {
   display: flex;
   flex-direction: column;
@@ -614,15 +614,7 @@
   border: 1px solid #fde68a;
   border-radius: 12px;
   padding: 14px 16px;
-  margin: -8px 0 20px 16px;
-}
-
-/* Full width again on a phone, where 16px of indent is most of the room
-   the date needs. */
-@media (max-width: 480px) {
-  .custdetail__nextvisit {
-    margin-left: 0;
-  }
+  margin: 0 0 22px;
 }
 
 .custdetail__nextvisit-label {

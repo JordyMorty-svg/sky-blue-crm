@@ -497,6 +497,80 @@ export default function CustomerDetail() {
           </div>
         </div>
 
+        {/* STRAIGHT AFTER THE NUMBERS.
+
+            It was down in the job history for a while, under the booking
+            it is calculated from, and the argument for that was sound
+            while the stats above were two full-height tiles: a third box
+            wedged between them and the addresses interrupted everything.
+
+            Now the stats are a single thin line, so this follows them
+            rather than breaking anything up — and "0 visits, $0, next one
+            expected around April" reads as one answer to "where are we
+            with this customer", which is the question the top of the page
+            is for. The job history below is then purely a record of what
+            happened. */}
+        {projectedVisit?.startsAt && (
+          <div className="custdetail__nextvisit custdetail__nextvisit--estimate">
+            <span className="custdetail__nextvisit-label">
+              Next visit expected
+            </span>
+            <strong className="custdetail__nextvisit-date">
+              around {formatDue(projectedVisit.startsAt)}
+            </strong>
+            <span className="custdetail__nextvisit-note">
+              {projectedVisit.fromCompleted ? (
+                <>
+                  Estimated at ${projectedVisit.price}, counting{" "}
+                  {planFor(effectivePlan).months} months from their last visit
+                  on {formatDue(projectedVisit.after)}.
+                </>
+              ) : (
+                <>
+                  Estimated at ${projectedVisit.price}, counting{" "}
+                  {planFor(effectivePlan).months} months from the job booked for{" "}
+                  {formatDue(projectedVisit.after)}. The real due date is set
+                  when that job is marked complete.
+                </>
+              )}
+            </span>
+
+            {needsVisitRepair && (
+              <div className="custdetail__repair">
+                <span className="custdetail__repair-text">
+                  This visit isn't on the books yet — it's only an estimate, so
+                  it won't reach the Jobs board. That happens when someone is
+                  put on a plan after their last visit was already finished.
+                </span>
+                <button
+                  className="custdetail__repair-btn"
+                  onClick={handleRepairVisit}
+                  disabled={repairing}
+                >
+                  {repairing ? "Creating…" : "Put it on the books"}
+                </button>
+                {repairError && (
+                  <span className="custdetail__repair-error">{repairError}</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {nextVisit && (
+          <div className="custdetail__nextvisit">
+            <span className="custdetail__nextvisit-label">Next visit due</span>
+            <strong className="custdetail__nextvisit-date">
+              {formatDue(nextVisit.starts_at)}
+            </strong>
+            <span className="custdetail__nextvisit-note">
+              ${nextVisit.price} · not scheduled yet — it moves onto the Jobs
+              board {RECURRING_LEAD_TIME_DAYS} days beforehand so a crew can be
+              assigned.
+            </span>
+          </div>
+        )}
+
         {/* Where this customer's buildings are managed. On the info tab only:
             the quote modal and the booking screen pick between them, and this
             is where they get named, re-defaulted and retired.
@@ -551,78 +625,6 @@ export default function CustomerDetail() {
                       </div>
                     </div>
                   ))}
-              </div>
-            )}
-
-            {/* THE NEXT VISIT LIVES WITH THE JOBS, not with the stat tiles.
-
-                It used to sit between the stats and the addresses — the only
-                EVENT in a stack of summary numbers and admin facts, with the
-                scheduled job it is calculated from three sections further
-                down. So the page carried two "what's next" blocks separated by
-                an address panel, reading as competing answers, and this one
-                explained itself by referring to a card nobody could see yet.
-
-                Together they are one sentence: booked for the 26th, and the
-                one after that lands around April. */}
-            {projectedVisit?.startsAt && (
-              <div className="custdetail__nextvisit custdetail__nextvisit--estimate">
-                <span className="custdetail__nextvisit-label">
-                  Next visit expected
-                </span>
-                <strong className="custdetail__nextvisit-date">
-                  around {formatDue(projectedVisit.startsAt)}
-                </strong>
-                <span className="custdetail__nextvisit-note">
-                  {projectedVisit.fromCompleted ? (
-                    <>
-                      Estimated at ${projectedVisit.price}, counting{" "}
-                      {planFor(effectivePlan).months} months from their last visit
-                      on {formatDue(projectedVisit.after)}.
-                    </>
-                  ) : (
-                    <>
-                      Estimated at ${projectedVisit.price}, counting{" "}
-                      {planFor(effectivePlan).months} months from the job booked for{" "}
-                      {formatDue(projectedVisit.after)}. The real due date is set
-                      when that job is marked complete.
-                    </>
-                  )}
-                </span>
-
-                {needsVisitRepair && (
-                  <div className="custdetail__repair">
-                    <span className="custdetail__repair-text">
-                      This visit isn't on the books yet — it's only an estimate, so
-                      it won't reach the Jobs board. That happens when someone is
-                      put on a plan after their last visit was already finished.
-                    </span>
-                    <button
-                      className="custdetail__repair-btn"
-                      onClick={handleRepairVisit}
-                      disabled={repairing}
-                    >
-                      {repairing ? "Creating…" : "Put it on the books"}
-                    </button>
-                    {repairError && (
-                      <span className="custdetail__repair-error">{repairError}</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {nextVisit && (
-              <div className="custdetail__nextvisit">
-                <span className="custdetail__nextvisit-label">Next visit due</span>
-                <strong className="custdetail__nextvisit-date">
-                  {formatDue(nextVisit.starts_at)}
-                </strong>
-                <span className="custdetail__nextvisit-note">
-                  ${nextVisit.price} · not scheduled yet — it moves onto the Jobs
-                  board {RECURRING_LEAD_TIME_DAYS} days beforehand so a crew can be
-                  assigned.
-                </span>
               </div>
             )}
 
