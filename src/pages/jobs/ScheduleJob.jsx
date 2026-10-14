@@ -7,6 +7,8 @@ import TechPicker from "../../components/TechPicker";
 import ServicePicker from "../../components/ServicePicker";
 import { serviceFor } from "../../services/leadService";
 import DayPreview from "./DayPreview";
+import DurationHint from "../../components/DurationHint";
+import { useSuggestedDuration } from "../../hooks/useSuggestedDuration";
 import "./ScheduleJob.css";
 
 export default function ScheduleJob() {
@@ -16,13 +18,16 @@ export default function ScheduleJob() {
   const [lead, setLead] = useState(null);
   const [techs, setTechs] = useState([]);
   const [selectedTechs, setSelectedTechs] = useState([]);
-  const [duration, setDuration] = useState(3);
   const [apptDate, setApptDate] = useState(null);
   const [apptTime, setApptTime] = useState("");
   const [notes, setNotes] = useState("");
   // Seeded from the lead once it loads, then the crew can add to it.
   const [serviceKeys, setServiceKeys] = useState([]);
   const [conflicts, setConflicts] = useState([]);
+  // The duration follows the quote and the services until somebody takes it
+  // over. See src/hooks/useSuggestedDuration.js.
+  const est = useSuggestedDuration({ price: lead?.estimate, serviceKeys });
+  const duration = est.duration;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -146,8 +151,9 @@ export default function ScheduleJob() {
             step="0.5"
             min="0.5"
             value={duration}
-            onChange={(e) => setDuration(e.target.value)}
+            onChange={(e) => est.onChange(e.target.value)}
           />
+          <DurationHint {...est} onReset={est.reset} />
         </div>
 
         <div className="scheduleJob__field">
@@ -166,6 +172,7 @@ export default function ScheduleJob() {
             time={apptTime}
             duration={Number(duration)}
             techIds={selectedTechs}
+            place={lead}
             onConflictChange={setConflicts}
           />
         </div>

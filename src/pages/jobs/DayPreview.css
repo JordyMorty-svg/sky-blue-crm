@@ -135,3 +135,39 @@
   font-size: var(--text-2xs);
   opacity: 0.85;
 }
+/* The road between two jobs.
+ *
+ * Hatched rather than filled, and deliberately not a job colour: it is not
+ * work, it is the reason the next slot cannot start yet. An empty gap on a
+ * calendar reads as free time and gets filled; a marked one does not.
+ *
+ * `right` is wider than a job's so the strip sits visibly inset, and it is
+ * under the proposed block (z-index) so dropping a new job on top of it
+ * still reads clearly. */
+.daypreview__travel {
+  position: absolute;
+  left: 4px;
+  right: 20px;
+  min-height: 7px;
+  border-radius: 4px;
+  z-index: 2;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(100, 116, 139, 0.16) 0,
+    rgba(100, 116, 139, 0.16) 3px,
+    transparent 3px,
+    transparent 7px
+  );
+  border: 1px dashed rgba(100, 116, 139, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 5px;
+}
+
+.daypreview__travellabel {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1;
+}

@@ -365,10 +365,31 @@ export default function LeadDetail() {
         </Field>
 
         <Field label="Stories">
-          <select className="detail__input" value={draft.stories}
-            onChange={(e) => set("stories", e.target.value)}>
+          <select className="detail__input" value={draft.stories ?? ""}
+            onChange={(e) => set("stories", e.target.value || null)}>
+            {/* BLANK IS A REAL OPTION. The service-page quote form sends
+                stories as null on purpose — it asks for a service and a
+                contact, not a window count — so a lead can legitimately
+                have none. Without this the select showed "One story" for
+                those leads and saving the form wrote it, inventing a
+                storey count for a house nobody has looked at. */}
+            <option value="">Not recorded</option>
             <option value="one">One story</option>
             <option value="two">Two story</option>
+            {/* Added when the website's calculator learned about three —
+                db/lead-stories.sql widened the CHECK constraint to match.
+                These three values and STOREYS in the site's QuoteForm.jsx
+                have to stay in step. */}
+            <option value="three">Three story</option>
+            {/* ANYTHING ELSE THE DATABASE HOLDS, shown rather than
+                swallowed. A select whose value matches no option renders
+                blank, and the next save writes that blank over a real
+                value — the same silent downgrade the status select above
+                guards against, for the same reason. */}
+            {draft.stories &&
+              !["one", "two", "three"].includes(draft.stories) && (
+                <option value={draft.stories}>{draft.stories}</option>
+              )}
           </select>
         </Field>
 

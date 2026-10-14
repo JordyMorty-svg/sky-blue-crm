@@ -17,6 +17,8 @@ import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import TechPicker from "../../components/TechPicker";
 import ServicePicker from "../../components/ServicePicker";
 import JobHistory from "../../components/JobHistory";
+import DurationHint from "../../components/DurationHint";
+import { useSuggestedDuration } from "../../hooks/useSuggestedDuration";
 import "./JobDetail.css";
 import { jobAddressText } from "../../services/jobAddress";
 import PropertyPicker from "../../components/PropertyPicker";
@@ -40,10 +42,14 @@ export default function JobDetail() {
   const [originalTechs, setOriginalTechs] = useState([]);
   const [apptDate, setApptDate] = useState(null);
   const [apptTime, setApptTime] = useState("");
-  const [duration, setDuration] = useState(3);
   const [price, setPrice] = useState("");
   const [notes, setNotes] = useState("");
   const [serviceKeys, setServiceKeys] = useState([]);
+  // Follows the price field as it is edited, until someone types a duration.
+  // adopt() in load() hands it whatever was already booked, so opening a job
+  // can never silently change what it was scheduled for.
+  const est = useSuggestedDuration({ price, serviceKeys });
+  const duration = est.duration;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -70,7 +76,7 @@ export default function JobDetail() {
       const { date, time } = splitFromISO(jobData.starts_at);
       setApptDate(date);
       setApptTime(time);
-      setDuration(jobData.duration_hours ?? 3);
+      est.adopt(jobData.duration_hours);
       setPrice(jobData.price ?? "");
       setNotes(jobData.notes ?? "");
       setPropertyId(jobData.property_id ?? null);
@@ -309,8 +315,9 @@ export default function JobDetail() {
           step="0.5"
           min="0.5"
           value={duration}
-          onChange={(e) => setDuration(e.target.value)}
+          onChange={(e) => est.onChange(e.target.value)}
         />
+        <DurationHint {...est} onReset={est.reset} />
 
         <label className="jobDetail__label">Price ($)</label>
         <input

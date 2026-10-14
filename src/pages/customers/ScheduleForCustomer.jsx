@@ -14,6 +14,8 @@ import { planFor, DEFAULT_SERVICE } from "../../services/leadService";
 import DayPreview from "../jobs/DayPreview";
 import "../jobs/ScheduleJob.css";
 import PropertyPicker from "../../components/PropertyPicker";
+import DurationHint from "../../components/DurationHint";
+import { useSuggestedDuration } from "../../hooks/useSuggestedDuration";
 
 /**
  * Book a job for an existing customer, with no lead in front of it — the
@@ -27,7 +29,6 @@ export default function ScheduleForCustomer() {
   const [customer, setCustomer] = useState(null);
   const [techs, setTechs] = useState([]);
   const [selectedTechs, setSelectedTechs] = useState([]);
-  const [duration, setDuration] = useState(3);
   const [apptDate, setApptDate] = useState(null);
   const [apptTime, setApptTime] = useState("");
   const [price, setPrice] = useState("");
@@ -35,6 +36,8 @@ export default function ScheduleForCustomer() {
   // job can carry several — "windows, and do the gutters while you're up
   // there" is one visit, not two.
   const [serviceKeys, setServiceKeys] = useState([DEFAULT_SERVICE]);
+  const est = useSuggestedDuration({ price, serviceKeys });
+  const duration = est.duration;
   const [notes, setNotes] = useState("");
   const [propertyType, setPropertyType] = useState("residential");
   const [servicePlan, setServicePlan] = useState("one_time");
@@ -272,8 +275,9 @@ export default function ScheduleForCustomer() {
             step="0.5"
             min="0.5"
             value={duration}
-            onChange={(e) => setDuration(e.target.value)}
+            onChange={(e) => est.onChange(e.target.value)}
           />
+          <DurationHint {...est} onReset={est.reset} />
         </div>
 
         <div className="scheduleJob__field">

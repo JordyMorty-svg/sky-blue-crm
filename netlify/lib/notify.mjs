@@ -55,6 +55,14 @@ const SOURCE_WORDS = {
   repeat: "a repeat customer",
 };
 
+// one | two | three, per db/lead-stories.sql. An unrecognised value prints
+// raw rather than vanishing — same rule as the sources above.
+const STOREY_WORDS = {
+  one: "One story",
+  two: "Two story",
+  three: "Three story",
+};
+
 const SERVICE_WORDS = {
   windows: "Window cleaning",
   gutters: "Gutter cleaning",
@@ -299,7 +307,7 @@ export function newLeadNotification({
         ${row("Address", esc(address))}
         ${row("Service", esc(SERVICE_WORDS[service] || service))}
         ${row("Property", esc(propertyType === "commercial" ? "Commercial" : propertyType ? "Residential" : ""))}
-        ${row("Stories", esc(stories === "two" ? "Two story" : stories === "one" ? "One story" : stories))}
+        ${row("Stories", esc(STOREY_WORDS[stories] || stories))}
         ${row("Windows", windows ? esc(String(windows)) : "")}
         ${row("Their estimate", estimate ? `<strong style="font-size:1.05rem;color:${BRAND};">${money(estimate)}</strong>` : "")}
       </table>

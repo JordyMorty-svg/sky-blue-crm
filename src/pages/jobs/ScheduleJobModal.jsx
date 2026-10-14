@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { fetchTechs, scheduleJob } from "../../services/jobService";
 import "../../components/AddLeadModal.css";
 import "./ScheduleJobModal.css";
+import DurationHint from "../../components/DurationHint";
+import { useSuggestedDuration } from "../../hooks/useSuggestedDuration";
 
 function toLocalInput(iso) {
   if (!iso) return "";
@@ -13,8 +15,13 @@ function toLocalInput(iso) {
 export default function ScheduleJobModal({ lead, onClose, onScheduled }) {
   const [techs, setTechs] = useState([]);
   const [selectedTechs, setSelectedTechs] = useState([]);
-  // Duration defaults to 3 hours, editable.
-  const [duration, setDuration] = useState(3);
+  // Suggested from the quote, editable. This modal has no service picker, so
+  // whatever the lead enquired about is the best available answer.
+  const est = useSuggestedDuration({
+    price: lead.estimate,
+    serviceKeys: lead.service ? [lead.service] : [],
+  });
+  const duration = est.duration;
   const [startsAt, setStartsAt] = useState(toLocalInput(lead.appointment_at));
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -91,8 +98,9 @@ export default function ScheduleJobModal({ lead, onClose, onScheduled }) {
             step="0.5"
             min="0.5"
             value={duration}
-            onChange={(e) => setDuration(e.target.value)}
+            onChange={(e) => est.onChange(e.target.value)}
           />
+          <DurationHint {...est} onReset={est.reset} />
 
           <label className="modal__label">Assign team members</label>
           <div className="schedule__techs">

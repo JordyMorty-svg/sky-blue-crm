@@ -6,6 +6,8 @@ import AppointmentPicker from "../../components/AppointmentPicker";
 import { combineToISO, splitFromISO } from "../../components/appointmentUtils";
 import TechPicker from "../../components/TechPicker";
 import DayPreview from "./DayPreview";
+import DurationHint from "../../components/DurationHint";
+import { useSuggestedDuration } from "../../hooks/useSuggestedDuration";
 import "./ScheduleJob.css";
 import { jobAddressText } from "../../services/jobAddress";
 
@@ -23,11 +25,18 @@ export default function ConfirmVisit() {
   const [job, setJob] = useState(null);
   const [techs, setTechs] = useState([]);
   const [selectedTechs, setSelectedTechs] = useState([]);
-  const [duration, setDuration] = useState(3);
   const [apptDate, setApptDate] = useState(null);
   const [apptTime, setApptTime] = useState("");
   const [notes, setNotes] = useState("");
   const [conflicts, setConflicts] = useState([]);
+  // A recurring visit inherits the previous job's duration, which is more
+  // honest than re-deriving it: the plan price is discounted, so deriving
+  // would shrink the block for the same house. adopt() below does that.
+  const est = useSuggestedDuration({
+    price: job?.price,
+    serviceKeys: job?.service_keys || [],
+  });
+  const duration = est.duration;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -40,7 +49,7 @@ export default function ConfirmVisit() {
       ]);
       setJob(jobData);
       setTechs(techData);
-      setDuration(jobData.duration_hours || 3);
+      est.adopt(jobData.duration_hours);
       setNotes(jobData.notes || "");
       const { date, time } = splitFromISO(jobData.starts_at);
       setApptDate(date);
@@ -137,8 +146,9 @@ export default function ConfirmVisit() {
             step="0.5"
             min="0.5"
             value={duration}
-            onChange={(e) => setDuration(e.target.value)}
+            onChange={(e) => est.onChange(e.target.value)}
           />
+          <DurationHint {...est} onReset={est.reset} />
         </div>
 
         <div className="scheduleJob__field">
@@ -157,6 +167,7 @@ export default function ConfirmVisit() {
             time={apptTime}
             duration={Number(duration)}
             techIds={selectedTechs}
+            place={job}
             onConflictChange={setConflicts}
           />
         </div>

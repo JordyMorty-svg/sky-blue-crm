@@ -2,6 +2,7 @@ import { useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { updateJobTiming } from "../../services/calendarService";
+import { FALLBACK_HOURS } from "../../services/durationService";
 import "./EventEditor.css";
 
 // 7:00 AM through 9:00 PM in 30-minute increments.
@@ -30,7 +31,9 @@ export default function EventEditor({ event, onClose, onSaved }) {
       startDate.getMinutes()
     ).padStart(2, "0")}`
   );
-  const [duration, setDuration] = useState(event.duration_hours || 3);
+  const [duration, setDuration] = useState(
+    event.duration_hours || FALLBACK_HOURS
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
