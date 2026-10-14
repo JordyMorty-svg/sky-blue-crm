@@ -34,6 +34,18 @@
 // than slow — and it is the single best argument for why the gutter rule is
 // fitted to four points and labelled as such rather than trusted.
 
+// RUN IN THE CREW'S TIMEZONE, and this is load-bearing rather than tidy.
+//
+// planGapsByDay groups by LOCAL calendar day. Under TZ=UTC — which is what a
+// CI container defaults to — grouping by local day and grouping by
+// `toISOString().slice(0,10)` give identical answers for every input, so the
+// assertion that the two differ cannot fail and the mutant that swaps them
+// survives. It did, on the first run.
+//
+// Corvallis is Pacific. Setting it here makes the check mean something and
+// makes the suite test the condition the app actually ships into.
+process.env.TZ = "America/Los_Angeles";
+
 import {
   DISTANT_TRAVEL_MINUTES,
   FALLBACK_HOURS,
@@ -46,6 +58,7 @@ import {
   milesBetween,
   mustFinishBy,
   planGaps,
+  planGapsByDay,
   readyAfter,
   suggestDuration,
   travelGap,
@@ -389,6 +402,31 @@ ok(
   planGaps(EXACT)[0].tight === false
 );
 
+// Two jobs booked over each other have no road between them. Emitting a gap
+// anyway drew a red strip at the END of the first job on a pair whose second
+// job had started an hour earlier — pointing an hour away from a real
+// problem. The overlapping blocks and the conflict warning already say it.
+const OVERLAP = [
+  { id: "long", start: at(9), end: at(12), place: CORVALLIS },
+  { id: "over", start: at(11), end: at(14), place: ALBANY },
+];
+ok(
+  "THE POINT: two jobs booked over each other get no travel strip",
+  planGaps(OVERLAP).length === 0,
+  JSON.stringify(planGaps(OVERLAP).map((g) => [`${g.fromId}>${g.toId}`, g.at]))
+);
+ok(
+  "...but back to back with no gap at all still gets one, flagged tight",
+  (() => {
+    const touching = planGaps([
+      { id: "a", start: at(9), end: at(12), place: CORVALLIS },
+      { id: "b", start: at(12), end: at(14), place: ALBANY },
+    ]);
+    return touching.length === 1 && touching[0].tight === true;
+  })(),
+  "zero minutes between two jobs is the fault, not an absence of one"
+);
+
 ok(
   "a lone job has no strip, and an empty day does not crash",
   planGaps([DAY[0]]).length === 0 && planGaps([]).length === 0 && planGaps().length === 0
@@ -409,6 +447,79 @@ ok(
   "...and only for the pair it was fetched for",
   planGaps(DAY, (a, b) => (a === "morning" && b === "noon" ? 41 : null))[1].gap
     .basis === "distance"
+);
+
+console.log("-- a whole calendar, not just one day --\n");
+
+// The failure this guards: hand a week of jobs to planGaps() and it draws a
+// gap between Monday's last job and Tuesday's first — fifteen minutes of
+// travel across an overnight. Nobody drives home and back inside the gap.
+const on = (d, h, m = 0) => new Date(2026, 9, d, h, m, 0, 0);
+const WEEK = [
+  { id: "mon-am", start: on(19, 8), end: on(19, 10), place: CORVALLIS },
+  { id: "mon-pm", start: on(19, 13), end: on(19, 15), place: ALBANY },
+  { id: "tue-am", start: on(20, 8), end: on(20, 11), place: CORVALLIS_NE },
+];
+
+const week = planGapsByDay(WEEK);
+ok(
+  "THE POINT: no travel strip is drawn across an overnight",
+  week.length === 1 && week[0].fromId === "mon-am" && week[0].toId === "mon-pm",
+  JSON.stringify(week.map((g) => `${g.fromId}>${g.toId}`))
+);
+ok(
+  "...whereas the single-day function would have drawn one, which is why this exists",
+  planGaps(WEEK).length === 2
+);
+ok(
+  "a day with one job contributes nothing",
+  planGapsByDay([WEEK[2]]).length === 0
+);
+ok(
+  "three days each with two jobs give three strips, not five",
+  planGapsByDay([
+    { id: "a1", start: on(19, 8), end: on(19, 9), place: CORVALLIS },
+    { id: "a2", start: on(19, 12), end: on(19, 13), place: CORVALLIS },
+    { id: "b1", start: on(20, 8), end: on(20, 9), place: CORVALLIS },
+    { id: "b2", start: on(20, 12), end: on(20, 13), place: CORVALLIS },
+    { id: "c1", start: on(21, 8), end: on(21, 9), place: CORVALLIS },
+    { id: "c2", start: on(21, 12), end: on(21, 13), place: CORVALLIS },
+  ]).length === 3
+);
+// Local days, not UTC ones: a 5pm Pacific job in October is already tomorrow
+// in UTC, so grouping on an ISO date string would split a single day in two.
+// The fixture only works if the evening job really does fall on the next UTC
+// day. Asserted rather than assumed, because if the timezone above ever stops
+// taking effect this whole check silently becomes a tautology again.
+const evening = on(19, 17);
+ok(
+  "the timezone this suite needs is actually in force",
+  on(19, 9).toISOString().slice(0, 10) !== evening.toISOString().slice(0, 10),
+  `9am and 5pm local are ${on(19, 9).toISOString()} and ${evening.toISOString()}`
+);
+ok(
+  "THE POINT: a late-afternoon job stays on its own LOCAL day",
+  planGapsByDay([
+    { id: "morning", start: on(19, 9), end: on(19, 11), place: CORVALLIS },
+    { id: "evening", start: evening, end: on(19, 19), place: CORVALLIS_NE },
+  ]).length === 1,
+  "grouping on toISOString().slice(0,10) would put these on different days"
+);
+ok(
+  "months apart are never paired",
+  planGapsByDay([
+    { id: "sep", start: new Date(2026, 8, 30, 9), end: new Date(2026, 8, 30, 11), place: CORVALLIS },
+    { id: "oct", start: new Date(2026, 9, 1, 9), end: new Date(2026, 9, 1, 11), place: ALBANY },
+  ]).length === 0
+);
+ok(
+  "the routed override survives the day grouping too",
+  planGapsByDay(WEEK, (a, b) => (a === "mon-am" && b === "mon-pm" ? 44 : null))[0]
+    .gap.minutes === 44
+);
+ok(
+  "an empty calendar does not crash",
+  planGapsByDay([]).length === 0 && planGapsByDay().length === 0
 );
 
 console.log("-- the legacy fallback --\n");

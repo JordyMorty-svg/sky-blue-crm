@@ -349,9 +349,20 @@ export function mustFinishBy(startDate, gapMinutes) {
  * @param {(fromId, toId) => number|null} [drivenLookup]  real routed minutes
  *   for a pair, when they have been fetched.
  * @returns {Array<{fromId, toId, at: Date, gap, tight: boolean}>} one entry
- *   per consecutive pair. `at` is when the first job ends, which is where the
- *   strip is drawn. `tight` is true when the next job starts before the gap
- *   has elapsed — the thing that put a customer on his porch.
+ *   per consecutive pair THAT HAS A BETWEEN. `at` is when the first job
+ *   ends, which is where the strip is drawn. `tight` is true when the next
+ *   job starts before the gap has elapsed — the thing that put a customer on
+ *   his porch.
+ *
+ * A PAIR THAT OVERLAPS GETS NO ENTRY. Two jobs booked over each other have
+ * no road between them; they have a double-booking, which the conflict
+ * warnings and the overlapping blocks already say plainly. Emitting a gap
+ * anyway put a red strip at the END of the first job — 12:00 — on a pair
+ * whose second job had started at 11:00. It was not even wrong about there
+ * being a problem; it was pointing an hour away from it.
+ *
+ * Found by rendering the week grid and looking at it. Nothing in the data
+ * said anything was amiss, because nothing had been asked to.
  */
 export function planGaps(stops, drivenLookup = () => null) {
   const ordered = [...(stops || [])]
@@ -362,6 +373,9 @@ export function planGaps(stops, drivenLookup = () => null) {
   for (let i = 0; i < ordered.length - 1; i += 1) {
     const from = ordered[i];
     const to = ordered[i + 1];
+    // No between, nothing to draw. See the note above.
+    if (to.start < from.end) continue;
+
     const gap = travelGap(from.place, to.place, drivenLookup(from.id, to.id));
     out.push({
       fromId: from.id,
@@ -373,5 +387,38 @@ export function planGaps(stops, drivenLookup = () => null) {
       tight: to.start < readyAfter(from.end, gap.minutes),
     });
   }
+  return out;
+}
+
+/**
+ * planGaps() applied to a calendar, one day at a time.
+ *
+ * THE DAY BOUNDARY IS THE WHOLE POINT. Handing a month of jobs straight to
+ * planGaps() produces a "gap" between the last job on Monday and the first on
+ * Tuesday — fifteen minutes of travel drawn across an overnight, and on a
+ * week grid it would render as a strip hanging off the bottom of one column
+ * with nothing to do with the next. Nobody drives home and back inside the
+ * gap; they go to bed.
+ *
+ * Grouped by LOCAL calendar day rather than by a UTC date string, because the
+ * crew's Monday is Pacific time and a 5pm job in October is already Tuesday
+ * in UTC.
+ *
+ * @param {Array<{id, start: Date, end: Date, place}>} stops  any order, any
+ *   number of days
+ * @param {(fromId, toId) => number|null} [drivenLookup]
+ * @returns {Array} the same shape planGaps() returns, for every day at once
+ */
+export function planGapsByDay(stops, drivenLookup = () => null) {
+  const byDay = new Map();
+  for (const s of stops || []) {
+    if (!s || !(s.start instanceof Date) || !(s.end instanceof Date)) continue;
+    const key = `${s.start.getFullYear()}-${s.start.getMonth()}-${s.start.getDate()}`;
+    if (!byDay.has(key)) byDay.set(key, []);
+    byDay.get(key).push(s);
+  }
+
+  const out = [];
+  for (const day of byDay.values()) out.push(...planGaps(day, drivenLookup));
   return out;
 }

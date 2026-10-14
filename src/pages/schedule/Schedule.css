@@ -1283,3 +1283,80 @@
   }
 
 }
+
+/* ---------------------------------------------------------------------------
+   TRAVEL STRIPS — the road between two jobs
+   ---------------------------------------------------------------------------
+
+   react-big-calendar renders backgroundEvents as `.rbc-background-event`,
+   behind the job blocks and outside the overlap layout, which is exactly the
+   layer this wants: the strip marks a gap, it does not compete for the
+   column.
+
+   Hatched rather than filled, and in slate rather than any status colour,
+   because it is not work. It is the reason the next job cannot start yet.
+   An empty gap on a calendar reads as free time and gets filled; a marked
+   one does not.
+
+   Inset on both sides so the job blocks above and below stay the widest
+   thing in the column and the eye still reads them first. */
+
+.schedule__calendar .rbc-day-slot .rbc-background-event {
+  border: 1px dashed rgba(100, 116, 139, 0.5);
+  border-radius: 5px;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(100, 116, 139, 0.16) 0,
+    rgba(100, 116, 139, 0.16) 3px,
+    transparent 3px,
+    transparent 7px
+  );
+  opacity: 1;
+  width: 86% !important;
+  left: 4px !important;
+  padding: 0 4px;
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  color: #64748b;
+  display: flex;
+  /* TOP-ALIGNED, not centred, and this is the tight case paying for itself.
+     A 30-minute strip whose next job starts five minutes in is 25 minutes
+     hidden behind that block — a centred label lands in the hidden part and
+     the only visible trace of the warning is a red sliver with no number on
+     it. Pinned to the top, the label always sits in the strip's first few
+     pixels, which are always visible because the strip starts exactly where
+     the previous job ends. */
+  align-items: flex-start;
+  justify-content: flex-end;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+/* Fifteen minutes is nine pixels at this grid's scale, which is not enough
+   room for "15m" — so the label is dropped rather than clipped to a stray
+   digit. The strip itself still reads, and the tooltip still has the words. */
+.schedule__calendar .rbc-day-slot .rbc-background-event .rbc-event-label,
+.schedule__calendar .rbc-day-slot .rbc-background-event .rbc-event-content {
+  font-size: var(--text-2xs);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.schedule__calendar .rbc-day-slot .rbc-background-event .rbc-event-label {
+  display: none;
+}
+
+/* Not enough time to get there. Red because this is the fault the whole
+   feature exists to prevent, and the warning belongs in the place the
+   mistake is being looked at rather than only in a sentence elsewhere. */
+.schedule__calendar .rbc-day-slot .rbc-background-event.caltravel--tight {
+  border-color: #dc2626;
+  color: #b91c1c;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(220, 38, 38, 0.18) 0,
+    rgba(220, 38, 38, 0.18) 3px,
+    transparent 3px,
+    transparent 7px
+  );
+}

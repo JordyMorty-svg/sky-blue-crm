@@ -17,6 +17,12 @@ import "react-datepicker/dist/react-datepicker.css";
 import { useAuth } from "../../context/useAuth";
 import { fetchMyJobs } from "../../services/jobService";
 import { fetchCalendarJobs } from "../../services/calendarService";
+import {
+  FALLBACK_HOURS,
+  describeGap,
+  planGapsByDay,
+} from "../../services/durationService";
+import { fetchDriveMinutes } from "../../services/driveTimeService";
 import { can } from "../../components/capabilities";
 import JobPlanTag from "../../components/JobPlanTag";
 import {
@@ -129,6 +135,14 @@ function MonthEvent({ event }) {
 // a half of work — because clipping a street name halfway through is worse
 // than not starting it.
 function DayEvent({ event }) {
+  // The Day view routes background events through here as well. A travel
+  // strip has no address and no crew, so the job markup happened to render
+  // correctly by accident — which is a thing that stops being true the next
+  // time somebody adds a line to it.
+  if (event.travel) {
+    return <span className="dayevent dayevent--travel">{event.title}</span>;
+  }
+
   const tall = (event.duration_hours || 0) >= 1.5;
   return (
     <span className="dayevent">
@@ -312,6 +326,9 @@ export default function Schedule() {
   );
   const [jobs, setJobs] = useState([]);
   const [calJobs, setCalJobs] = useState([]);
+  // Routed drive minutes keyed "fromJobId>toJobId". Empty is the normal
+  // working state — every reader falls back to straight-line distance.
+  const [driven, setDriven] = useState(() => new Map());
   const [calView, setCalView] = useState(() =>
     recall("calView", "week", ["day", "week", "month"])
   );
@@ -410,6 +427,111 @@ export default function Schedule() {
     }
   }
 
+  /* -------------------------------------------------------------------------
+   * THE ROAD BETWEEN JOBS, ON THE CALENDAR ITSELF
+   * ----------------------------------------------------------------------
+   *
+   * The day preview inside the booking screens has had these strips since
+   * they were built, but the week grid is where a day actually gets looked
+   * at — and it drew jobs butted up against each other with nothing in
+   * between, which is how two of them came to be booked back to back.
+   *
+   * These live up here with the other hooks rather than down beside the
+   * `events` array where they belong visually, because `events` is built
+   * after the `if (loading) return` and a hook cannot follow an early
+   * return.
+   * ---------------------------------------------------------------------- */
+
+  // placeForJob rather than j.latitude: a job whose customer has an address
+  // but no pin would otherwise borrow the LEAD's coordinates and measure the
+  // drive to a different house. See navigation.js.
+  const calStops = useMemo(
+    () =>
+      calJobs
+        .filter((j) => j.starts_at)
+        .map((j) => {
+          const start = new Date(j.starts_at);
+          return {
+            id: j.id,
+            start,
+            end: new Date(
+              start.getTime() + (j.duration_hours || FALLBACK_HOURS) * 3600000
+            ),
+            place: placeForJob(j),
+            label: j.lead?.name || j.customer?.name || "a job",
+          };
+        }),
+    [calJobs]
+  );
+
+  const stopLabel = useMemo(
+    () => new Map(calStops.map((x) => [x.id, x.label])),
+    [calStops]
+  );
+
+  const travelEvents = useMemo(
+    () =>
+      // planGapsByDay, not planGaps — a month of jobs handed to the
+      // single-day version draws fifteen minutes of travel across every
+      // overnight.
+      planGapsByDay(calStops, (a, b) => driven.get(`${a}>${b}`) ?? null).map(
+        (g) => ({
+          id: `travel:${g.fromId}>${g.toId}`,
+          title: `${g.gap.minutes}m`,
+          start: g.at,
+          end: new Date(g.at.getTime() + g.gap.minutes * 60000),
+          travel: true,
+          tight: g.tight,
+          gap: g.gap,
+          from: g.fromId,
+          to: g.toId,
+          tooltip:
+            `${stopLabel.get(g.fromId)} → ${stopLabel.get(g.toId)}: ` +
+            `${describeGap(g.gap)}` +
+            (g.tight ? " — not enough time to get there" : ""),
+        })
+      ),
+    [calStops, driven, stopLabel]
+  );
+
+  // Routed minutes for the pairs the calendar is actually drawing. Keyed on
+  // the pair ids, so this only re-asks when who-follows-whom changes — and
+  // driveTimeService caches, including the nulls, so a week that has already
+  // been looked at costs nothing to look at again.
+  const travelPairs = useMemo(
+    () => travelEvents.map((t) => [t.from, t.to]),
+    [travelEvents]
+  );
+  const travelKey = travelPairs.map((x) => x.join(">")).join("|");
+
+  useEffect(() => {
+    let cancelled = false;
+    const byId = new Map(calStops.map((x) => [x.id, x]));
+    const wanted = travelPairs.filter(
+      ([a, b]) => byId.get(a)?.place && byId.get(b)?.place
+    );
+    if (wanted.length === 0) return undefined;
+
+    fetchDriveMinutes(
+      wanted.map(([a, b]) => [byId.get(a).place, byId.get(b).place])
+    ).then((minutes) => {
+      if (cancelled) return;
+      const next = new Map();
+      wanted.forEach(([a, b], i) => {
+        if (minutes[i] !== null) next.set(`${a}>${b}`, minutes[i]);
+      });
+      // Only replace when something was actually learned. Setting an empty
+      // Map on every pass would re-run this effect's own dependency and
+      // spin.
+      if (next.size > 0) setDriven(next);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [travelKey]);
+
   function handleComplete(job) {
     // Go to the completion page to record amount + payment method,
     // which then calls completeJob with the full details.
@@ -457,7 +579,9 @@ export default function Schedule() {
 
   const events = calJobs.map((j) => {
     const start = new Date(j.starts_at);
-    const end = new Date(start.getTime() + (j.duration_hours || 3) * 3600000);
+    const end = new Date(
+      start.getTime() + (j.duration_hours || FALLBACK_HOURS) * 3600000
+    );
     const who = j.lead?.name || j.customer?.name || "Job";
     return {
       id: j.id,
@@ -465,7 +589,7 @@ export default function Schedule() {
       start,
       end,
       status: j.status,
-      duration_hours: j.duration_hours || 3,
+      duration_hours: j.duration_hours || FALLBACK_HOURS,
       // Read by the phone's week list and by the Day grid, both of which
       // have room for a second line. The week grid does not, and doesn't
       // ask for it.
@@ -491,6 +615,16 @@ export default function Schedule() {
   // half an outline in Week and a whole one in Month, and Month read as
   // the darker view.
   function eventClass(event) {
+    // THE TRAVEL STRIPS COME THROUGH HERE TOO, and they have to, because
+    // react-big-calendar 1.20 accepts a `backgroundEventPropGetter` prop and
+    // then never calls it for day-slot events: TimeGridEvent.js asks for
+    // `getters.eventProp` whatever kind of event it is holding. Passing the
+    // dedicated getter looked right, typechecked fine, and silently did
+    // nothing — the red "not enough time" strip rendered grey like the rest
+    // and only a rendered screenshot showed it.
+    if (event.travel) {
+      return { className: `caltravel ${event.tight ? "caltravel--tight" : ""}` };
+    }
     const kind = event.status === "completed" ? "done" : "booked";
     return { className: `calevent calevent--${kind}` };
   }
@@ -763,6 +897,21 @@ export default function Schedule() {
             // the drawing is untidy is that the bookings are, and a clash
             // you can see at a glance is worth more than a tidy grid.
             dayLayoutAlgorithm="overlap"
+            // THE ROAD, DRAWN BEHIND THE WORK.
+            //
+            // backgroundEvents rather than more entries in `events`:
+            // react-big-calendar renders these behind the blocks and leaves
+            // them out of the overlap layout, so a travel strip sits under
+            // the gap without stealing half a column from the job beside
+            // it. Putting them in `events` was tried first and it turns
+            // every clashing pair into a clashing triple.
+            //
+            // Month view ignores them, which is correct — a month of
+            // fifteen-minute slivers is noise.
+            backgroundEvents={travelEvents}
+            // No backgroundEventPropGetter — rbc 1.20 ignores it for
+            // day-slot events. eventClass handles both; see there.
+            tooltipAccessor={(e) => e.tooltip || e.title}
             eventPropGetter={eventClass}
             onSelectEvent={openEvent}
             onDrillDown={(date) => {

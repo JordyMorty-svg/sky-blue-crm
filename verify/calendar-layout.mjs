@@ -124,7 +124,16 @@ const STUBS = [
      export async function fetchCalendarJobs() { return JOBS; }`
   ),
   // Pulled in by JobPlanTag, and it only needs to not explode.
-  stub(/services\/leadService$/, `export function planFor() { return null; }
+  //
+  // MATCHED ON THE BARE NAME, not on "services/leadService". The filter runs
+  // against the raw specifier, and quoDial.js (reached from Schedule.jsx)
+  // imports it as "./leadService" from inside src/services — so the old
+  // filter missed that one path, the real module loaded, and it dragged in
+  // supabaseClient. That file reads `import.meta.env`, which is empty under
+  // esbuild's iife format, so the bundle threw on load and the page never
+  // rendered: every run of this suite died on "waiting for .rbc-calendar".
+  stub(/(^|\/)leadService$/, `export function planFor() { return null; }
+    export const QUO_WEB = "https://my.openphone.com";
     // Schedule.jsx routes its phone link through Quo now — see
     // db/call-tracking.sql. Stubbed with the real scheme rather than tel:,
     // because this suite is about where a press lands.
@@ -196,9 +205,13 @@ function ok(label, cond, detail = "") {
   }
 }
 
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM || "/opt/pw-browsers/chromium",
-});
+// PLAYWRIGHT'S OWN RESOLUTION FIRST. The hard-coded path is right on the
+// machine this was written on and wrong in a container where the browser
+// lives under a versioned directory, and a wrong executablePath fails as a
+// launch error rather than as anything that names the real problem.
+const browser = await chromium.launch(
+  process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}
+);
 
 async function open(view, width, scrollbarWidth = 0) {
   const page = await browser.newPage({ viewport: { width, height: 1000 } });
