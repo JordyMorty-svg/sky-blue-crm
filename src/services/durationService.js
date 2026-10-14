@@ -324,3 +324,54 @@ export function readyAfter(endDate, gapMinutes) {
 export function mustFinishBy(startDate, gapMinutes) {
   return new Date(startDate.getTime() - gapMinutes * 60000);
 }
+
+/**
+ * The travel strips for a whole day, between each stop and the one AFTER it.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS IS A FUNCTION AND NOT A LOOP IN THE VIEW
+ * ---------------------------------------------------------------------------
+ *
+ * It was a loop in the view for about an hour, and it was wrong in a way that
+ * looked right. DayPreview drew a strip after every existing job and set each
+ * one to `travelGap(thatJob, theJobBeingBooked)` — so with one job already on
+ * the day it was correct, and with two it labelled the strip after the 9am
+ * job with the drive to the 3pm job being booked, while sitting directly
+ * underneath the 11am one.
+ *
+ * A number in the wrong place is worse than no number. The fix is to decide
+ * the pairs from the timeline rather than from which job happens to be under
+ * the cursor, and that decision is logic, so it lives here where it can be
+ * tested.
+ *
+ * @param {Array<{id, start: Date, end: Date, place}>} stops  one per job,
+ *   in any order — this sorts them.
+ * @param {(fromId, toId) => number|null} [drivenLookup]  real routed minutes
+ *   for a pair, when they have been fetched.
+ * @returns {Array<{fromId, toId, at: Date, gap, tight: boolean}>} one entry
+ *   per consecutive pair. `at` is when the first job ends, which is where the
+ *   strip is drawn. `tight` is true when the next job starts before the gap
+ *   has elapsed — the thing that put a customer on his porch.
+ */
+export function planGaps(stops, drivenLookup = () => null) {
+  const ordered = [...(stops || [])]
+    .filter((s) => s && s.start instanceof Date && s.end instanceof Date)
+    .sort((a, b) => a.start - b.start);
+
+  const out = [];
+  for (let i = 0; i < ordered.length - 1; i += 1) {
+    const from = ordered[i];
+    const to = ordered[i + 1];
+    const gap = travelGap(from.place, to.place, drivenLookup(from.id, to.id));
+    out.push({
+      fromId: from.id,
+      toId: to.id,
+      at: from.end,
+      gap,
+      // Strictly less than: arriving exactly as the gap runs out is fine,
+      // arriving a minute later is not.
+      tight: to.start < readyAfter(from.end, gap.minutes),
+    });
+  }
+  return out;
+}

@@ -3,7 +3,11 @@ import {
   fetchJobsForTechsOnDay,
   findConflicts,
 } from "../../services/conflictService";
-import { FALLBACK_HOURS, describeGap, travelGap } from "../../services/durationService";
+import {
+  FALLBACK_HOURS,
+  describeGap,
+  planGaps,
+} from "../../services/durationService";
 import { fetchDriveMinutes } from "../../services/driveTimeService";
 import "./DayPreview.css";
 
@@ -11,6 +15,9 @@ import "./DayPreview.css";
 const START_HOUR = 7;
 const END_HOUR = 21;
 const HOURS = END_HOUR - START_HOUR;
+
+// The id the job being booked goes by in the day's timeline.
+const PROPOSED = "__proposed__";
 
 function topPct(date) {
   const mins = (date.getHours() - START_HOUR) * 60 + date.getMinutes();
@@ -63,7 +70,27 @@ export default function DayPreview({
 }) {
   const [existing, setExisting] = useState([]);
   const [loading, setLoading] = useState(false);
-  // Routed minutes by existing job id. Empty is the normal, working state:
+
+  // Proposed window. Computed before the effects below, because the travel
+  // strips treat the job being booked as one more stop on the day.
+  let proposedStart = null;
+  let proposedEnd = null;
+  if (day && time) {
+    const [h, m] = time.split(":").map(Number);
+    proposedStart = new Date(day);
+    proposedStart.setHours(h, m, 0, 0);
+    proposedEnd = new Date(
+      proposedStart.getTime() + (duration || FALLBACK_HOURS) * 3600000
+    );
+  }
+
+  // Primitives, because the hook linter will not take `x?.getTime()` in a
+  // dependency list — and two Dates are never === each other anyway, so the
+  // milliseconds are what the memo actually wants to compare.
+  const startMs = proposedStart ? proposedStart.getTime() : null;
+  const endMs = proposedEnd ? proposedEnd.getTime() : null;
+
+  // Routed minutes, keyed "fromId>toId". Empty is the normal, working state:
   // every consumer of this falls back to straight-line distance.
   const [driven, setDriven] = useState(() => new Map());
 
@@ -93,27 +120,55 @@ export default function DayPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day, techIds?.join(","), excludeJobId]);
 
-  // Ask for real drive times once the day's jobs and the proposed address are
-  // both known. Keyed on the ids and the rounded coordinates, so moving the
-  // time slider does not re-ask and neither does typing in the price field.
-  const placeKey = place
-    ? `${Math.round(place.latitude * 1e4)},${Math.round(place.longitude * 1e4)}`
-    : "";
-  const jobsKey = existing.map((j) => j.id).join(",");
+  // Every stop on the day, the proposed job included, in time order. This is
+  // the list the travel strips are derived from — see planGaps().
+  const stops = useMemo(() => {
+    const list = existing.map((j) => {
+      const start = new Date(j.starts_at);
+      const hours = j.duration_hours || FALLBACK_HOURS;
+      return {
+        id: j.id,
+        start,
+        end: new Date(start.getTime() + hours * 3600000),
+        place: j,
+        label: j.lead?.name || j.customer?.name || "Job",
+      };
+    });
+    if (proposedStart && proposedEnd) {
+      list.push({
+        id: PROPOSED,
+        start: proposedStart,
+        end: proposedEnd,
+        place,
+        label: "the new job",
+      });
+    }
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existing, startMs, endMs, place]);
+
+  // Ask for real drive times for the pairs that are actually consecutive.
+  // Keyed on the pair ids, so nudging the start time only re-asks when it
+  // changes who follows whom — not on every keystroke in the price field.
+  const pairs = useMemo(
+    () => planGaps(stops).map((g) => [g.fromId, g.toId]),
+    [stops]
+  );
+  const pairsKey = pairs.map((p) => p.join(">")).join("|");
 
   useEffect(() => {
     let cancelled = false;
-    if (!place || existing.length === 0) return undefined;
-    const withCoords = existing.filter(
-      (j) => Number.isFinite(Number(j.latitude)) && Number.isFinite(Number(j.longitude))
-    );
-    if (withCoords.length === 0) return undefined;
+    const byId = new Map(stops.map((s) => [s.id, s]));
+    const wanted = pairs.filter(([a, b]) => byId.get(a)?.place && byId.get(b)?.place);
+    if (wanted.length === 0) return undefined;
 
-    fetchDriveMinutes(withCoords.map((j) => [j, place])).then((minutes) => {
+    fetchDriveMinutes(
+      wanted.map(([a, b]) => [byId.get(a).place, byId.get(b).place])
+    ).then((minutes) => {
       if (cancelled) return;
       const next = new Map();
-      withCoords.forEach((j, i) => {
-        if (minutes[i] !== null) next.set(j.id, minutes[i]);
+      wanted.forEach(([a, b], i) => {
+        if (minutes[i] !== null) next.set(`${a}>${b}`, minutes[i]);
       });
       setDriven(next);
     });
@@ -122,26 +177,24 @@ export default function DayPreview({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobsKey, placeKey]);
-
-  // Proposed window.
-  let proposedStart = null;
-  let proposedEnd = null;
-  if (day && time) {
-    const [h, m] = time.split(":").map(Number);
-    proposedStart = new Date(day);
-    proposedStart.setHours(h, m, 0, 0);
-    proposedEnd = new Date(
-      proposedStart.getTime() + (duration || FALLBACK_HOURS) * 3600000
-    );
-  }
+  }, [pairsKey]);
 
   // Conflicts.
   const conflicts =
     proposedStart && proposedEnd
       ? findConflicts(proposedStart, proposedEnd, techIds || [], existing, {
           proposedPlace: place,
-          drivenMinutes: driven,
+          // Either direction of the pair answers "how far apart are these
+          // two", and which one was fetched depends on which job comes first
+          // in the day.
+          drivenMinutes: new Map(
+            existing.map((j) => [
+              j.id,
+              driven.get(`${j.id}>${PROPOSED}`) ??
+                driven.get(`${PROPOSED}>${j.id}`) ??
+                null,
+            ])
+          ),
         })
       : [];
 
@@ -150,14 +203,14 @@ export default function DayPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conflicts.length, proposedStart?.getTime(), proposedEnd?.getTime()]);
 
-  // The gap each existing job needs before the crew could be at the new one.
-  const gaps = useMemo(() => {
-    const out = new Map();
-    for (const job of existing) {
-      out.set(job.id, travelGap(job, place, driven.get(job.id) ?? null));
-    }
-    return out;
-  }, [existing, place, driven]);
+  // One strip per consecutive pair, derived from the timeline rather than
+  // from whichever job is under the cursor. See planGaps() for why that
+  // distinction cost an hour.
+  const byId = useMemo(() => new Map(stops.map((x) => [x.id, x])), [stops]);
+  const gaps = useMemo(
+    () => planGaps(stops, (a, b) => driven.get(`${a}>${b}`) ?? null),
+    [stops, driven]
+  );
 
   if (!day || !techIds || techIds.length === 0) {
     return (
@@ -229,41 +282,48 @@ export default function DayPreview({
           );
         })}
 
-        {/* Existing jobs, each with the road that follows it */}
+        {/* Existing jobs */}
         {existing.map((job) => {
           const s = new Date(job.starts_at);
           const hours = job.duration_hours || FALLBACK_HOURS;
-          const e = new Date(s.getTime() + hours * 3600000);
           const who = job.lead?.name || job.customer?.name || "Job";
-          const gap = gaps.get(job.id);
           return (
-            <div key={job.id}>
-              <div
-                className={`daypreview__job daypreview__job--${job.status}`}
-                style={{
-                  top: `${topPct(s)}%`,
-                  height: `${heightPct(s, hours)}%`,
-                }}
-                title={`${who} · ${fmt(s)}`}
-              >
-                <span className="daypreview__jobname">{who}</span>
-                <span className="daypreview__jobtime">{fmt(s)}</span>
-              </div>
-              {gap && (
-                <div
-                  className="daypreview__travel"
-                  style={{
-                    top: `${topPct(e)}%`,
-                    height: `${minutesPct(gap.minutes)}%`,
-                  }}
-                  title={`Travel from ${who} — ${describeGap(gap)}`}
-                >
-                  <span className="daypreview__travellabel">{gap.minutes}m</span>
-                </div>
-              )}
+            <div
+              key={job.id}
+              className={`daypreview__job daypreview__job--${job.status}`}
+              style={{
+                top: `${topPct(s)}%`,
+                height: `${heightPct(s, hours)}%`,
+              }}
+              title={`${who} · ${fmt(s)}`}
+            >
+              <span className="daypreview__jobname">{who}</span>
+              <span className="daypreview__jobtime">{fmt(s)}</span>
             </div>
           );
         })}
+
+        {/* The road between each job and the next one. Drawn from the day's
+            timeline, so the strip under a block is always the drive to
+            whatever genuinely follows it. */}
+        {gaps.map((g) => (
+          <div
+            key={`${g.fromId}>${g.toId}`}
+            className={`daypreview__travel ${
+              g.tight ? "daypreview__travel--tight" : ""
+            }`}
+            style={{
+              top: `${topPct(g.at)}%`,
+              height: `${minutesPct(g.gap.minutes)}%`,
+            }}
+            title={
+              `${byId.get(g.fromId)?.label} → ${byId.get(g.toId)?.label}: ` +
+              `${describeGap(g.gap)}${g.tight ? " — not enough time" : ""}`
+            }
+          >
+            <span className="daypreview__travellabel">{g.gap.minutes}m</span>
+          </div>
+        ))}
 
         {/* Proposed job preview */}
         {proposedStart && (

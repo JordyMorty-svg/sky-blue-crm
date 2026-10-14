@@ -45,6 +45,7 @@ import {
   explainDuration,
   milesBetween,
   mustFinishBy,
+  planGaps,
   readyAfter,
   suggestDuration,
   travelGap,
@@ -318,6 +319,96 @@ ok(
   "ready-after and must-finish-by are the same gap seen from each end",
   readyAfter(noon, 15).getTime() - noon.getTime() === 15 * 60000 &&
     noon.getTime() - mustFinishBy(noon, 15).getTime() === 15 * 60000
+);
+
+console.log("-- the strips across a whole day --\n");
+
+// A day with three stops. Written out of order on purpose: planGaps sorts,
+// and a caller handing it an unsorted list is the normal case (the job being
+// booked is appended last and may start first).
+const at = (h, m = 0) => new Date(2026, 9, 20, h, m, 0, 0);
+const DAY = [
+  { id: "noon", start: at(12), end: at(14), place: ALBANY },
+  { id: "morning", start: at(8), end: at(10, 30), place: CORVALLIS },
+  { id: "late", start: at(16), end: at(18), place: CORVALLIS_NE },
+];
+
+const plan = planGaps(DAY);
+
+ok(
+  "a day of three stops has two gaps, not three",
+  plan.length === 2,
+  `${plan.length}`
+);
+ok(
+  "...in time order however the list arrived",
+  plan[0].fromId === "morning" && plan[0].toId === "noon" &&
+    plan[1].fromId === "noon" && plan[1].toId === "late",
+  JSON.stringify(plan.map((g) => `${g.fromId}>${g.toId}`))
+);
+
+// THE BUG THIS FUNCTION EXISTS TO STOP. The first version paired every job
+// with the one being booked, so the strip under the 8am job showed the drive
+// to the LAST stop of the day. With three stops that is visibly wrong and
+// with two it is invisible, which is why it shipped for an hour.
+ok(
+  "THE POINT: a strip measures the drive to the NEXT stop, not to the last one",
+  plan[0].gap.minutes === travelGap(CORVALLIS, ALBANY).minutes &&
+    plan[0].gap.minutes !== travelGap(CORVALLIS, CORVALLIS_NE).minutes,
+  `morning->noon is ${plan[0].gap.minutes}, morning->late would be ` +
+    `${travelGap(CORVALLIS, CORVALLIS_NE).minutes}`
+);
+ok(
+  "a strip is anchored to the end of the job it follows",
+  plan[0].at.getTime() === at(10, 30).getTime()
+);
+
+// 10:30 finish + 30 min to Albany = 11:00, and the next job starts at noon.
+ok("an hour and a half of slack is not flagged as tight", plan[0].tight === false);
+
+// 2pm finish in Albany + 30 min back = 2:30, next starts at 4. Fine.
+ok("...nor is ninety minutes the other way", plan[1].tight === false);
+
+const TIGHT = [
+  { id: "a", start: at(9), end: at(12), place: CORVALLIS },
+  { id: "b", start: at(12, 5), end: at(15), place: ALBANY },
+];
+const tightPlan = planGaps(TIGHT);
+ok(
+  "THE POINT: five minutes between Corvallis and Albany is flagged as tight",
+  tightPlan[0].tight === true,
+  `gap says ${tightPlan[0].gap.minutes} min`
+);
+
+const EXACT = [
+  { id: "a", start: at(9), end: at(12), place: CORVALLIS },
+  { id: "b", start: at(12, 30), end: at(15), place: ALBANY },
+];
+ok(
+  "...and arriving exactly as the gap runs out is allowed",
+  planGaps(EXACT)[0].tight === false
+);
+
+ok(
+  "a lone job has no strip, and an empty day does not crash",
+  planGaps([DAY[0]]).length === 0 && planGaps([]).length === 0 && planGaps().length === 0
+);
+ok(
+  "a stop with no times is dropped rather than drawn at the epoch",
+  planGaps([...DAY, { id: "junk", start: null, end: null, place: CORVALLIS }]).length === 2
+);
+
+// The routed override has to survive the trip through planGaps, or paying
+// Google buys nothing.
+ok(
+  "THE POINT: a measured drive reaches the strip",
+  planGaps(DAY, (a, b) => (a === "morning" && b === "noon" ? 41 : null))[0].gap
+    .minutes === 41
+);
+ok(
+  "...and only for the pair it was fetched for",
+  planGaps(DAY, (a, b) => (a === "morning" && b === "noon" ? 41 : null))[1].gap
+    .basis === "distance"
 );
 
 console.log("-- the legacy fallback --\n");

@@ -171,3 +171,21 @@
   color: #64748b;
   line-height: 1;
 }
+
+/* Not enough time to get there. Red because it is the fault this whole
+   feature exists to prevent — the strip is the warning, in the place the
+   mistake is being made, rather than only a sentence further up the page. */
+.daypreview__travel--tight {
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(220, 38, 38, 0.18) 0,
+    rgba(220, 38, 38, 0.18) 3px,
+    transparent 3px,
+    transparent 7px
+  );
+  border-color: #dc2626;
+}
+
+.daypreview__travel--tight .daypreview__travellabel {
+  color: #b91c1c;
+}
