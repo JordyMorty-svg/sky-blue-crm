@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient";
 import { FALLBACK_HOURS, travelGap } from "./durationService";
+import { jobAddress } from "./jobAddress";
 
 // Two time windows overlap if each starts before the other ends.
 export function windowsOverlap(startA, endA, startB, endB) {
@@ -32,10 +33,17 @@ export async function fetchJobsForTechsOnDay(techIds, day, excludeJobId = null) 
 
   const { data: jobs, error: jErr } = await supabase
     .from("jobs")
+    // THE WHOLE LADDER, not just the job's own columns. jobAddress() walks
+    // job -> property -> customer -> lead and takes the coordinates from
+    // whichever row supplied the address; selecting only `jobs.latitude`
+    // meant the day preview resolved a pin for a frozen job and nothing for
+    // a scheduled one, while every other screen resolved both. The address
+    // matters now too: the Routes API will geocode it when there is no pin.
     .select(`
-      id, starts_at, duration_hours, status, latitude, longitude,
-      lead:lead_id ( name ),
-      customer:customer_id ( name ),
+      id, starts_at, duration_hours, status, address, latitude, longitude,
+      property:property_id ( address, latitude, longitude ),
+      lead:lead_id ( name, address, latitude, longitude ),
+      customer:customer_id ( name, address, latitude, longitude ),
       assignments:job_assignments ( tech:tech_id ( id, full_name ) )
     `)
     .in("id", jobIds)
@@ -99,7 +107,7 @@ export function findConflicts(
     );
 
     const gap = travelGap(
-      job,
+      jobAddress(job),
       proposedPlace,
       drivenMinutes ? drivenMinutes.get(job.id) ?? null : null
     );

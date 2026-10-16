@@ -10,6 +10,7 @@ import {
   planGaps,
 } from "../../services/durationService";
 import { fetchDriveMinutes } from "../../services/driveTimeService";
+import { jobAddress } from "../../services/jobAddress";
 import "./DayPreview.css";
 
 // Timeline window: 7 AM to 9 PM.
@@ -131,7 +132,9 @@ export default function DayPreview({
         id: j.id,
         start,
         end: new Date(start.getTime() + hours * 3600000),
-        place: j,
+        // The ladder, not the row: a scheduled job has no address of its
+        // own until the freeze trigger runs at completion.
+        place: jobAddress(j),
         label: j.lead?.name || j.customer?.name || "Job",
       };
     });

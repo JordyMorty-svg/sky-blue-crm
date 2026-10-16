@@ -34,7 +34,12 @@ import { travelGap } from "../src/services/durationService.js";
 const CORVALLIS = { latitude: 44.5646, longitude: -123.262 };
 const ALBANY = { latitude: 44.6365, longitude: -123.1059 };
 const NE = { latitude: 44.58, longitude: -123.24 };
+// Has an address but no pin. Since the Routes API geocodes address
+// waypoints, this IS sendable — which is the point of the change and the
+// reason three assertions below had to be rewritten rather than kept.
 const NO_COORDS = { latitude: null, longitude: null, address: "123 Somewhere" };
+// Genuinely nothing to go on. This is what must never reach Google.
+const NOTHING = { latitude: null, longitude: null, address: null };
 const BLANK = { latitude: "", longitude: "" };
 
 let passed = 0;
@@ -96,10 +101,14 @@ ok(
 // BUG #1. `Number(null)` is 0, so a job with no pin was sent to Google as
 // 0,0 — a point in the Gulf of Guinea — and whatever came back was treated
 // as the drive to that customer's house.
+//
+// Still the rule, now measured against a row with no address either: a
+// missing location must produce no request, never a request about the
+// wrong place.
 given({ body: { minutes: [], source: "routes" } });
-await fetchDriveMinutes([[CORVALLIS, NO_COORDS]]);
+await fetchDriveMinutes([[CORVALLIS, NOTHING]]);
 ok(
-  "THE POINT: a job with no coordinates is never sent as 0,0",
+  "THE POINT: a job with nothing to locate it is never sent as 0,0",
   sent.length === 0,
   JSON.stringify(sent)
 );
@@ -113,12 +122,12 @@ ok(
 );
 
 given({ body: { minutes: [], source: "routes" } });
-const none = await fetchDriveMinutes([[CORVALLIS, NO_COORDS]]);
+const none = await fetchDriveMinutes([[CORVALLIS, NOTHING]]);
 ok("a leg that cannot be asked about answers null", none[0] === null);
 
 given({ body: { minutes: [9], source: "routes" } });
 const mixed = await fetchDriveMinutes([
-  [CORVALLIS, NO_COORDS],
+  [CORVALLIS, NOTHING],
   [CORVALLIS, ALBANY],
 ]);
 ok(
@@ -129,6 +138,82 @@ ok(
 ok(
   "...and only the askable leg was asked about",
   sent[0].body.legs.length === 1
+);
+
+console.log("-- an address is as good as a pin --\n");
+
+// SIXTY-NINE OF NINETY-SEVEN JOBS HAD NO COORDINATES, and the obvious fix
+// was a geocoding backfill: a second Google API, a bulk write across four
+// tables, a migration to get wrong. Unnecessary — the Routes API takes an
+// address string as a waypoint and geocodes it itself, and those jobs had
+// addresses the whole time.
+const NO_PIN = { address: "900 Second Address Rd, Corvallis, OR", latitude: null };
+
+given({ body: { minutes: [21], source: "routes" } });
+const byAddress = await fetchDriveMinutes([[CORVALLIS, NO_PIN]]);
+ok(
+  "THE POINT: a job with an address and no pin is still asked about",
+  sent.length === 1,
+  JSON.stringify(sent)
+);
+ok(
+  "...as an address waypoint, not as 0,0",
+  sent[0].body.legs[0].to.address === "900 Second Address Rd, Corvallis, OR" &&
+    sent[0].body.legs[0].to.lat === undefined,
+  JSON.stringify(sent[0].body.legs[0].to)
+);
+ok(
+  "...and the answer is a real routed drive",
+  byAddress[0] === 21 && travelGap(CORVALLIS, NO_PIN, byAddress[0]).basis === "driven"
+);
+
+// A pin is exact; an address has to be geocoded and can be ambiguous.
+// Google's own guidance is to prefer the more specific form.
+given({ body: { minutes: [12], source: "routes" } });
+await fetchDriveMinutes([[CORVALLIS, { ...ALBANY, address: "somewhere else" }]]);
+ok(
+  "THE POINT: coordinates still win when a row has both",
+  sent[0].body.legs[0].to.lat === 44.6365 &&
+    sent[0].body.legs[0].to.address === undefined,
+  JSON.stringify(sent[0].body.legs[0].to)
+);
+
+given({ body: { minutes: [], source: "routes" } });
+await fetchDriveMinutes([[CORVALLIS, { address: "   ", latitude: null }]]);
+ok(
+  "a whitespace address is not an address",
+  sent.length === 0
+);
+
+// Two different places must not share a cache entry just because neither
+// has a pin.
+given({ body: { minutes: [21], source: "routes" } });
+await fetchDriveMinutes([[CORVALLIS, NO_PIN]]);
+const before2 = sent.length;
+await fetchDriveMinutes([[CORVALLIS, { address: "12 Other St, Albany, OR" }]]);
+ok(
+  "THE POINT: two different addresses are two different cache keys",
+  sent.length === before2 + 1,
+  `${sent.length} requests for two distinct destinations`
+);
+await fetchDriveMinutes([[CORVALLIS, NO_PIN]]);
+ok(
+  "...and the same address is still only asked once",
+  sent.length === before2 + 1
+);
+
+// Contrived but free to guard: an address that happens to read like a
+// coordinate pair must not share a cache slot with those coordinates. The
+// "@" prefix is what keeps the two namespaces apart, and a mutant that
+// dropped it survived because nothing was looking.
+given({ body: { minutes: [5], source: "routes" } });
+await fetchDriveMinutes([[CORVALLIS, { latitude: 44.58, longitude: -123.24 }]]);
+const beforeCollide = sent.length;
+await fetchDriveMinutes([[CORVALLIS, { address: "44.58,-123.24" }]]);
+ok(
+  "THE POINT: an address is never confused with a coordinate of the same text",
+  sent.length === beforeCollide + 1,
+  "they are different places and must not share a cache entry"
 );
 
 console.log("-- what comes back --\n");

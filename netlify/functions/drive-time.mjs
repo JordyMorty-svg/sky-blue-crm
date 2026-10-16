@@ -81,14 +81,33 @@ const keyFor = (leg) =>
   `${round4(leg.from.lat)},${round4(leg.from.lng)}>` +
   `${round4(leg.to.lat)},${round4(leg.to.lng)}`;
 
+const hasCoords = (p) =>
+  Number.isFinite(Number(p?.lat)) && Number.isFinite(Number(p?.lng));
+const hasAddress = (p) => String(p?.address ?? "").trim() !== "";
+const usable = (p) => hasCoords(p) || hasAddress(p);
+
 function validLeg(leg) {
-  const nums = [leg?.from?.lat, leg?.from?.lng, leg?.to?.lat, leg?.to?.lng];
-  return nums.every((n) => Number.isFinite(Number(n)));
+  return usable(leg?.from) && usable(leg?.to);
 }
 
-const waypoint = (p) => ({
-  waypoint: { location: { latLng: { latitude: Number(p.lat), longitude: Number(p.lng) } } },
-});
+/**
+ * A waypoint is either coordinates or an address.
+ *
+ * NOTE THE SHAPE: `address` sits directly on the waypoint, a sibling of
+ * `placeId`, NOT nested under `location` the way `latLng` is. Getting that
+ * wrong produces a 400 that reads like a bad request rather than a bad
+ * field.
+ */
+const waypoint = (p) =>
+  hasCoords(p)
+    ? {
+        waypoint: {
+          location: {
+            latLng: { latitude: Number(p.lat), longitude: Number(p.lng) },
+          },
+        },
+      }
+    : { waypoint: { address: String(p.address).trim() } };
 
 /**
  * One leg, one element billed. computeRouteMatrix can take several origins and
@@ -112,6 +131,13 @@ async function legMinutes(leg) {
       destinations: [waypoint(leg.to)],
       travelMode: "DRIVE",
       routingPreference: "TRAFFIC_UNAWARE",
+      // CHEAP INSURANCE AGAINST THE WRONG ALBANY. Google's own worked
+      // example of an ambiguous address string is "Toledo" resolving to
+      // Ohio rather than Spain and the request coming back empty. Sky Blue
+      // drives to Albany, Oregon; there is an Albany in New York, Georgia
+      // and six other states. The addresses carry ", OR" already, and this
+      // costs nothing on top.
+      regionCode: "us",
     }),
   });
 

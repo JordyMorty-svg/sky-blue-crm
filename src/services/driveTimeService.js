@@ -83,14 +83,36 @@ function num(v) {
 
 const round4 = (n) => Math.round(n * 1e4) / 1e4;
 
-function point(place) {
-  const lat = num(place?.latitude);
-  const lng = num(place?.longitude);
-  return lat === null || lng === null ? null : { lat, lng };
+/**
+ * Coordinates if we have them, otherwise the address — and the address is
+ * the whole reason this is not just `point()` any more.
+ *
+ * SIXTY-NINE OF NINETY-SEVEN JOBS HAD NO PIN, and the strips were therefore
+ * estimates for almost everything. The obvious fix was a geocoding backfill:
+ * a second Google API to enable, a bulk write across four tables, and a
+ * migration to get wrong. It was not needed. The Routes API takes an address
+ * string as a waypoint and geocodes it itself — "Address strings are literal
+ * addresses represented by a string" — so the addresses those jobs have
+ * always had are enough.
+ *
+ * Coordinates still win when present. Google's own guidance is that an
+ * address "must first be geocoded ... This conversion can affect
+ * performance", and that an ambiguous one "might invoke a search to
+ * disambiguate". A pin is exact and free of both.
+ */
+function place(row) {
+  const lat = num(row?.latitude);
+  const lng = num(row?.longitude);
+  if (lat !== null && lng !== null) return { lat, lng };
+
+  const address = String(row?.address ?? "").trim();
+  return address === "" ? null : { address };
 }
 
-const keyFor = (a, b) =>
-  `${round4(a.lat)},${round4(a.lng)}>${round4(b.lat)},${round4(b.lng)}`;
+const sideKey = (p) =>
+  p.address === undefined ? `${round4(p.lat)},${round4(p.lng)}` : `@${p.address}`;
+
+const keyFor = (a, b) => `${sideKey(a)}>${sideKey(b)}`;
 
 /**
  * @param {Array<[object, object]>} pairs  [from, to] places, each carrying
@@ -100,8 +122,8 @@ const keyFor = (a, b) =>
  */
 export async function fetchDriveMinutes(pairs) {
   const points = (pairs || []).map((pair) => {
-    const from = point(pair?.[0]);
-    const to = point(pair?.[1]);
+    const from = place(pair?.[0]);
+    const to = place(pair?.[1]);
     return from && to ? { from, to } : null;
   });
 
