@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient";
 import { nextVisitDate, priceForVisit, DEFAULT_SERVICE } from "./leadService";
+import { sortDueVisits } from "./dueVisits";
 
 // How far ahead of its due date a recurring visit becomes schedulable.
 // Before this it sits as "upcoming" — visible on the customer, absent from
@@ -612,7 +613,15 @@ export async function ensureNextVisit(customerId) {
   return { created, reason: created ? "created" : "nothing-to-create" };
 }
 
-// Recurring visits close enough to their due date to be worth scheduling.
+// Work waiting for a date: recurring visits inside their lead time, and
+// jobs created by an accepted quote (db/quote-accept-job.sql).
+//
+// THE NULL IS THE WHOLE CHANGE. This used to filter `starts_at <= cutoff`,
+// and SQL comparisons exclude nulls — so a job with no date at all was
+// invisible here. That was fine while the only rows were recurring visits,
+// which always have a computed due date. An accepted quote has no date by
+// definition, so creating one without this change would have put the work
+// in a second place nobody looks, which is the exact fault being fixed.
 export async function fetchDueVisits() {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() + RECURRING_LEAD_TIME_DAYS);
@@ -625,11 +634,13 @@ export async function fetchDueVisits() {
       lead:lead_id ( name, address, phone, email, interior )
     `)
     .eq("status", "upcoming")
-    .lte("starts_at", cutoff.toISOString())
-    .order("starts_at", { ascending: true });
+    .or(`starts_at.is.null,starts_at.lte.${cutoff.toISOString()}`);
 
   if (error) throw error;
-  return data || [];
+  // Sorted here rather than in the query: Postgres puts nulls last on an
+  // ascending sort, which would bury the undated rows under months of
+  // scheduled ones. See sortDueVisits().
+  return sortDueVisits(data || []);
 }
 
 // The soonest visit a customer has due, whether or not it's schedulable yet.

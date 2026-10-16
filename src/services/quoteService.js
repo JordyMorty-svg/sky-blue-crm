@@ -172,9 +172,21 @@ export async function deleteQuote(id) {
  */
 export function deletable(quote) {
   if (quote?.status === "accepted") {
+    // TWO SENTENCES, BECAUSE THERE ARE TWO SITUATIONS and the old single
+    // one asserted a job in both. Vicki Guenther's accepted $1,195 quote
+    // had no job — the acceptance path did not make one for customer
+    // quotes — and the screen told Jordan to go and cancel a job that did
+    // not exist. A message that states things it has not checked costs more
+    // than a message that says less.
+    //
+    // Mirrors delete_quote() in db/quote-accept-job.sql, which is what
+    // actually refuses. The refusal is unchanged either way: an accepted
+    // quote is the record of what somebody agreed to pay.
     return {
       ok: false,
-      why: "This quote was accepted, so a job and a booking fee depend on it. Cancel the job first if it isn't going ahead.",
+      why: quote?.closed_job_id
+        ? "This quote was accepted and a job was created from it. Cancel the job first if the work isn't going ahead."
+        : "This quote was accepted, so it's the record of what the customer agreed to pay. Close it instead if the work isn't going ahead.",
     };
   }
   // A quote attached to a job is EVIDENCE.

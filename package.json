@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "verify:duration": "node verify/job-duration.mjs",
-    "verify:drive-time": "node verify/drive-time.mjs"
+    "verify:drive-time": "node verify/drive-time.mjs",
+    "verify:due-visits": "node verify/due-visits.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.111.0",

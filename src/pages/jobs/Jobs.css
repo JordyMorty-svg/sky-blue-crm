@@ -208,6 +208,22 @@
   border-color: #fde68a;
 }
 
+/* Accepted quote work waiting for a date.
+ *
+ * Green rather than the recurring amber, because these two rows are in the
+ * same tray and mean different things: amber is "this is coming round
+ * again", green is "somebody has already said yes and is waiting on us".
+ * The second is the one with a customer at the other end of it. */
+.jobrow--quoted {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.jobrow--quoted .jobrow__tag {
+  color: #166534;
+  background: #dcfce7;
+}
+
 /* Inline "Recurring" pill next to the customer name. */
 .jobrow__tag {
   display: inline-block;

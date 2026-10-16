@@ -14,6 +14,7 @@ import TechPicker from "../../components/TechPicker";
 import JobPlanTag from "../../components/JobPlanTag";
 import "./Jobs.css";
 import { jobAddressText } from "../../services/jobAddress";
+import { describeDueVisit } from "../../services/dueVisits";
 
 function formatWhen(iso) {
   if (!iso) return "No time set";
@@ -144,29 +145,40 @@ export default function Jobs() {
               sit above new leads because they have a fixed due date. */}
           {dueVisits.length > 0 && (
             <div className="jobs__list jobs__list--due">
-              {dueVisits.map((visit) => (
-                <div className="jobrow jobrow--recurring" key={visit.id}>
-                  <div className="jobrow__main">
-                    <span className="jobrow__name">
-                      {visit.customer?.name || visit.lead?.name || "Customer"}
-                      <span className="jobrow__tag">Recurring</span>
-                    </span>
-                    <span className="jobrow__meta">
-                      {jobAddressText(visit, "No address")} · $
-                      {visit.price} · visit {visit.visit_number}
-                    </span>
-                    <span className="jobrow__when">
-                      Due {formatWhen(visit.starts_at)}
-                    </span>
-                  </div>
-                  <button
-                    className="jobrow__btn"
-                    onClick={() => navigate(`/jobs/visit/${visit.id}`)}
+              {dueVisits.map((visit) => {
+                const d = describeDueVisit(visit);
+                return (
+                  <div
+                    className={`jobrow jobrow--${
+                      d.kind === "quote" ? "quoted" : "recurring"
+                    }`}
+                    key={visit.id}
                   >
-                    Schedule
-                  </button>
-                </div>
-              ))}
+                    <div className="jobrow__main">
+                      <span className="jobrow__name">
+                        {visit.customer?.name || visit.lead?.name || "Customer"}
+                        <span className="jobrow__tag">{d.tag}</span>
+                      </span>
+                      <span className="jobrow__meta">
+                        {jobAddressText(visit, "No address")} · $
+                        {visit.price}
+                        {/* A visit number on accepted quote work is a
+                            number about a plan that does not exist. */}
+                        {d.kind === "recurring"
+                          ? ` · visit ${visit.visit_number}`
+                          : ""}
+                      </span>
+                      <span className="jobrow__when">{d.when}</span>
+                    </div>
+                    <button
+                      className="jobrow__btn"
+                      onClick={() => navigate(`/jobs/visit/${visit.id}`)}
+                    >
+                      Schedule
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
 
