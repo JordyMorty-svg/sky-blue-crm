@@ -305,11 +305,40 @@ export function travelGap(fromJob, toJob, drivenMinutes = null) {
   };
 }
 
+/**
+ * The few characters that fit on a travel strip.
+ *
+ * A TILDE MEANS NOBODY MEASURED IT. The strip only has room for a number,
+ * and three completely different states were all rendering as "15m": a real
+ * routed drive that came in under the floor, a straight-line estimate
+ * between two Corvallis addresses, and a pair where one job has no
+ * coordinates at all so nothing was ever asked. Jordan spent two days
+ * reasonably assuming a broken API key, because the screen gave him no way
+ * to tell those apart — and 15 is what the first two legitimately produce
+ * for almost every job in a town this size.
+ *
+ * One character fixes it. "27m" was driven; "~15m" was guessed.
+ */
+export function gapLabel(gap) {
+  if (!gap) return "";
+  return `${gap.basis === "driven" ? "" : "~"}${gap.minutes}m`;
+}
+
 /** A short phrase for the screen: "27 min drive", "15 min (assumed)". */
 export function describeGap(gap) {
   if (!gap) return "";
   if (gap.basis === "driven") return `${gap.minutes} min drive`;
-  if (gap.basis === "assumed") return `${gap.minutes} min (no address on file)`;
+  // NOT "no address on file", which is what this said first and which is
+  // usually a lie. jobAddress() resolves the address off whichever row has
+  // one — the lead, or the frozen job — but takes the COORDINATES from that
+  // same row and nowhere else, on purpose: borrowing a pin from a lower rung
+  // "sends the van to the wrong house with the right street name printed on
+  // the screen". So the normal state here is a job showing a complete
+  // address and carrying no pin, and Jordan quite reasonably read the old
+  // wording as the CRM having lost an address he could see on the screen.
+  if (gap.basis === "assumed") {
+    return `${gap.minutes} min — estimated, one of these has no map pin`;
+  }
   return `${gap.minutes} min (${gap.miles.toFixed(1)} mi away)`;
 }
 

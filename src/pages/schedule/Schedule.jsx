@@ -20,6 +20,7 @@ import { fetchCalendarJobs } from "../../services/calendarService";
 import {
   FALLBACK_HOURS,
   describeGap,
+  gapLabel,
   planGapsByDay,
 } from "../../services/durationService";
 import { fetchDriveMinutes } from "../../services/driveTimeService";
@@ -477,7 +478,7 @@ export default function Schedule() {
       planGapsByDay(calStops, (a, b) => driven.get(`${a}>${b}`) ?? null).map(
         (g) => ({
           id: `travel:${g.fromId}>${g.toId}`,
-          title: `${g.gap.minutes}m`,
+          title: gapLabel(g.gap),
           start: g.at,
           end: new Date(g.at.getTime() + g.gap.minutes * 60000),
           travel: true,

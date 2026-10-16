@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "verify:duration": "node verify/job-duration.mjs",
     "verify:drive-time": "node verify/drive-time.mjs",
-    "verify:due-visits": "node verify/due-visits.mjs"
+    "verify:due-visits": "node verify/due-visits.mjs",
+    "verify:customer-address": "node verify/customer-address.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.111.0",

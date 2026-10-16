@@ -1,6 +1,10 @@
 import { supabase } from "../supabaseClient";
 import { nextVisitDate, priceForVisit, DEFAULT_SERVICE } from "./leadService";
 import { sortDueVisits } from "./dueVisits";
+import {
+  addressFillForMatch,
+  blankAddressGuard,
+} from "./customerAddress";
 
 // How far ahead of its due date a recurring visit becomes schedulable.
 // Before this it sits as "upcoming" — visible on the customer, absent from
@@ -36,7 +40,7 @@ async function findOrCreateCustomer(lead) {
     // since the DB stores them in whatever format they were entered.
     const { data: candidates, error: findErr } = await supabase
       .from("customers")
-      .select("id, phone, service_plan, property_type");
+      .select("id, phone, service_plan, property_type, address, latitude, longitude");
 
     if (findErr) throw findErr;
     const match = (candidates || []).find(
@@ -65,6 +69,32 @@ async function findOrCreateCustomer(lead) {
           .eq("id", match.id);
         if (syncErr) throw syncErr;
       }
+
+      // FILL A BLANK ADDRESS, NEVER REPLACE A GOOD ONE.
+      //
+      // The same "only ever upgrades away from the defaults" rule the plan
+      // update above follows, applied to the field it was skipping. Written
+      // as its own statement rather than folded into `changes` because the
+      // guard is different: the plan update is unconditional, and this one
+      // must not fire if somebody filled the address in between the read
+      // above and this write. See addressFillForMatch().
+      const fill = addressFillForMatch(match, lead);
+      if (fill) {
+        const guard = blankAddressGuard(match);
+        let write = supabase.from("customers").update(fill).eq("id", match.id);
+        write =
+          guard.kind === "is-null"
+            ? write.is("address", null)
+            : write.eq("address", guard.value);
+
+        // Deliberately not thrown. A booking must not fail because a
+        // convenience write lost a race or hit a policy — the job is the
+        // thing the customer is waiting for, and the address can be filled
+        // in by the next booking or by hand.
+        const { error: fillErr } = await write;
+        if (fillErr) console.error("couldn't fill customer address", fillErr);
+      }
+
       return match.id;
     }
   }

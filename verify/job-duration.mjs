@@ -55,6 +55,7 @@ import {
   describeGap,
   exceedsOneDay,
   explainDuration,
+  gapLabel,
   milesBetween,
   mustFinishBy,
   planGaps,
@@ -320,11 +321,61 @@ ok(
   travelGap(CORVALLIS, ALBANY, 26.2).minutes === 27
 );
 
+// THE STRIP ONLY HAS ROOM FOR A NUMBER, and three different states all
+// produced "15m": a routed drive under the floor, a straight-line estimate
+// across town, and a pair with no coordinates at all. In a town the size of
+// Corvallis the first two are the normal answer, so the screen was showing
+// the same thing whether the routing worked or had never been called — two
+// days of reasonably suspecting a broken API key.
+ok(
+  "THE POINT: a measured gap and a guessed one do not read the same",
+  gapLabel(travelGap(CORVALLIS, CORVALLIS_NE, 7)) !==
+    gapLabel(travelGap(CORVALLIS, CORVALLIS_NE)),
+  `${gapLabel(travelGap(CORVALLIS, CORVALLIS_NE, 7))} vs ` +
+    `${gapLabel(travelGap(CORVALLIS, CORVALLIS_NE))}`
+);
+ok(
+  "...even when the routed drive is floored to the same number of minutes",
+  travelGap(CORVALLIS, CORVALLIS_NE, 7).minutes ===
+    travelGap(CORVALLIS, CORVALLIS_NE).minutes &&
+    gapLabel(travelGap(CORVALLIS, CORVALLIS_NE, 7)) === "15m" &&
+    gapLabel(travelGap(CORVALLIS, CORVALLIS_NE)) === "~15m",
+  "both are 15 minutes; only one of them was measured"
+);
+ok(
+  "a pair with no coordinates is marked as a guess too",
+  gapLabel(travelGap(CORVALLIS, NOWHERE)) === "~15m"
+);
+ok(
+  "a real Albany drive carries no tilde",
+  gapLabel(travelGap(CORVALLIS, ALBANY, 26)) === "26m"
+);
+ok(
+  "an empty gap does not render the word undefined",
+  gapLabel(null) === ""
+);
+
 ok(
   "the screen can tell the three cases apart",
   describeGap(travelGap(CORVALLIS, ALBANY, 26)).includes("drive") &&
-    describeGap(travelGap(CORVALLIS, NOWHERE)).includes("no address") &&
+    describeGap(travelGap(CORVALLIS, NOWHERE)).includes("map pin") &&
     describeGap(travelGap(CORVALLIS, ALBANY)).includes("mi away")
+);
+
+// THE WORDING THAT WASTED A DAY. A job with no coordinates nearly always
+// still has an address — on the lead, or frozen onto the job itself — so
+// saying "no address on file" describes a state the user can see is false,
+// and invites them to go looking for the wrong thing. It is the pin that is
+// missing.
+ok(
+  "THE POINT: a missing pin is never reported as a missing address",
+  !/address/i.test(describeGap(travelGap(CORVALLIS, NOWHERE))),
+  describeGap(travelGap(CORVALLIS, NOWHERE))
+);
+ok(
+  "...and it says plainly that the number is an estimate",
+  /estimat/i.test(describeGap(travelGap(CORVALLIS, NOWHERE))),
+  describeGap(travelGap(CORVALLIS, NOWHERE))
 );
 
 const noon = new Date("2026-10-20T12:00:00");

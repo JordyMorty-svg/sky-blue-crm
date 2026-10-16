@@ -6,6 +6,7 @@ import {
 import {
   FALLBACK_HOURS,
   describeGap,
+  gapLabel,
   planGaps,
 } from "../../services/durationService";
 import { fetchDriveMinutes } from "../../services/driveTimeService";
@@ -321,7 +322,7 @@ export default function DayPreview({
               `${describeGap(g.gap)}${g.tight ? " — not enough time" : ""}`
             }
           >
-            <span className="daypreview__travellabel">{g.gap.minutes}m</span>
+            <span className="daypreview__travellabel">{gapLabel(g.gap)}</span>
           </div>
         ))}
 
