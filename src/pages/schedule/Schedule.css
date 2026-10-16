@@ -1391,3 +1391,112 @@
   border-left-color: #dc2626;
   font-weight: 600;
 }
+
+/* ---------------------------------------------------------------------------
+   WHAT A TRAVEL STRIP IS BETWEEN
+   ---------------------------------------------------------------------------
+
+   Pressing a strip used to navigate to /jobs/travel:abc>def and land on a
+   blank page — react-big-calendar sends background events through the same
+   onSelectEvent as real ones, and the strip's id is not a job's.
+
+   Swallowing the click would have fixed the blank page. This answers the
+   question instead: a strip shows one number, and the obvious thing to want
+   is which two places it is between. */
+
+.traveldetail {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.traveldetail__card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 20px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.3);
+}
+
+.traveldetail__title {
+  margin: 0 0 14px;
+  font-size: var(--text-xl);
+  color: #0f172a;
+}
+
+.traveldetail__stop {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.traveldetail__who {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: var(--text-base);
+}
+
+.traveldetail__addr {
+  color: #475569;
+  font-size: var(--text-md);
+  margin-top: 2px;
+}
+
+.traveldetail__time {
+  color: #64748b;
+  font-size: var(--text-sm);
+  margin-top: 4px;
+}
+
+/* The leg between them, indented so the two stops read as the anchors and
+   the road as the thing joining them. */
+.traveldetail__leg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 8px 16px;
+  padding: 8px 12px;
+  border-left: 2px dashed #cbd5e1;
+  color: #475569;
+  font-size: var(--text-md);
+}
+
+.traveldetail__leg--tight {
+  border-left-color: #dc2626;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.traveldetail__warn {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: var(--text-md);
+}
+
+.traveldetail__close {
+  margin-top: 16px;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.traveldetail__close:hover {
+  background: #1d4ed8;
+}

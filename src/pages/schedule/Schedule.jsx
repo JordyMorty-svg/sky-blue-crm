@@ -328,6 +328,8 @@ export default function Schedule() {
   );
   const [jobs, setJobs] = useState([]);
   const [calJobs, setCalJobs] = useState([]);
+  // The travel strip whose detail panel is open, if any.
+  const [shownTravel, setShownTravel] = useState(null);
   // Routed drive minutes keyed "fromJobId>toJobId". Empty is the normal
   // working state — every reader falls back to straight-line distance.
   const [driven, setDriven] = useState(() => new Map());
@@ -368,6 +370,19 @@ export default function Schedule() {
   // on purpose: there's a Square payment behind it that editing here would
   // silently contradict.
   function openEvent(event) {
+    // A TRAVEL STRIP IS NOT A JOB, and react-big-calendar does not know
+    // that: background events go through the same onSelectEvent as real
+    // ones. So a tap on the road between two jobs navigated to
+    // /jobs/travel:abc>def and landed on a blank page.
+    //
+    // Opening a panel rather than just swallowing the click, because the
+    // obvious question when you press a gap is the one the strip has no
+    // room to answer: between which two places, and how far.
+    if (event.travel) {
+      setShownTravel(event);
+      return;
+    }
+
     const path =
       event.status === "completed"
         ? `/jobs/record/${event.id}`
@@ -466,6 +481,12 @@ export default function Schedule() {
     [calJobs]
   );
 
+  // Name AND address, because clicking a travel strip now opens a panel
+  // that has to say which two places it is between.
+  const stopById = useMemo(
+    () => new Map(calStops.map((x) => [x.id, x])),
+    [calStops]
+  );
   const stopLabel = useMemo(
     () => new Map(calStops.map((x) => [x.id, x.label])),
     [calStops]
@@ -491,9 +512,15 @@ export default function Schedule() {
             `${stopLabel.get(g.fromId)} → ${stopLabel.get(g.toId)}: ` +
             `${describeGap(g.gap)}` +
             (g.tight ? " — not enough time to get there" : ""),
+          // NOT `from`/`to` — those are already the ids the drive-time
+          // fetch pairs on, and reusing the names silently dropped them
+          // (last key wins), which would have stopped every routed lookup.
+          // eslint's no-dupe-keys caught it; nothing else would have.
+          fromStop: stopById.get(g.fromId),
+          toStop: stopById.get(g.toId),
         })
       ),
-    [calStops, driven, stopLabel]
+    [calStops, driven, stopLabel, stopById]
   );
 
   // Routed minutes for the pairs the calendar is actually drawing. Keyed on
@@ -1002,6 +1029,68 @@ export default function Schedule() {
             }}
           />
           )}
+        </div>
+      )}
+
+      {/* What a travel strip is between. The strip itself has room for a
+          number and nothing else, and pressing a thing that shows one
+          number should answer the question that number raises. */}
+      {shownTravel && (
+        <div
+          className="traveldetail"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Travel between jobs"
+          onClick={() => setShownTravel(null)}
+        >
+          <div
+            className="traveldetail__card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="traveldetail__title">Between jobs</h2>
+
+            <div className="traveldetail__stop">
+              <div className="traveldetail__who">{shownTravel.fromStop?.label}</div>
+              <div className="traveldetail__addr">
+                {shownTravel.fromStop?.place?.address || "No address on file"}
+              </div>
+              <div className="traveldetail__time">
+                finishes {formatTime(shownTravel.fromStop?.end?.toISOString())}
+              </div>
+            </div>
+
+            <div
+              className={`traveldetail__leg ${
+                shownTravel.tight ? "traveldetail__leg--tight" : ""
+              }`}
+            >
+              <span aria-hidden="true">↓</span>
+              <span>{describeGap(shownTravel.gap)}</span>
+            </div>
+
+            <div className="traveldetail__stop">
+              <div className="traveldetail__who">{shownTravel.toStop?.label}</div>
+              <div className="traveldetail__addr">
+                {shownTravel.toStop?.place?.address || "No address on file"}
+              </div>
+              <div className="traveldetail__time">
+                starts {formatTime(shownTravel.toStop?.start?.toISOString())}
+              </div>
+            </div>
+
+            {shownTravel.tight && (
+              <p className="traveldetail__warn">
+                That is not enough time to get there.
+              </p>
+            )}
+
+            <button
+              className="traveldetail__close"
+              onClick={() => setShownTravel(null)}
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
 

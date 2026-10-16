@@ -76,15 +76,37 @@ const apiKey = () =>
  * between two houses and coarser than GPS jitter on the same one.
  */
 const cache = new Map();
-const round4 = (n) => Math.round(Number(n) * 1e4) / 1e4;
-const keyFor = (leg) =>
-  `${round4(leg.from.lat)},${round4(leg.from.lng)}>` +
-  `${round4(leg.to.lat)},${round4(leg.to.lng)}`;
-
 const hasCoords = (p) =>
   Number.isFinite(Number(p?.lat)) && Number.isFinite(Number(p?.lng));
 const hasAddress = (p) => String(p?.address ?? "").trim() !== "";
 const usable = (p) => hasCoords(p) || hasAddress(p);
+
+const round4 = (n) => Math.round(Number(n) * 1e4) / 1e4;
+
+/**
+ * ONE SIDE OF A CACHE KEY, and it has to understand addresses.
+ *
+ * This read `${round4(leg.from.lat)},${round4(leg.from.lng)}` when every
+ * waypoint was coordinates. Once an address became a waypoint, `lat` is
+ * undefined on those legs, `round4(undefined)` is NaN, and EVERY
+ * address-based leg in the process collided on the single key
+ * "NaN,NaN>NaN,NaN".
+ *
+ * Nulls are cached on purpose — a pair with no route will not grow one, and
+ * re-asking every render is how a free tier stops being free. Put those two
+ * together and the first address leg that failed to route handed its null to
+ * every other address leg on the instance. Which is precisely what it did:
+ * a customer whose address had just been corrected still reported "no route
+ * came back", because nothing was being asked on their behalf at all.
+ *
+ * The identical fix had already been made in driveTimeService.js an hour
+ * earlier. One copy got it; its mirror image did not — the same shape of
+ * mistake as `Number(null)`, and for the same reason: this file had no test.
+ */
+const sideKey = (p) =>
+  hasCoords(p) ? `${round4(p.lat)},${round4(p.lng)}` : `@${String(p.address).trim()}`;
+
+const keyFor = (leg) => `${sideKey(leg.from)}>${sideKey(leg.to)}`;
 
 function validLeg(leg) {
   return usable(leg?.from) && usable(leg?.to);
@@ -208,3 +230,17 @@ export default async (req) => {
 export const config = {
   path: "/api/drive-time",
 };
+
+/**
+ * Testing seam. Not used in production and harmless there: Netlify reads the
+ * default export and `config`, and ignores everything else.
+ *
+ * The cache is module scope on purpose — it survives for as long as the
+ * instance stays warm, which is the whole point — and that is exactly what
+ * makes a suite of back-to-back requests interfere with itself. Without a
+ * way to clear it, each assertion would have to invent a fresh address, and
+ * the one thing worth testing here is what the cache does.
+ */
+export function __resetDriveTimeCache() {
+  cache.clear();
+}
