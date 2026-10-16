@@ -275,6 +275,18 @@ function num(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Is there anything here Google could be asked about?
+ *
+ * Coordinates or an address — the same test driveTimeService.place() makes
+ * when deciding whether to put a leg on the wire, and it has to stay the
+ * same test or the screen will explain a silence that never happened.
+ */
+function locatable(row) {
+  if (num(row?.latitude) !== null && num(row?.longitude) !== null) return true;
+  return String(row?.address ?? "").trim() !== "";
+}
+
 /** Great-circle miles between two {latitude, longitude} points. */
 export function milesBetween(a, b) {
   const lat1 = num(a?.latitude);
@@ -300,10 +312,11 @@ export function milesBetween(a, b) {
  * @param {object} toJob    likewise
  * @param {number|null} drivenMinutes  a real routed drive time, when one has
  *   been fetched (see driveTimeService.js). Null when it has not.
- * @returns {{minutes, miles, basis}} where basis is one of:
- *   "driven"   a real route, floored at the local minimum
- *   "distance" straight-line distance decided it
- *   "assumed"  one of the two jobs has no saved coordinates
+ * @returns {{minutes, drive, buffer, miles, basis}} where basis is one of:
+ *   "driven"   a real route came back
+ *   "distance" both ends have coordinates; straight-line distance decided it
+ *   "unrouted" both ends are locatable, but no route came back
+ *   "assumed"  one of the two ends has neither an address nor coordinates
  *
  * `basis` is returned rather than swallowed so the screen can say where the
  * number came from. Stating "15 minutes" as a fact when nobody knows the
@@ -333,12 +346,24 @@ export function travelGap(fromJob, toJob, drivenMinutes = null) {
   }
 
   if (miles === null) {
+    // TWO VERY DIFFERENT SILENCES, and until now they shared a sentence.
+    //
+    // Before addresses could be waypoints, no coordinates meant nothing was
+    // ever sent, so "one of these has no map pin" was always the reason.
+    // Now a pair of addresses is perfectly sendable — so arriving here can
+    // also mean we asked and Google did not answer, which is a problem with
+    // the key, the API, or the address itself, and not with the data on the
+    // job at all.
+    //
+    // Telling somebody to go and fix a map pin when the pin is not the
+    // problem is the same mistake as the message this one replaced.
+    const askable = locatable(fromJob) && locatable(toJob);
     return {
       minutes: LOCAL_TRAVEL_MINUTES,
       drive: null,
       buffer: 0,
       miles: null,
-      basis: "assumed",
+      basis: askable ? "unrouted" : "assumed",
     };
   }
 
@@ -384,8 +409,11 @@ export function describeGap(gap) {
   // the screen". So the normal state here is a job showing a complete
   // address and carrying no pin, and Jordan quite reasonably read the old
   // wording as the CRM having lost an address he could see on the screen.
+  if (gap.basis === "unrouted") {
+    return `${gap.minutes} min — estimated, no route came back for these`;
+  }
   if (gap.basis === "assumed") {
-    return `${gap.minutes} min — estimated, one of these has no map pin`;
+    return `${gap.minutes} min — estimated, one of these has no address on it`;
   }
   return `${gap.minutes} min (${gap.miles.toFixed(1)} mi away)`;
 }

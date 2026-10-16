@@ -404,27 +404,59 @@ ok(
   gapLabel(null) === ""
 );
 
+// FOUR SILENCES, FOUR SENTENCES, and each revision of this has been a
+// message that was true when written and became a lie when the code around
+// it changed:
+//
+//   "no address on file"  — wrong once we learned the address is almost
+//                           always there and only the pin is missing.
+//   "no map pin"          — wrong once an address became a usable waypoint,
+//                           because then a pair of addresses that failed to
+//                           route was blamed on a pin nobody needed.
+//
+// The rule they both broke: a diagnostic must describe the state it
+// actually observed, not the state that was most common when it was
+// written. These four assertions are here to make the next change to
+// travelGap break loudly rather than quietly mislead.
+const ADDRESS_ONLY = { address: "900 Second Address Rd, Corvallis, OR" };
+
 ok(
-  "the screen can tell the three cases apart",
+  "the screen can tell the four cases apart",
   describeGap(travelGap(CORVALLIS, ALBANY, 26)).includes("drive") &&
-    describeGap(travelGap(CORVALLIS, NOWHERE)).includes("map pin") &&
-    describeGap(travelGap(CORVALLIS, ALBANY)).includes("mi away")
+    describeGap(travelGap(CORVALLIS, ALBANY)).includes("mi away") &&
+    describeGap(travelGap(CORVALLIS, ADDRESS_ONLY)).includes("no route") &&
+    describeGap(travelGap(CORVALLIS, NOWHERE)).includes("no address")
 );
 
-// THE WORDING THAT WASTED A DAY. A job with no coordinates nearly always
-// still has an address — on the lead, or frozen onto the job itself — so
-// saying "no address on file" describes a state the user can see is false,
-// and invites them to go looking for the wrong thing. It is the pin that is
-// missing.
 ok(
-  "THE POINT: a missing pin is never reported as a missing address",
-  !/address/i.test(describeGap(travelGap(CORVALLIS, NOWHERE))),
+  "THE POINT: a pair that could be asked about blames the route, not the data",
+  travelGap(CORVALLIS, ADDRESS_ONLY).basis === "unrouted" &&
+    !/address|pin/i.test(describeGap(travelGap(CORVALLIS, ADDRESS_ONLY))),
+  describeGap(travelGap(CORVALLIS, ADDRESS_ONLY))
+);
+ok(
+  "THE POINT: a pair with nothing to send blames the data, not the route",
+  travelGap(CORVALLIS, NOWHERE).basis === "assumed" &&
+    !/route/i.test(describeGap(travelGap(CORVALLIS, NOWHERE))),
   describeGap(travelGap(CORVALLIS, NOWHERE))
 );
 ok(
-  "...and it says plainly that the number is an estimate",
-  /estimat/i.test(describeGap(travelGap(CORVALLIS, NOWHERE))),
-  describeGap(travelGap(CORVALLIS, NOWHERE))
+  "an address-only pair is never called unlocatable",
+  travelGap(CORVALLIS, ADDRESS_ONLY).basis !== "assumed"
+);
+ok(
+  "a whitespace address does not count as locatable",
+  travelGap(CORVALLIS, { address: "   " }).basis === "assumed"
+);
+ok(
+  "both of them say plainly that the number is an estimate",
+  /estimat/i.test(describeGap(travelGap(CORVALLIS, NOWHERE))) &&
+    /estimat/i.test(describeGap(travelGap(CORVALLIS, ADDRESS_ONLY)))
+);
+ok(
+  "...and both are still marked with a tilde",
+  gapLabel(travelGap(CORVALLIS, NOWHERE)).startsWith("~") &&
+    gapLabel(travelGap(CORVALLIS, ADDRESS_ONLY)).startsWith("~")
 );
 
 const noon = new Date("2026-10-20T12:00:00");
