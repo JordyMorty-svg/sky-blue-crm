@@ -1360,3 +1360,34 @@
     transparent 7px
   );
 }
+
+/* ---------------------------------------------------------------------------
+   THE DRIVE TO THE NEXT JOB, on the list the crew works from
+   ---------------------------------------------------------------------------
+
+   Between two cards, not on either, because it belongs to neither job. Quiet
+   by default — it is information, not a task — and loud only when there is
+   not enough room for it, which is the one case worth interrupting someone
+   holding a squeegee. */
+
+.schedtravel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 6px 14px;
+  padding: 4px 10px;
+  font-size: var(--text-sm);
+  color: #64748b;
+  border-left: 2px dashed #cbd5e1;
+}
+
+.schedtravel__icon {
+  font-size: var(--text-md);
+  line-height: 1;
+}
+
+.schedtravel--tight {
+  color: #b91c1c;
+  border-left-color: #dc2626;
+  font-weight: 600;
+}

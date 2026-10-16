@@ -51,6 +51,7 @@ import {
   FALLBACK_HOURS,
   LOCAL_TRAVEL_MINUTES,
   MIN_HOURS,
+  TRAVEL_BUFFER_MINUTES,
   RULES,
   describeGap,
   exceedsOneDay,
@@ -295,21 +296,70 @@ ok(
 // The whole point of paying Google: a real route overrides the straight line.
 ok(
   "THE POINT: a measured drive beats the straight-line guess",
-  travelGap(CORVALLIS, CORVALLIS_NE, 38).minutes === 38 &&
+  travelGap(CORVALLIS, CORVALLIS_NE, 38).drive === 38 &&
     travelGap(CORVALLIS, CORVALLIS_NE, 38).basis === "driven",
   JSON.stringify(travelGap(CORVALLIS, CORVALLIS_NE, 38))
 );
 
-// ...but it cannot drop below the floor. A routed four-minute hop is still
-// fifteen minutes of gap, because the gap is not only driving.
+// THE FLOOR IS GONE, AND THIS IS WHY. Corvallis is six miles across, so
+// every in-town drive came in under fifteen minutes and every in-town gap
+// read as exactly fifteen — the same number the straight-line fallback
+// produces, and the same number shown when nothing was sent to Google at
+// all. Working and not working were indistinguishable for a week.
+//
+// The slack is additive now, so the measured part is always visible.
 ok(
-  "THE POINT: a short measured drive is still floored at the local minimum",
-  travelGap(CORVALLIS, CORVALLIS_NE, 4).minutes === LOCAL_TRAVEL_MINUTES,
-  `got ${travelGap(CORVALLIS, CORVALLIS_NE, 4).minutes}`
+  "THE POINT: a short drive is reported as short, not rounded up to a floor",
+  travelGap(CORVALLIS, CORVALLIS_NE, 4).drive === 4,
+  `got ${travelGap(CORVALLIS, CORVALLIS_NE, 4).drive}`
 );
 ok(
-  "a zero-minute drive does not collapse the gap",
-  travelGap(CORVALLIS, CORVALLIS_NE, 0).minutes === LOCAL_TRAVEL_MINUTES
+  "THE POINT: ...and the gap it reserves is that drive plus the buffer",
+  travelGap(CORVALLIS, CORVALLIS_NE, 4).minutes === 4 + TRAVEL_BUFFER_MINUTES,
+  `${travelGap(CORVALLIS, CORVALLIS_NE, 4).minutes} minutes reserved`
+);
+ok(
+  "THE POINT: the buffer is additive, so a long drive keeps its slack too",
+  travelGap(CORVALLIS, ALBANY, 26).minutes === 26 + TRAVEL_BUFFER_MINUTES,
+  "a floor would have protected the 4-minute hop and not the 26-minute one"
+);
+ok(
+  "two drives that differ by a minute no longer report the same gap",
+  travelGap(CORVALLIS, CORVALLIS_NE, 6).minutes !==
+    travelGap(CORVALLIS, CORVALLIS_NE, 7).minutes
+);
+ok(
+  "a zero-minute drive still reserves the buffer",
+  travelGap(CORVALLIS, CORVALLIS_NE, 0).minutes === TRAVEL_BUFFER_MINUTES &&
+    travelGap(CORVALLIS, CORVALLIS_NE, 0).drive === 0
+);
+
+// An estimate is already a generous round number standing in for an unknown.
+// Padding a guess makes a bigger guess, and would put the estimate above the
+// measured answer for the very same pair.
+ok(
+  "THE POINT: an estimate is never padded with the buffer",
+  travelGap(CORVALLIS, CORVALLIS_NE).minutes === LOCAL_TRAVEL_MINUTES &&
+    travelGap(CORVALLIS, ALBANY).minutes === DISTANT_TRAVEL_MINUTES,
+  "otherwise a guessed Albany would read 40 and a measured one 36"
+);
+ok(
+  "...and an estimate reports no drive component at all, rather than a fake one",
+  travelGap(CORVALLIS, ALBANY).drive === null &&
+    travelGap(CORVALLIS, NOWHERE).drive === null
+);
+ok(
+  "the breakdown always adds up",
+  (() => {
+    const g = travelGap(CORVALLIS, ALBANY, 26);
+    return g.drive + g.buffer === g.minutes;
+  })()
+);
+ok(
+  "the tooltip shows the drive and the slack separately",
+  /26 min drive/.test(describeGap(travelGap(CORVALLIS, ALBANY, 26))) &&
+    /10 min/.test(describeGap(travelGap(CORVALLIS, ALBANY, 26))),
+  describeGap(travelGap(CORVALLIS, ALBANY, 26))
 );
 ok(
   "a nonsense drive time is ignored rather than trusted",
@@ -317,8 +367,9 @@ ok(
     travelGap(CORVALLIS, ALBANY, -5).basis === "distance"
 );
 ok(
-  "the gap rounds up to the minute — 26.2 minutes of road is 27",
-  travelGap(CORVALLIS, ALBANY, 26.2).minutes === 27
+  "the drive rounds up to the minute — 26.2 minutes of road is 27",
+  travelGap(CORVALLIS, ALBANY, 26.2).drive === 27 &&
+    travelGap(CORVALLIS, ALBANY, 26.2).minutes === 27 + TRAVEL_BUFFER_MINUTES
 );
 
 // THE STRIP ONLY HAS ROOM FOR A NUMBER, and three different states all
@@ -335,20 +386,18 @@ ok(
     `${gapLabel(travelGap(CORVALLIS, CORVALLIS_NE))}`
 );
 ok(
-  "...even when the routed drive is floored to the same number of minutes",
-  travelGap(CORVALLIS, CORVALLIS_NE, 7).minutes ===
-    travelGap(CORVALLIS, CORVALLIS_NE).minutes &&
-    gapLabel(travelGap(CORVALLIS, CORVALLIS_NE, 7)) === "15m" &&
+  "...and a measured gap of the same length as a guessed one still differs",
+  gapLabel(travelGap(CORVALLIS, CORVALLIS_NE, 5)) === "15m" &&
     gapLabel(travelGap(CORVALLIS, CORVALLIS_NE)) === "~15m",
-  "both are 15 minutes; only one of them was measured"
+  "5 min of road plus the 10 min buffer is also 15; only one was measured"
 );
 ok(
   "a pair with no coordinates is marked as a guess too",
   gapLabel(travelGap(CORVALLIS, NOWHERE)) === "~15m"
 );
 ok(
-  "a real Albany drive carries no tilde",
-  gapLabel(travelGap(CORVALLIS, ALBANY, 26)) === "26m"
+  "a real Albany drive carries no tilde and shows the whole block",
+  gapLabel(travelGap(CORVALLIS, ALBANY, 26)) === "36m"
 );
 ok(
   "an empty gap does not render the word undefined",
@@ -492,7 +541,7 @@ ok(
 ok(
   "THE POINT: a measured drive reaches the strip",
   planGaps(DAY, (a, b) => (a === "morning" && b === "noon" ? 41 : null))[0].gap
-    .minutes === 41
+    .drive === 41
 );
 ok(
   "...and only for the pair it was fetched for",
@@ -566,7 +615,7 @@ ok(
 ok(
   "the routed override survives the day grouping too",
   planGapsByDay(WEEK, (a, b) => (a === "mon-am" && b === "mon-pm" ? 44 : null))[0]
-    .gap.minutes === 44
+    .gap.drive === 44
 );
 ok(
   "an empty calendar does not crash",

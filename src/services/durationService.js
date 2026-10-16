@@ -220,6 +220,39 @@ export const LOCAL_TRAVEL_MINUTES = 15;
 export const DISTANT_TRAVEL_MINUTES = 30;
 
 /**
+ * Added on top of a REAL routed drive, and nothing else.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS REPLACED A FLOOR
+ * ---------------------------------------------------------------------------
+ *
+ * The first version floored every routed drive at LOCAL_TRAVEL_MINUTES, on
+ * the sound reasoning that a gap is not only driving: it is the tail of one
+ * job running late, a customer with one more question at the door, and
+ * parking at the other end.
+ *
+ * Sound, and wrong in practice, because Corvallis is six miles across. Every
+ * in-town drive comes in under fifteen minutes, so every in-town gap read as
+ * exactly fifteen — the same number the straight-line fallback produces, and
+ * the same number shown when nothing was ever sent to Google. The routing
+ * could have been working perfectly for a week and looked identical to not
+ * working at all. It was, and it did.
+ *
+ * A floor also scales the wrong way: it protects a four-minute hop with
+ * eleven minutes of slack and a twenty-six-minute run to Albany with none.
+ * The slack a job needs has nothing to do with how short the drive was.
+ *
+ * So the slack is additive and the drive is reported as measured. Seven
+ * minutes of road books seventeen; Albany books thirty-six.
+ *
+ * ESTIMATES ARE NOT PADDED. The straight-line tiers below are already
+ * generous round numbers standing in for an unknown — adding ten to a guess
+ * makes a bigger guess, not a safer one, and would put the estimate above
+ * the measured answer for the same pair.
+ */
+export const TRAVEL_BUFFER_MINUTES = 10;
+
+/**
  * Past this, it is another town. Corvallis to Albany is about 11 miles door to
  * door, so 8 keeps the whole of Corvallis local and puts Albany, Philomath and
  * the outer valley on the longer gap.
@@ -287,19 +320,32 @@ export function travelGap(fromJob, toJob, drivenMinutes = null) {
 
   const driven = num(drivenMinutes);
   if (driven !== null && driven >= 0) {
+    const drive = Math.ceil(driven);
     return {
-      minutes: Math.max(LOCAL_TRAVEL_MINUTES, Math.ceil(driven)),
+      minutes: drive + TRAVEL_BUFFER_MINUTES,
+      // Kept apart so the screen can say "7 min drive + 10 min" rather than
+      // presenting a padded number as though Google had measured it.
+      drive,
+      buffer: TRAVEL_BUFFER_MINUTES,
       miles,
       basis: "driven",
     };
   }
 
   if (miles === null) {
-    return { minutes: LOCAL_TRAVEL_MINUTES, miles: null, basis: "assumed" };
+    return {
+      minutes: LOCAL_TRAVEL_MINUTES,
+      drive: null,
+      buffer: 0,
+      miles: null,
+      basis: "assumed",
+    };
   }
 
   return {
     minutes: miles > DISTANT_MILES ? DISTANT_TRAVEL_MINUTES : LOCAL_TRAVEL_MINUTES,
+    drive: null,
+    buffer: 0,
     miles,
     basis: "distance",
   };
@@ -327,7 +373,9 @@ export function gapLabel(gap) {
 /** A short phrase for the screen: "27 min drive", "15 min (assumed)". */
 export function describeGap(gap) {
   if (!gap) return "";
-  if (gap.basis === "driven") return `${gap.minutes} min drive`;
+  if (gap.basis === "driven") {
+    return `${gap.drive} min drive + ${gap.buffer} min to pack up and park`;
+  }
   // NOT "no address on file", which is what this said first and which is
   // usually a lie. jobAddress() resolves the address off whichever row has
   // one — the lead, or the frozen job — but takes the COORDINATES from that

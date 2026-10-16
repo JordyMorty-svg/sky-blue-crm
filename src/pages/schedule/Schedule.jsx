@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import {
@@ -23,6 +23,7 @@ import {
   gapLabel,
   planGapsByDay,
 } from "../../services/durationService";
+import { jobAddressText } from "../../services/jobAddress";
 import { fetchDriveMinutes } from "../../services/driveTimeService";
 import { can } from "../../components/capabilities";
 import JobPlanTag from "../../components/JobPlanTag";
@@ -578,6 +579,37 @@ export default function Schedule() {
   const dayJobs = jobs.filter((j) => sameDay(j.starts_at, selectedDay));
   const doneCount = dayJobs.filter((j) => j.status === "completed").length;
 
+  /* THE SAME ROAD, ON THE LIST THE CREW ACTUALLY WORKS FROM.
+   *
+   * The week grid got travel strips first because that is where a day is
+   * planned. This is where it is *done* — the phone in a driveway, deciding
+   * whether there is time for a coffee before the next one — and it was
+   * showing jobs stacked with nothing between them.
+   *
+   * Keyed by the job that comes before the gap, so the row can be rendered
+   * between two cards without a second lookup. planGapsByDay rather than
+   * planGaps for the same reason as the calendar: dayJobs is one day today
+   * and would quietly become several the moment somebody widens the filter.
+   */
+  const dayGaps = new Map(
+    planGapsByDay(
+      dayJobs
+        .filter((j) => j.starts_at)
+        .map((j) => {
+          const start = new Date(j.starts_at);
+          return {
+            id: j.id,
+            start,
+            end: new Date(
+              start.getTime() + (j.duration_hours || FALLBACK_HOURS) * 3600000
+            ),
+            place: placeForJob(j),
+          };
+        }),
+      (a, b) => driven.get(`${a}>${b}`) ?? null
+    ).map((g) => [g.fromId, g])
+  );
+
   const events = calJobs.map((j) => {
     const start = new Date(j.starts_at);
     const end = new Date(
@@ -697,7 +729,9 @@ export default function Schedule() {
               </p>
               {dayJobs.map((job) => {
                 const done = job.status === "completed";
+                const gap = dayGaps.get(job.id);
                 return (
+                <Fragment key={job.id}>
                 <div
                   className={`schedjob ${done ? "schedjob--done" : ""}`}
                   key={job.id}
@@ -717,8 +751,13 @@ export default function Schedule() {
                       {job.lead?.name || job.customer?.name || "Job"}
                       {done && <span className="visually-hidden"> — completed</span>}
                     </div>
+                    {/* jobAddress, not lead-or-customer. This was one of
+                        the eleven inline resolutions that file exists to
+                        replace, and it was still here: a job at a second
+                        property showed the customer's main address to the
+                        person driving to it. */}
                     <div className="schedjob__addr">
-                      {job.lead?.address || job.customer?.address}
+                      {jobAddressText(job, "No address")}
                     </div>
                     <div className="schedjob__meta">
                       {/* Tappable: standing at the door and needing to ring
@@ -812,6 +851,29 @@ export default function Schedule() {
                     )}
                   </div>
                 </div>
+
+                {/* The drive to the next one. Between the cards rather than
+                    on either, because it belongs to neither job — and a
+                    crew reading this in a driveway is asking "how long
+                    before I need to leave", which is a question about the
+                    space between two things. Red when there is not enough
+                    room for it. */}
+                {gap && (
+                  <div
+                    className={`schedtravel ${
+                      gap.tight ? "schedtravel--tight" : ""
+                    }`}
+                  >
+                    <span className="schedtravel__icon" aria-hidden="true">↓</span>
+                    <span>
+                      {gap.gap.basis === "driven"
+                        ? `${gap.gap.drive} min drive`
+                        : `about ${gap.gap.minutes} min`}
+                      {gap.tight && " — not enough time to get there"}
+                    </span>
+                  </div>
+                )}
+              </Fragment>
                 );
               })}
             </div>

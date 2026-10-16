@@ -236,9 +236,10 @@ ok(
 given({ body: { minutes: [26], source: "routes" } });
 const real = await fetchDriveMinutes([[CORVALLIS, ALBANY]]);
 ok(
-  "a real answer is reported as a drive",
+  "a real answer is reported as a drive, with the buffer on top",
   travelGap(CORVALLIS, ALBANY, real[0]).basis === "driven" &&
-    travelGap(CORVALLIS, ALBANY, real[0]).minutes === 26
+    travelGap(CORVALLIS, ALBANY, real[0]).drive === 26,
+  JSON.stringify(travelGap(CORVALLIS, ALBANY, real[0]))
 );
 
 given({ body: { minutes: ["nonsense"], source: "routes" } });
