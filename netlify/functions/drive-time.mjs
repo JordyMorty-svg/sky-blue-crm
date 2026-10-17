@@ -163,19 +163,52 @@ async function legMinutes(leg) {
     }),
   });
 
-  if (!res.ok) throw new Error(`routes ${res.status}`);
+  // GOOGLE'S OWN WORDS, CARRIED BACK.
+  //
+  // This used to return a bare number or null, and a null was the end of the
+  // story: the screen said "no route came back" and nobody — including me,
+  // across three rounds of guessing at it — could find out why. The reason
+  // is in this response every time, and flattening it to null meant the only
+  // way to diagnose a bad address was to speculate about it.
+  //
+  // `reason` is a short machine-ish token, not a sentence: this decides the
+  // fact and the screen decides the wording.
+  if (!res.ok) {
+    let detail = "";
+    try {
+      detail = (await res.text()).slice(0, 200);
+    } catch {
+      detail = "";
+    }
+    // Thrown rather than returned, so it is not cached: an HTTP failure is
+    // temporary and the next attempt may well work.
+    const err = new Error(`routes ${res.status}`);
+    err.reason = `google_${res.status}`;
+    err.detail = detail;
+    throw err;
+  }
 
   const rows = await res.json();
   const row = Array.isArray(rows) ? rows[0] : null;
 
+  if (!row) return { minutes: null, reason: "empty_response" };
+
   // ROUTE_NOT_FOUND comes back 200 with a condition saying so. Treating that
-  // as a zero-minute drive would silently schedule two jobs back to back.
-  if (!row || row.condition !== "ROUTE_EXISTS" || !row.duration) return null;
+  // as a zero-minute drive would silently schedule two jobs back to back —
+  // and it is the single likeliest answer for a hand-typed address with no
+  // city on it, which is exactly why the condition is now reported rather
+  // than flattened away.
+  if (row.condition !== "ROUTE_EXISTS") {
+    return { minutes: null, reason: String(row.condition || "no_condition") };
+  }
+  if (!row.duration) return { minutes: null, reason: "no_duration" };
 
   // "1234s"
   const seconds = Number(String(row.duration).replace(/s$/, ""));
-  if (!Number.isFinite(seconds)) return null;
-  return Math.round(seconds / 60);
+  if (!Number.isFinite(seconds)) {
+    return { minutes: null, reason: "unparseable_duration" };
+  }
+  return { minutes: Math.round(seconds / 60), reason: "ok" };
 }
 
 export default async (req) => {
@@ -191,19 +224,22 @@ export default async (req) => {
   }
 
   const legs = Array.isArray(body?.legs) ? body.legs.slice(0, MAX_LEGS) : [];
-  if (legs.length === 0) return Response.json({ minutes: [], source: "none" });
+  if (legs.length === 0) {
+    return Response.json({ minutes: [], reasons: [], source: "none" });
+  }
 
   if (!apiKey()) {
     return Response.json({
       minutes: legs.map(() => null),
+      reasons: legs.map(() => "unconfigured"),
       source: "unconfigured",
       reason: "GOOGLE_MAPS_SERVER_KEY is not set; using straight-line distance.",
     });
   }
 
-  const minutes = await Promise.all(
+  const answers = await Promise.all(
     legs.map(async (leg) => {
-      if (!validLeg(leg)) return null;
+      if (!validLeg(leg)) return { minutes: null, reason: "nothing_to_send" };
 
       const k = keyFor(leg);
       if (cache.has(k)) return cache.get(k);
@@ -218,13 +254,23 @@ export default async (req) => {
       } catch (err) {
         // Deliberately NOT cached: a 429 or a network blip is temporary, and
         // caching it would turn a bad minute into a bad afternoon.
-        console.error("drive-time leg failed", err?.message || err);
-        return null;
+        console.error(
+          "drive-time leg failed",
+          err?.message || err,
+          err?.detail || ""
+        );
+        return { minutes: null, reason: err?.reason || "request_failed" };
       }
     })
   );
 
-  return Response.json({ minutes, source: "routes" });
+  // `minutes` keeps the shape it always had, so nothing that reads it has
+  // to change. `reasons` rides alongside for the one screen that asks.
+  return Response.json({
+    minutes: answers.map((a) => a.minutes),
+    reasons: answers.map((a) => a.reason),
+    source: "routes",
+  });
 };
 
 export const config = {

@@ -245,6 +245,59 @@ ok(
   JSON.stringify(recovered.minutes)
 );
 
+console.log("-- the reason, carried back --\n");
+
+__resetDriveTimeCache();
+calls = [];
+replies = [route(600)];
+const okAns = await (await post([{ from: A1, to: A2 }])).json();
+ok("a routed leg reports ok", okAns.reasons[0] === "ok", JSON.stringify(okAns));
+
+__resetDriveTimeCache();
+calls = [];
+replies = [noRoute];
+const nf = await (await post([{ from: A1, to: A2 }])).json();
+ok(
+  "THE POINT: ROUTE_NOT_FOUND reaches the client by name",
+  nf.reasons[0] === "ROUTE_NOT_FOUND" && nf.minutes[0] === null,
+  JSON.stringify(nf)
+);
+
+__resetDriveTimeCache();
+calls = [];
+replies = [{ status: 403 }];
+const denied403 = await (await post([{ from: A1, to: A2 }])).json();
+ok(
+  "THE POINT: an HTTP refusal keeps its status code",
+  denied403.reasons[0] === "google_403",
+  JSON.stringify(denied403.reasons)
+);
+
+__resetDriveTimeCache();
+calls = [];
+replies = [];
+const unsendable = await (
+  await post([{ from: A1, to: { address: null, lat: null } }])
+).json();
+ok(
+  "a leg that was never sent says so rather than blaming Google",
+  unsendable.reasons[0] === "nothing_to_send",
+  JSON.stringify(unsendable.reasons)
+);
+
+__resetDriveTimeCache();
+calls = [];
+replies = [{ rows: [{ condition: "ROUTE_EXISTS" }] }];
+const noDur = await (await post([{ from: A1, to: A2 }])).json();
+ok("a route with no duration says which", noDur.reasons[0] === "no_duration");
+
+ok(
+  "reasons line up one-for-one with minutes",
+  (() => {
+    return okAns.reasons.length === okAns.minutes.length;
+  })()
+);
+
 console.log("-- legs it refuses to send --\n");
 
 __resetDriveTimeCache();

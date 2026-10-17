@@ -26,8 +26,10 @@
 import {
   __resetDriveTimeCache,
   driveTimeStatus,
+  explainReason,
   fetchDriveMinutes,
   fetchDriveMinutesBetween,
+  reasonFor,
 } from "../src/services/driveTimeService.js";
 import { travelGap } from "../src/services/durationService.js";
 
@@ -308,6 +310,86 @@ ok(
   "...and it says what to do about it",
   /drive-time/.test(warnings[0]) && /not_deployed/.test(warnings[0]),
   warnings[0]
+);
+
+console.log("-- why, in Google's words --\n");
+
+// THE WHOLE POINT OF THIS SECTION. Three rounds of "it says estimated" went
+// guess, wrong, guess, wrong. The API names the reason every time; it was
+// being discarded at the server and then again here.
+given({ body: { minutes: [null], reasons: ["ROUTE_NOT_FOUND"], source: "routes" } });
+await fetchDriveMinutes([[CORVALLIS, NO_PIN]]);
+ok(
+  "THE POINT: Google's reason is kept, not flattened into a null",
+  reasonFor(CORVALLIS, NO_PIN) === "ROUTE_NOT_FOUND",
+  String(reasonFor(CORVALLIS, NO_PIN))
+);
+ok(
+  "...and turned into something a person can act on",
+  /street, a city and a state/.test(explainReason("ROUTE_NOT_FOUND")),
+  explainReason("ROUTE_NOT_FOUND")
+);
+
+given({ body: { minutes: [26], reasons: ["ok"], source: "routes" } });
+await fetchDriveMinutes([[CORVALLIS, ALBANY]]);
+ok("a successful leg records ok", reasonFor(CORVALLIS, ALBANY) === "ok");
+
+// TWO LEGS, TWO REASONS. Every assertion above sends a single leg, so a
+// mutant that recorded reasons[0] against every one of them survived — the
+// same shape of hole as the cache-collision test that used coordinates for
+// the origin. One-element arrays cannot tell you an index is wrong.
+given({
+  body: {
+    minutes: [26, null],
+    reasons: ["ok", "ROUTE_NOT_FOUND"],
+    source: "routes",
+  },
+});
+await fetchDriveMinutes([
+  [CORVALLIS, ALBANY],
+  [CORVALLIS, NO_PIN],
+]);
+ok(
+  "THE POINT: each leg gets its OWN reason, not the first one's",
+  reasonFor(CORVALLIS, ALBANY) === "ok" &&
+    reasonFor(CORVALLIS, NO_PIN) === "ROUTE_NOT_FOUND",
+  `${reasonFor(CORVALLIS, ALBANY)} / ${reasonFor(CORVALLIS, NO_PIN)}`
+);
+
+ok(
+  "a pair with nothing to send says so without asking anyone",
+  reasonFor(CORVALLIS, { address: null, latitude: null }) === "nothing_to_send"
+);
+ok(
+  "a pair nobody has asked about yet is null, not a guess",
+  reasonFor(CORVALLIS, { address: "77 Never Fetched Rd, Corvallis, OR" }) === null
+);
+
+// A 403 is the one worth naming precisely: it is the Routes API not being
+// enabled, or a key restricted to other APIs, and the fix is in Google
+// Cloud rather than in the data.
+ok(
+  "a 403 is explained as a key or API problem, not a data problem",
+  /Routes API is not enabled|restricted/.test(explainReason("google_403")),
+  explainReason("google_403")
+);
+ok(
+  "another HTTP code is still reported with its number",
+  /429/.test(explainReason("google_429"))
+);
+ok(
+  "THE POINT: a reason nobody anticipated is shown rather than swallowed",
+  /WEIRD_NEW_CONDITION/.test(explainReason("WEIRD_NEW_CONDITION")),
+  explainReason("WEIRD_NEW_CONDITION")
+);
+ok("no reason renders nothing", explainReason(null) === "" && explainReason("") === "");
+
+// An older deploy of the function returns no `reasons` array at all.
+given({ body: { minutes: [12], source: "routes" } });
+await fetchDriveMinutes([[CORVALLIS, ALBANY]]);
+ok(
+  "a server that sends no reasons does not break the client",
+  reasonFor(CORVALLIS, ALBANY) === null
 );
 
 console.log("-- the cache --\n");

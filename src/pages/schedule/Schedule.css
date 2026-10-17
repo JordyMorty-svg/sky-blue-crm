@@ -1500,3 +1500,16 @@
 .traveldetail__close:hover {
   background: #1d4ed8;
 }
+
+/* Google's reason, when there is no routed time. Quiet grey rather than a
+   warning colour: it is an explanation, not an alarm — the alarm is the
+   tight-gap banner below it. */
+.traveldetail__why {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: var(--text-md);
+  line-height: 1.45;
+}

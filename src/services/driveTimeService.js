@@ -46,6 +46,57 @@ const ENDPOINT = "/api/drive-time";
 const cache = new Map();
 
 /**
+ * Why a particular leg has no routed time, keyed the same way as the cache.
+ *
+ * Kept apart from `cache` so `fetchDriveMinutes` keeps returning plain
+ * minutes and nothing that calls it has to change. Read by the travel
+ * panel, which is where somebody goes when the number on a strip is not the
+ * one they expected.
+ *
+ * This exists because three separate rounds went: strip says estimated ->
+ * I guess at a cause -> wrong. Google names the reason every time. It was
+ * being thrown away at the server, and then again here.
+ */
+const reasons = new Map();
+
+/** Google's own word for why this pair has no drive time, or null. */
+export function reasonFor(a, b) {
+  const from = place(a);
+  const to = place(b);
+  if (!from || !to) return "nothing_to_send";
+  return reasons.get(keyFor(from, to)) ?? null;
+}
+
+/**
+ * The same token in words. An unrecognised one is shown rather than
+ * swallowed: a reason nobody anticipated still beats silence, and the
+ * alternative is this file deciding on Google's behalf that it has nothing
+ * useful to say.
+ */
+export function explainReason(reason) {
+  if (!reason) return "";
+  const known = {
+    ok: "Routed.",
+    ROUTE_NOT_FOUND:
+      "Google could not find a route. Usually an address it cannot place — check it has a street, a city and a state.",
+    nothing_to_send: "Neither job has an address or a map pin.",
+    unconfigured: "The server has no Google key set.",
+    empty_response: "Google answered with nothing at all.",
+    no_duration: "Google found a route but gave no travel time.",
+    unparseable_duration: "Google gave a travel time that could not be read.",
+    request_failed: "The request to Google did not complete.",
+  };
+  if (known[reason]) return known[reason];
+  if (reason.startsWith("google_")) {
+    const code = reason.slice(7);
+    return code === "403"
+      ? "Google refused the request (403). Usually the Routes API is not enabled, or the key is restricted to other APIs."
+      : `Google refused the request (${code}).`;
+  }
+  return `Google said: ${reason}`;
+}
+
+/**
  * Why the last request did not produce routed times, if it did not. One of:
  * "ok", "unconfigured", "not_deployed", "http", "offline", or null before
  * anything has been tried.
@@ -188,8 +239,13 @@ export async function fetchDriveMinutes(pairs) {
 
   const minutes = Array.isArray(data?.minutes) ? data.minutes : [];
 
+  const why = Array.isArray(data?.reasons) ? data.reasons : [];
+
   wanted.forEach((w, n) => {
     const value = num(minutes[n]);
+    // Google's own word for this leg, kept beside the answer so the travel
+    // panel can say why instead of leaving somebody to guess.
+    reasons.set(keyFor(w.leg.from, w.leg.to), why[n] ?? null);
     // Cache the null as well: an address with no road to it will not grow
     // one, and re-asking on every keystroke is how a free tier stops being
     // free. A null here reaches travelGap() as null and comes back as a
@@ -210,6 +266,7 @@ export async function fetchDriveMinutesBetween(from, to) {
 /** Testing seam. Not used by the app. */
 export function __resetDriveTimeCache() {
   cache.clear();
+  reasons.clear();
   status = null;
   announced = false;
 }

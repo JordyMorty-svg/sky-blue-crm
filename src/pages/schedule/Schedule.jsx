@@ -24,7 +24,11 @@ import {
   planGapsByDay,
 } from "../../services/durationService";
 import { jobAddressText } from "../../services/jobAddress";
-import { fetchDriveMinutes } from "../../services/driveTimeService";
+import {
+  explainReason,
+  fetchDriveMinutes,
+  reasonFor,
+} from "../../services/driveTimeService";
 import { can } from "../../components/capabilities";
 import JobPlanTag from "../../components/JobPlanTag";
 import {
@@ -1077,6 +1081,21 @@ export default function Schedule() {
                 starts {formatTime(shownTravel.toStop?.start?.toISOString())}
               </div>
             </div>
+
+            {/* WHY, IN GOOGLE'S WORDS. The strip has room for a number;
+                this panel is where somebody comes to ask about it. Three
+                rounds were spent guessing at a cause the API had been
+                naming all along. */}
+            {shownTravel.gap?.basis !== "driven" && (
+              <p className="traveldetail__why">
+                {explainReason(
+                  reasonFor(
+                    shownTravel.fromStop?.place,
+                    shownTravel.toStop?.place
+                  )
+                ) || "No routed time for this pair yet."}
+              </p>
+            )}
 
             {shownTravel.tight && (
               <p className="traveldetail__warn">
